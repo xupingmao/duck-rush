@@ -5,6 +5,7 @@ import json
 
 TPL = ""
 
+# 保存百度短信的cURL代码到bd_curl_sms.txt文件中
 with open("bd_curl_sms.txt") as fp:
     TPL = fp.read()
 
