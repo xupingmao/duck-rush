@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/24 12:17:08
-# @modified 2020/02/24 18:18:09
+# @modified 2020/02/26 21:28:18
 import pygame
 import sys
 import argparse
@@ -18,6 +18,10 @@ def play_music(fpath):
         return
     fname = os.path.basename(fpath)
     print("Play [%s] ..." % fname)
+
+    # os.system("open %r" % fpath)
+    # return
+    
     try:
         pygame.mixer.init()
         pygame.mixer.music.load(fpath)
