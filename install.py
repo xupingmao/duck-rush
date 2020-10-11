@@ -37,6 +37,8 @@ def add_shell_path(fpath):
 add_shell_path("./src/fs")
 add_shell_path("./src/text")
 add_shell_path("./src/network")
+# 本地的一些临时脚本
+add_shell_path("./local")
 
 
 
