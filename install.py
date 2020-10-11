@@ -20,24 +20,28 @@ def load_bash_profile():
 
 def append_to_bash_profile(cmd):
     fpath = find_bash_profile_path()
+    bash_profile_text = load_bash_profile()
+
+    if cmd in bash_profile_text:
+        return
+
     with open(fpath, "a+") as fp:
         fp.write("\n")
         fp.write(cmd)
 
 def add_shell_path(fpath):
     fpath = os.path.abspath(fpath)
-    cmd = "PATH=$PATH:%s" % fpath
-    bash_profile_text = load_bash_profile()
-
     os.system("chmod +x %s/*" % fpath)
-    
-    if cmd not in bash_profile_text:
-        append_to_bash_profile(cmd)
 
+    cmd = "PATH=$PATH:%s" % fpath
+    append_to_bash_profile(cmd)
+
+add_shell_path("./src/config")
 add_shell_path("./src/fs")
 add_shell_path("./src/text")
 add_shell_path("./src/network")
 add_shell_path("./src/html")
+add_shell_path("./src/git")
 
 # 本地的一些临时脚本
 add_shell_path("./local")
