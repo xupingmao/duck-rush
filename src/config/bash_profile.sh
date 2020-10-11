@@ -36,7 +36,7 @@ export JAVA_HOME=$(/usr/libexec/java_home)
 alias ll="ls -lh"
 alias la="ls -lha"
 alias recent="find . -mtime -3"
-alias reload-profile-bash="source ~/.bash_profile"
+alias reload-bash-profile="source ~/.bash_profile"
 
 
 # PS1配置参数详解
