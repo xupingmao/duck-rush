@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 # @since 2018/02/10
-# @modified 2020/10/11 13:22:44
+# @modified 2020/10/11 13:25:42
 # @author xupingmao <578749341@qq.com>
-
 import sublime, sublime_plugin
 import time
 import os
+
+
+# Sublime Text 2 的插件路径
+# ~/Library/Application Support/Sublime Text 2/Packages/User
 
 PYTHON_DOC_TEMPLATE = """# -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
