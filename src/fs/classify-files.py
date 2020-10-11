@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/23 22:09:31
-# @modified 2020/02/24 01:40:24
+# @modified 2020/03/02 12:24:59
 import os
 import time
 import sys
@@ -23,6 +23,12 @@ VIDEO_EXT_SET = set([
 IMAGE_EXT_SET = set([
     ".jpg", ".jpeg", ".gif", ".jfif", ".ico", ".cur", 
     ".png", ".webp", ".bmp", ".svg"
+])
+
+ARCHIVE_EXT_SET = set([
+    ".zip", ".rar", ".gz",
+    ".apk", ".dmg", ".pkg",
+    ".exe", ".msi", ".iso"
 ])
 
 # device
@@ -82,6 +88,13 @@ def get_video_dir():
         return os.path.join(os.environ['HOME'], "Movies")
     return os.path.join(os.environ['HOME'], "Videos")
 
+def get_download_dir():
+    return os.path.join(os.environ['HOME'], 'Downloads')
+
+def get_archive_dir():
+    download_dir = get_download_dir()
+    return os.path.join(download_dir, "Archives")
+
 class DocumentClassifier:
 
     def check(self, fpath):
@@ -118,12 +131,21 @@ class VideoClassifier:
         fname = os.path.basename(fpath)
         return os.path.join(get_video_dir(), get_birth_year(fpath), fname)
 
+class ArchiveClassifier:
+
+    def check(self, fpath):
+        return check_file_by_ext(fpath, ARCHIVE_EXT_SET)
+
+    def get_target_path(self, fpath):
+        fname = os.path.basename(fpath)
+        return os.path.join(get_archive_dir(), get_birth_year(fpath), fname)
 
 CLASSIFIER_LIST = [
     DocumentClassifier(),
     MusicClassifier(),
     ImageClassifier(),
     VideoClassifier(),
+    ArchiveClassifier()
 ]
 
 def get_target_path(fpath):
