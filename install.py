@@ -2,6 +2,9 @@ import os
 
 FILE_PATH  = os.path.abspath(__file__)
 HOME_PATH  = os.environ["HOME"]
+DIR_PATH   = os.path.dirname(FILE_PATH)
+SRC_PATH   = os.path.join(DIR_PATH, "./src")
+LOCAL_PATH = os.path.join(DIR_PATH, "./local")
 
 def find_bash_profile_path():
     bash_profile = os.path.join(HOME_PATH, ".bash_profile")
@@ -36,15 +39,22 @@ def add_shell_path(fpath):
     cmd = "PATH=$PATH:%s" % fpath
     append_to_bash_profile(cmd)
 
-add_shell_path("./src/config")
-add_shell_path("./src/fs")
-add_shell_path("./src/text")
-add_shell_path("./src/network")
-add_shell_path("./src/html")
-add_shell_path("./src/git")
+def makedirs(dirname):
+    '''检查并创建目录(如果不存在不报错)'''
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+        return True
+    return False
+
+for fname in os.listdir(SRC_PATH):
+    fpath = os.path.join(SRC_PATH, fname)
+    if os.path.isdir(fpath):
+        add_shell_path(fpath)
+
 
 # 本地的一些临时脚本
-add_shell_path("./local")
+makedirs(LOCAL_PATH)
+add_shell_path(LOCAL_PATH)
 
 
 
