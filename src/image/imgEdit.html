@@ -1,0 +1,333 @@
+<html>
+
+<head>
+
+<style type="text/css">
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 10px;
+    }
+
+    .img-info {
+        display: block;
+        float: left;
+        margin: 5px;
+        width: 200px;
+    }
+
+    .img-info > label {
+        line-height: 27px;
+    }
+
+    canvas {
+        width: 100%;
+        height: 100%;
+        /*background-color: #eee;*/
+    }
+
+    .root {
+        width: 100%;
+        height: 100%;
+    }
+
+    .main {
+        position: absolute;
+        top: 40px;
+        bottom: 0px;
+        width: 100%;
+    }
+
+    .left-box {
+        position: absolute;
+        left: 0px;
+        top: 40px;
+        bottom: 0px;
+        width: 80%;
+        overflow: auto;
+    }
+
+    .left-box::-webkit-scrollbar {
+        /*滚动条整体样式*/
+        width: 20px;
+        height: 20px;
+        background-color: #eee;
+    }
+
+    .left-box::-webkit-scrollbar-thumb {
+        /*滚动条里面小方块*/
+        background-color: #ccc;
+    }
+
+
+    .left-box::-webkit-scrollbar-track { 
+        /*滚动条里面轨道*/
+        /*border-radius: 10px; */
+        /*background: #eee; */
+     } 
+    .right-box {
+        position: absolute;
+        top: 40px;
+        bottom: 0px;
+        right: 0px;
+        width: 20%;
+    }
+
+    #file {
+        display: none;
+    }
+
+</style>
+
+<script type="text/javascript" src="../../lib/js/jquery-1.12.4.min.js"></script>
+
+</head>
+
+<body>
+
+<div class="root">
+    <h3>图片编辑</h3>
+
+    <div class="main">
+        <div class="left-box">
+            <canvas id="myCanvas"></canvas>
+        </div>
+
+        <div class="right-box">
+            <input id="file" type="file" onchange="handleFiles(this.files)" class="hide" />
+            <input type="button" id="selectBtn" class="btn" value="选择图片"/>
+            <input id="larger" type="button" class="btn" value="刷新"/>
+
+            <div class="col-md-12 top-offset-1">
+            <div class="img-info">
+                <label>原始大小</label>
+                <span id="imgSize"></span>
+            </div>
+
+            <div class="img-info">
+                <label>宽度</label>
+                <input id="width"/>
+            </div>
+
+            <div class="img-info">
+                <label>高度</label>
+                <input id="height"/>
+            </div>
+
+            <div class="img-info">
+                <label>缩放</label>
+                <input class="btn" id="largerBtn" type="button" value="+10%"/>
+                <input class="btn" id="smallerBtn" type="button" value="-10%"/>
+                <input class="btn" id="resetBtn" type="button" value="重置"/>
+            </div>
+
+            <div class="img-info">
+                <label>过滤器</label>
+                <select id="imageFilter">
+                    <option value="none">无</option>
+                    <option value="convertToGray">灰度化</option>
+                    <option value="convertTo256">256色</option>
+                </select>
+            </div>
+
+            <div class="img-info">
+                <label>旋转</label>
+                <span id="rotate"></span>
+                <input class="btn" id="rotateClockwise" type="button" value="顺时针旋转"/>
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+// 转换配置
+var convertOpt = {};
+convertOpt.rotate = 0;
+
+var IMAGE_OBJ = null;
+var IMAGE_SCALE = 1.0;
+// 缩放比例
+var canvasScale = 1.0;
+var canvasRotate = 0;
+// var imageNatureWidth = 0;
+// var imageNatureHeight = 0;
+
+function convertToGray(canvasData) {
+    // gray filter    
+    for ( var x = 0; x < canvasData.width; x++) {    
+        for ( var y = 0; y < canvasData.height; y++) {    
+
+            // Index of the pixel in the array    
+            var idx = (x + y * canvasData.width) * 4;    
+            var r = canvasData.data[idx + 0];    
+            var g = canvasData.data[idx + 1];    
+            var b = canvasData.data[idx + 2];    
+                
+            // calculate gray scale value    
+            var gray = .299 * r + .587 * g + .114 * b;    
+                
+            // assign gray scale value    
+            canvasData.data[idx + 0] = gray; // Red channel    
+            canvasData.data[idx + 1] = gray; // Green channel    
+            canvasData.data[idx + 2] = gray; // Blue channel    
+            canvasData.data[idx + 3] = 255; // Alpha channel     
+        }    
+    }    
+    return canvasData;
+}
+
+function convertTo256(canvasData) {
+    // 256 / 256^(1/3) = 40
+    var RATE = 40;
+    for ( var x = 0; x < canvasData.width; x++) {    
+        for ( var y = 0; y < canvasData.height; y++) {    
+
+            // Index of the pixel in the array    
+            var idx = (x + y * canvasData.width) * 4;    
+            var r = canvasData.data[idx + 0];    
+            var g = canvasData.data[idx + 1];    
+            var b = canvasData.data[idx + 2];    
+
+            canvasData.data[idx + 0] = parseInt(r/RATE)*RATE; // Red channel    
+            canvasData.data[idx + 1] = parseInt(g/RATE)*RATE; // Green channel    
+            canvasData.data[idx + 2] = parseInt(b/RATE)*RATE; // Blue channel    
+            canvasData.data[idx + 3] = 255; // Alpha channel     
+        }    
+    }    
+    return canvasData;
+}
+
+function setCanvasSize(canvas, width, height) {
+    canvas.width  = width;
+    canvas.height = height;
+
+    canvas.style.width = width;
+    canvas.style.height = height;
+}
+
+function getFilterFunction() {
+    var value = $("#imageFilter").val();
+    switch(value) {
+        case "convertTo256": return convertTo256;
+        case "convertToGray": return convertToGray;
+    }
+}
+
+function repaint() {
+    var newWidth  = $("#width").val() - 0;
+    var newHeight = $("#height").val() - 0;
+
+    var canvas = $("#myCanvas")[0];    
+    var image = IMAGE_OBJ;
+
+    console.log(image.width, image.height);
+
+    if (newWidth <= 0 || newWidth == undefined) {
+        newWidth = image.width;
+    }
+    if (newHeight <= 0 || newHeight == undefined) {
+        newHeight = image.height;
+    }
+
+    if (IMAGE_SCALE != 1.0) {        
+        newWidth  = parseInt(image.width  * IMAGE_SCALE);
+        newHeight = parseInt(image.height * IMAGE_SCALE);
+    }
+
+    var resize = false;
+    // get 2D render object    
+    var context = canvas.getContext("2d");
+
+    setCanvasSize(canvas, newWidth, newHeight);
+
+    if (window.canvasRotate % 180 != 0) {
+        resize = true;
+        setCanvasSize(canvas, newHeight, newWidth);
+    }
+
+    var arc = window.canvasRotate * Math.PI / 180;
+    context.translate(canvas.width/2, canvas.height/2);
+    context.rotate(arc);
+
+    if (resize) {
+        context.drawImage(image, 0, 0, image.width, image.height, -canvas.height/2, -canvas.width/2, canvas.height, canvas.width);  
+    } else {
+        context.drawImage(image, 0, 0, image.width, image.height, -canvas.width/2, -canvas.height/2, canvas.width, canvas.height);  
+    }
+    
+    context.translate(0,0);
+
+    // 过滤器
+    var filterFunction = getFilterFunction();
+    if (filterFunction) {
+        // 不能使用跨域图片，否则不能获取图片数据
+        var canvasData = context.getImageData(0, 0, canvas.width, canvas.height);      
+        canvasData = filterFunction(canvasData);
+        context.putImageData(canvasData, 0, 0); // at coords 0,0   
+    }
+
+    $("#rotate").text(convertOpt.rotate);
+    $("#imgSize").text(IMAGE_OBJ.width+"x"+IMAGE_OBJ.height);
+    $("#width").val(newWidth);
+    $("#height").val(newHeight);
+};    
+
+function handleFiles(files) {
+    if (files && files.length > 0) {
+        var imageFile = files[0];
+        var url = window.URL.createObjectURL(imageFile);
+        console.log(url);
+        var image = new Image();
+        image.src = url;
+        window.IMAGE_OBJ = image;
+
+        image.onload = function () {
+            repaint();
+        }
+    }
+}
+
+$("#rotateClockwise").on("click", function() {
+    window.canvasRotate += 90;
+    if (window.canvasRotate == 360) {
+        window.canvasRotate = 0;
+    }
+    convertOpt.rotate = canvasRotate;
+    repaint();
+});
+
+$("#selectBtn").on("click", function () {
+    $("#file").click();
+});
+
+$("#imageFilter").on("change", function() {
+    repaint();
+});
+
+$("#largerBtn").on("click", function () {
+    IMAGE_SCALE += 0.1;
+    repaint();
+});
+
+$("#smallerBtn").on("click", function () {
+    IMAGE_SCALE -= 0.1;
+    repaint();
+});
+
+$("#resetBtn").on("click", function () {
+    IMAGE_SCALE = 1.0;
+    $("#width").val(IMAGE_OBJ.width);
+    $("#height").val(IMAGE_OBJ.height);
+
+    repaint();
+});
+
+</script>
+</body>
+
+</html>
+

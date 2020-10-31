@@ -1,0 +1,30 @@
+<html>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <input id="fileBtn" type="file"/>
+
+    <script type="text/javascript">
+        var canvas  = document.getElementById("canvas");
+        var fileBtn = document.getElementById("fileBtn");
+
+        fileBtn.addEventListener("change", function(event) {
+            var files  = fileBtn.files;
+            var reader = new FileReader();
+            var imgUrl = reader.readAsDataURL(files[0]);
+            
+            var imgObj = new Image();
+            imgObj.onload = function (event) {
+                // 
+                var width = this.width;
+                var height = this.height;
+                console.log("width=" + width + ",height=" + height);
+            };
+
+            imgObj.src = imgUrl;
+        });
+    </script>
+
+</body>
+
+</html>

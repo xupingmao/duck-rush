@@ -1,7 +1,8 @@
+#!/usr/local/bin/python3
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/23 22:09:31
-# @modified 2020/03/02 12:24:59
+# @modified 2020/10/14 00:05:03
 import os
 import time
 import sys
