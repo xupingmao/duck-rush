@@ -1,7 +1,8 @@
+#!/usr/local/bin/python3
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/24 12:17:08
-# @modified 2020/02/26 21:28:18
+# @modified 2020/11/10 01:11:29
 import pygame
 import sys
 import argparse

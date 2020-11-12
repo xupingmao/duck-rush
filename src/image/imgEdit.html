@@ -23,7 +23,11 @@
         line-height: 27px;
     }
 
-    canvas {
+    .hide {
+        display: none;
+    }
+
+    #myCanvas {
         width: 100%;
         height: 100%;
         /*background-color: #eee;*/
@@ -68,6 +72,7 @@
         /*border-radius: 10px; */
         /*background: #eee; */
      } 
+     
     .right-box {
         position: absolute;
         top: 40px;
@@ -93,6 +98,7 @@
 
     <div class="main">
         <div class="left-box">
+            <canvas id="hiddenCanvas" class="hide"></canvas>
             <canvas id="myCanvas"></canvas>
         </div>
 
@@ -122,6 +128,14 @@
                 <input class="btn" id="largerBtn" type="button" value="+10%"/>
                 <input class="btn" id="smallerBtn" type="button" value="-10%"/>
                 <input class="btn" id="resetBtn" type="button" value="重置"/>
+            </div>
+
+            <div class="img-info">
+                <label>缩放效果</label>
+                <select id="scaleEffect">
+                    <option value="none">平滑</option>
+                    <option value="resizeImage">最邻近插值</option>
+                </select>
             </div>
 
             <div class="img-info">
@@ -201,6 +215,34 @@ function convertTo256(canvasData) {
     return canvasData;
 }
 
+function resizeImage(canvasData, context, width, height) {
+    console.log("resizeImage", width, height);
+    var newImageData = context.createImageData(width, height);
+
+    for ( var x = 0; x < width; x++) {    
+        for ( var y = 0; y < height; y++) {    
+            // Index of the pixel in the array 
+            var x0 = parseInt(x / width * canvasData.width);
+            var y0 = parseInt(y / height * canvasData.height);
+
+            var idx0 = (x0 + y0 * canvasData.width) * 4;
+            var idx  = (x + y * width) * 4;
+
+            var r = canvasData.data[idx0 + 0];    
+            var g = canvasData.data[idx0 + 1];
+            var b = canvasData.data[idx0 + 2];    
+            // alpha
+            var a = canvasData.data[idx0 + 3];
+
+            newImageData.data[idx + 0] = r;
+            newImageData.data[idx + 1] = g;
+            newImageData.data[idx + 2] = b;
+            newImageData.data[idx + 3] = a;
+        }    
+    }    
+    return newImageData;
+}
+
 function setCanvasSize(canvas, width, height) {
     canvas.width  = width;
     canvas.height = height;
@@ -217,12 +259,20 @@ function getFilterFunction() {
     }
 }
 
+function paintHiddenCanvas() {
+    var canvas = $("#hiddenCanvas")[0];
+    var context = canvas.getContext("2d");
+    canvas.width  = IMAGE_OBJ.width;
+    canvas.height = IMAGE_OBJ.height;
+    context.drawImage(IMAGE_OBJ, 0, 0);
+}
+
 function repaint() {
     var newWidth  = $("#width").val() - 0;
     var newHeight = $("#height").val() - 0;
 
     var canvas = $("#myCanvas")[0];    
-    var image = IMAGE_OBJ;
+    var image  = IMAGE_OBJ;
 
     console.log(image.width, image.height);
 
@@ -253,10 +303,20 @@ function repaint() {
     context.translate(canvas.width/2, canvas.height/2);
     context.rotate(arc);
 
-    if (resize) {
+    if (resize) { 
         context.drawImage(image, 0, 0, image.width, image.height, -canvas.height/2, -canvas.width/2, canvas.height, canvas.width);  
     } else {
-        context.drawImage(image, 0, 0, image.width, image.height, -canvas.width/2, -canvas.height/2, canvas.width, canvas.height);  
+        context.drawImage(image, 0, 0, image.width, image.height, -canvas.width/2, -canvas.height/2, canvas.width, canvas.height);
+    }
+
+
+    if (false) {
+        var hiddenCanvas = $("#hiddenCanvas")[0];
+        var hiddenContext = hiddenCanvas.getContext("2d");
+
+        var canvasData = hiddenContext.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        canvasData = resizeImage(canvasData, context, newWidth, newHeight);
+        context.putImageData(canvasData, 0, 0);
     }
     
     context.translate(0,0);
@@ -266,7 +326,7 @@ function repaint() {
     if (filterFunction) {
         // 不能使用跨域图片，否则不能获取图片数据
         var canvasData = context.getImageData(0, 0, canvas.width, canvas.height);      
-        canvasData = filterFunction(canvasData);
+        canvasData = filterFunction(canvasData, context);
         context.putImageData(canvasData, 0, 0); // at coords 0,0   
     }
 
@@ -286,6 +346,7 @@ function handleFiles(files) {
         window.IMAGE_OBJ = image;
 
         image.onload = function () {
+            paintHiddenCanvas();
             repaint();
         }
     }

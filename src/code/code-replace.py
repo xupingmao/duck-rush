@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/10/14 00:04:26
-# @modified 2020/10/31 11:55:45
+# @modified 2020/11/12 15:45:52
 import os
 import argparse
 import sys
@@ -22,6 +22,19 @@ CODE_EXT_SET = set([
 COMMANDS = []
 # 5M
 FILE_SIZE_LIMIT = 1024 * 1024 * 5
+
+
+def set_console_font_color(color):
+    if color == "red":
+        sys.stdout.write("\033[31m")
+    if color == "green":
+        sys.stdout.write("\033[32m")
+    if color == "orange":
+        sys.stdout.write("\033[33m")
+    if color == "blue":
+        sys.stdout.write("\033[34m")
+    if color == "default":
+        sys.stdout.write("\033[0m")
 
 class CodeFinder:
 
@@ -44,9 +57,14 @@ class CodeFinder:
         print("\nFile: %s" % self.fpath)
         for line in self.lines:
             print("")
+            set_console_font_color("red")
             print("--- %s" % line)
+
+            set_console_font_color("green")
             new_line = line.replace(self.source, self.target)
             print("+++ %s" % new_line)
+
+            set_console_font_color("default")
 
     def readfile(self, fpath):
         last_err = None
