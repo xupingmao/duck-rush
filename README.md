@@ -16,6 +16,12 @@
 
 # 参考项目
 
+## 包管理
+
+- https://github.com/Bash-it/bash-it
+
+## 工具列表
+
 - https://github.com/alebcay/awesome-shell
 - https://github.com/herrbischoff/awesome-macos-command-line
 
