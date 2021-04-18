@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/24 12:17:08
-# @modified 2020/11/10 01:11:29
+# @modified 2020/12/13 21:23:49
 import pygame
 import sys
 import argparse
@@ -47,5 +47,5 @@ def main(fpath):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "播放音乐工具")
     parser.add_argument("path", nargs = "?", help = "音乐文件/文件夹路径", default = ".")
-    args   = parser.parse_args(sys.argv[1:])
+    args   = parser.parse_args()
     main(args.path)

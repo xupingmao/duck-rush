@@ -1,10 +1,15 @@
-import os
+#!/usr/local/bin/python3
+# -*- coding:utf-8 -*-
+# @author xupingmao
+# @since 2021/04/18 17:00:00
+# @modified 2021/04/18 17:04:08
+# @filename config-shell-path.py
 
-FILE_PATH  = os.path.abspath(__file__)
+import os
+import sys
+import argparse
+
 HOME_PATH  = os.environ["HOME"]
-DIR_PATH   = os.path.dirname(FILE_PATH)
-SRC_PATH   = os.path.join(DIR_PATH, "./src")
-LOCAL_PATH = os.path.join(DIR_PATH, "./local")
 
 def find_bash_profile_path():
     bash_profile = os.path.join(HOME_PATH, ".bash_profile")
@@ -46,15 +51,17 @@ def makedirs(dirname):
         return True
     return False
 
-for fname in os.listdir(SRC_PATH):
-    fpath = os.path.join(SRC_PATH, fname)
-    if os.path.isdir(fpath):
-        add_shell_path(fpath)
+def main():
+    parser = argparse.ArgumentParser(description = "添加PATH路径")
+    parser.add_argument("path", help = "需要添加的PATH")
+    args   = parser.parse_args()
 
+    abspath = os.path.abspath(args.path)
+    if not os.path.exists(abspath):
+        print("无效的路径:", abspath)
+        sys.exit(1)
 
-# 本地的一些临时脚本
-makedirs(LOCAL_PATH)
-add_shell_path(LOCAL_PATH)
+    add_shell_path(abspath)
 
-
-
+if __name__ == '__main__':
+    main()
