@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao
 # @since 2021/04/18 17:26:24
-# @modified 2021/04/18 17:26:31
+# @modified 2021/05/01 14:56:45
 # @filename file_header_cmd.py
 
 import sublime
@@ -10,13 +10,34 @@ import time
 import os
 
 PYTHON_DOC_TEMPLATE = """# -*- coding:utf-8 -*-
-# @author xupingmao
-# @since %s
-# @modified %s
-# @filename %s
+# @author {author}
+# @since {since}
+# @modified {modified}
+# @filename {filename}
 """
 
+CSS_DOC_TEMPLATE = """/**
+ * description here
+ * @author {author}
+ * @since {since}
+ * @modified {modified}
+ * @filename {filename}
+ */
+"""
+
+JS_DOC_TEMPLATE = CSS_DOC_TEMPLATE
+
 DATETIME_FMT = "%Y/%m/%d %H:%M:%S"
+
+DOC_TEMPLATE_DICT = {
+    ".py" : PYTHON_DOC_TEMPLATE,
+    ".css": CSS_DOC_TEMPLATE,
+    ".js" : JS_DOC_TEMPLATE,
+}
+
+def get_os_user():
+    return os.environ["USER"]
+
 
 class FileHeaderCommand(sublime_plugin.TextCommand):
 
@@ -28,10 +49,8 @@ class FileHeaderCommand(sublime_plugin.TextCommand):
 
         # sublime.message_dialog("size=%s, filename=%s" % (view.size(), file_name))
 
-        if view.size() == 0 and file_name is not None and file_name.endswith(".py"):
-            datetime_str = time.strftime(DATETIME_FMT)
-            python_doc = PYTHON_DOC_TEMPLATE % (datetime_str, datetime_str, file_name)
-            view.insert(edit, 0, python_doc)
+        if view.size() == 0 and file_name is not None:
+            self.do_create_header(view, edit, file_name)
 
         # 修改时间
         self.do_update_mtime(view, edit)
@@ -39,6 +58,19 @@ class FileHeaderCommand(sublime_plugin.TextCommand):
         # 文件名
         self.do_update_fname(view, edit)
 
+    def do_create_header(self, view, edit, file_name):
+        name, ext = os.path.splitext(file_name)
+        template  = DOC_TEMPLATE_DICT.get(ext)
+
+        if template != None:
+            datetime_str = time.strftime(DATETIME_FMT)
+            file_doc = template.format(
+                author = get_os_user(),
+                modified = datetime_str,
+                since    = datetime_str,
+                filename = file_name
+            )
+            view.insert(edit, 0, file_doc)
 
     def do_update_mtime(self, view, edit):
         region = view.find("@modified.*", 0)

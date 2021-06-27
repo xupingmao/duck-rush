@@ -2,12 +2,12 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/23 22:09:31
-# @modified 2020/10/14 00:05:03
+# @modified 2021/06/24 00:28:25
 import os
 import time
 import sys
 import platform
-
+from termcolor import colored
 
 MUSIC_EXT_SET = set([".mp3", ".m4a", ".midi", ".wav"])
 
@@ -18,7 +18,7 @@ DOC_EXT_SET = set([
 ])
 
 VIDEO_EXT_SET = set([
-    ".mp4", ".mkv", ".avi", ".rmvb"
+    ".mp4", ".mkv", ".avi", ".rmvb", ".flv"
 ])
 
 IMAGE_EXT_SET = set([
@@ -31,6 +31,9 @@ ARCHIVE_EXT_SET = set([
     ".apk", ".dmg", ".pkg",
     ".exe", ".msi", ".iso"
 ])
+
+def green_text(text):
+    return colored(text, "green")
 
 # device
 def is_mac():
@@ -174,7 +177,7 @@ def classify0(dirname = '.', confirmed = False):
         if not confirmed:
             count += 1
             found = True
-            print(u"[%03d] Move `%s` To `%s`" % (count, fname, target_path))
+            print(u"[%03d] 移动文件 `%s` 到 `%s`" % (count, fname, target_path))
         else:
             target_dirname = os.path.dirname(target_path)
             makedirs(target_dirname)
@@ -184,9 +187,9 @@ def classify0(dirname = '.', confirmed = False):
 def classify(dirname = '.', confirmed = False):
     found = classify0(dirname, False)
     if not found:
-        print("Nothing found to move")
+        print("没有需要移动的文件")
         return
-    user_input = input(u"\nConfirmed to move?(y/n):")
+    user_input = input(u"\n确定移动文件吗?(y/n):")
     if user_input == "y":
         classify0(dirname, True)
 

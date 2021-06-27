@@ -8,3 +8,9 @@ fi
 git pull;
 git checkout -b $1 origin/$1;
 
+if [[ $? -eq 128 ]]; then
+    echo "checkout远程分支失败，尝试checkout本地分支: $1"
+    git checkout $1;
+fi
+
+git pull;
