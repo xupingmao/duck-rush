@@ -2,35 +2,37 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/23 22:09:31
-# @modified 2021/06/24 00:28:25
+# @modified 2021/08/08 19:00:06
 import os
 import time
 import sys
 import platform
 from termcolor import colored
 
-MUSIC_EXT_SET = set([".mp3", ".m4a", ".midi", ".wav"])
 
-DOC_EXT_SET = set([
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", 
-    ".html", ".md", ".xmind", ".txt",
-    ".key", ".numbers"
-])
+MUSIC_EXT_CONFIG = "mp3|m4a|midi|wav|m3u8"
+DOC_EXT_CONFIG   = "pdf|doc|docx|xls|xlsx|html|md|xmind|txt|key|numbers|csv"
+VIDEO_EXT_CONFIG = "mp4|mkv|avi|rmvb|flv"
+IMAGE_EXT_CONFIG = "jpg|jpeg|gif|jfif|ico|cur|png|webp|bmp|svg"
+ARCHIVE_EXT_CONFIG = "zip|rar|gz|apk|dmg|pkg|exe|msi|iso|ipk"
+CODE_EXT_CONFIG = "h|c|cpp|hpp|java|py|js|html|json"
 
-VIDEO_EXT_SET = set([
-    ".mp4", ".mkv", ".avi", ".rmvb", ".flv"
-])
+def convert_config_to_set(text):
+    result = set()
+    for item in text.split("|"):
+        if item == "":
+            continue
+        if item[0] != ".":
+            item = "." + item
+        result.add(item)
+    return result
 
-IMAGE_EXT_SET = set([
-    ".jpg", ".jpeg", ".gif", ".jfif", ".ico", ".cur", 
-    ".png", ".webp", ".bmp", ".svg"
-])
 
-ARCHIVE_EXT_SET = set([
-    ".zip", ".rar", ".gz",
-    ".apk", ".dmg", ".pkg",
-    ".exe", ".msi", ".iso"
-])
+MUSIC_EXT_SET = convert_config_to_set(MUSIC_EXT_CONFIG)
+DOC_EXT_SET   = convert_config_to_set(DOC_EXT_CONFIG)
+VIDEO_EXT_SET = convert_config_to_set(VIDEO_EXT_CONFIG)
+IMAGE_EXT_SET = convert_config_to_set(IMAGE_EXT_CONFIG)
+ARCHIVE_EXT_SET = convert_config_to_set(ARCHIVE_EXT_CONFIG)
 
 def green_text(text):
     return colored(text, "green")
@@ -177,7 +179,8 @@ def classify0(dirname = '.', confirmed = False):
         if not confirmed:
             count += 1
             found = True
-            print(u"[%03d] 移动文件 `%s` 到 `%s`" % (count, fname, target_path))
+            print(u"[%03d] 原路径: %s" % (count, fname))
+            print(u"      新路径: {target_path}\n".format(target_path = target_path))
         else:
             target_dirname = os.path.dirname(target_path)
             makedirs(target_dirname)

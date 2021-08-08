@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 
 FILE_PATH  = os.path.abspath(__file__)
@@ -46,15 +47,21 @@ def makedirs(dirname):
         return True
     return False
 
-for fname in os.listdir(SRC_PATH):
-    fpath = os.path.join(SRC_PATH, fname)
-    if os.path.isdir(fpath):
-        add_shell_path(fpath)
+def do_install():
+    print("准备安装duck_rush ... ")
+    for fname in os.listdir(SRC_PATH):
+        fpath = os.path.join(SRC_PATH, fname)
+        if os.path.isdir(fpath):
+            add_shell_path(fpath)
 
 
-# 本地的一些临时脚本
-makedirs(LOCAL_PATH)
-add_shell_path(LOCAL_PATH)
+    # 本地的一些临时脚本
+    makedirs(LOCAL_PATH)
+    add_shell_path(LOCAL_PATH)
 
+    print("安装完成!")
+
+if __name__ == '__main__':
+    do_install()
 
 
