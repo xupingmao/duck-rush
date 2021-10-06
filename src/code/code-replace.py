@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/10/14 00:04:26
-# @modified 2020/11/12 15:45:52
+# @modified 2021/09/29 23:50:33
 import os
 import argparse
 import sys
@@ -23,6 +23,15 @@ COMMANDS = []
 # 5M
 FILE_SIZE_LIMIT = 1024 * 1024 * 5
 
+class Message:
+    CONFIRM_REPLACE = "Replace Code?(Y/N):"
+    FIND_RESULT = "\nFind Code in %d files"
+
+MESSAGE = Message()
+def init_language():
+    global MESSAGE
+    MESSAGE.CONFIRM_REPLACE = "是否确认替换?(Y/N):"
+    MESSAGE.FIND_RESULT = "\n在%d个文件中找到目标代码"
 
 def set_console_font_color(color):
     if color == "red":
@@ -156,21 +165,22 @@ def replace_dir(dirname, source = None, target = None):
         result.ask()
 
     if len(results) > 0:
-        print("\nFind Code in %d files" % len(results))
+        print(MESSAGE.FIND_RESULT % len(results))
     else:
         print("No file matched")
         return
 
-    check = input("Replace Code?(Y/N):")
+    print("")
+    check = input(MESSAGE.CONFIRM_REPLACE)
     if check.lower() == "y":
         for result in results:
             result.do_replace()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    # parser.add_argument("dirname")
-    parser.add_argument("source")
-    parser.add_argument("target")
+    init_language()
+    parser = argparse.ArgumentParser(description = "代码替换工具")
+    parser.add_argument("source", help = "旧的字符串")
+    parser.add_argument("target", help = "新的字符串")
 
     args    = parser.parse_args()
     dirname = "./"

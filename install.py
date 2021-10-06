@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 
 FILE_PATH  = os.path.abspath(__file__)
@@ -6,6 +6,7 @@ HOME_PATH  = os.environ["HOME"]
 DIR_PATH   = os.path.dirname(FILE_PATH)
 SRC_PATH   = os.path.join(DIR_PATH, "./src")
 LOCAL_PATH = os.path.join(DIR_PATH, "./local")
+CONFIG_PATH = os.path.join(DIR_PATH, "./config")
 
 def find_bash_profile_path():
     bash_profile = os.path.join(HOME_PATH, ".bash_profile")
@@ -47,6 +48,10 @@ def makedirs(dirname):
         return True
     return False
 
+def add_alias_config():
+    code = "source %s" % os.path.join(CONFIG_PATH, "duck-alias.sh")
+    append_to_bash_profile(code)
+
 def do_install():
     print("准备安装duck_rush ... ")
     for fname in os.listdir(SRC_PATH):
@@ -58,6 +63,7 @@ def do_install():
     # 本地的一些临时脚本
     makedirs(LOCAL_PATH)
     add_shell_path(LOCAL_PATH)
+    add_alias_config()
 
     print("安装完成!")
 

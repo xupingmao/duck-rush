@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao
 # @since 2021/08/08 18:12:48
-# @modified 2021/08/08 18:48:22
+# @modified 2021/10/07 00:22:53
 # @filename decode-filename.py
 
 import os
@@ -25,7 +25,7 @@ def main():
     if confirm_result == "y":
         for old_name, new_name in command_list:
             os.rename(old_name, new_name)
-        print("重命名完成")
+        print("重命名完成!")
 
 if __name__ == '__main__':
     main()

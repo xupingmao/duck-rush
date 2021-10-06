@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/11/12 21:43:07
-# @modified 2020/11/12 21:52:48
+# @modified 2021/09/30 00:01:05
 
 #!/usr/local/bin/python3
 # -*- coding:utf-8 -*-
@@ -82,12 +82,14 @@ class CodeFinder:
                 self.lines.append((index,line))
 
     def print_detail(self):
-        set_console_font_color("blue")
-        print("\nFile: %s" % self.fpath)
-        set_console_font_color("default")
+        # set_console_font_color("blue")
+        print("\nFile: %s [%s]\n" % (self.fpath, len(self.lines)))
+        # set_console_font_color("default")
 
         for index, line in self.lines:
-            print("%04d: %s" % (index,line))
+            set_console_font_color("red")
+            print("  %04d: %s" % (index,line))
+            set_console_font_color("default")
 
 def is_code_file(fpath):
     _, ext = os.path.splitext(fpath)
