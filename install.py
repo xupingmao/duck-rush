@@ -1,8 +1,16 @@
 #!/usr/bin/env python
 import os
 
+
+def get_user_home_path():
+    if os.name == "nt":
+        return os.environ["USERPROFILE"]
+    else:
+        return os.environ["HOME"]
+
+
 FILE_PATH  = os.path.abspath(__file__)
-HOME_PATH  = os.environ["HOME"]
+HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
 SRC_PATH   = os.path.join(DIR_PATH, "./src")
 LOCAL_PATH = os.path.join(DIR_PATH, "./local")
@@ -47,7 +55,95 @@ def makedirs(dirname):
         return True
     return False
 
-def do_install():
+def check_environment():
+    if os.name == "nt":
+        # windows
+        print("")
+        print("检测到Windows环境")
+        print("如果Bash Shell乱码，请依次执行下面配置:")
+        print("1. 鼠标右键，选择Options")
+        print("2. 选择左侧的Text")
+        print("3. 找到Locale和Caracter set，将编码设置成GBK")
+        print("")
+        return "nt"
+    else:
+        return "unix"
+
+
+
+class WindowsInstaller:
+
+    BAT_SCRIPT_TEMPLATE = """
+python "{fpath}" %*
+"""
+    
+    NON_CODE_EXT_SET = set([".md", ".txt", ".html"])
+
+
+    def __init__(self, dirname):
+        self.dirname = dirname
+        self.debug = False
+        self.count = 0
+
+    def is_script_file(self, fpath):
+        name, ext = os.path.splitext(fpath)
+        return ext.lower() not in self.NON_CODE_EXT_SET
+
+    def create_file(self, fpath):
+        if not self.is_script_file(fpath):
+            return
+
+        fname = os.path.basename(fpath)
+        fname_base, ext = os.path.splitext(fname)
+
+        if ext != ".py":
+            return
+        
+        # 只支持Python            
+        content = self.BAT_SCRIPT_TEMPLATE.format(fpath = fpath.replace("\\", "\\\\"))
+        bat_path = os.path.join(self.dirname, fname_base + ".bat")
+
+        self.count += 1
+        print("[%03d] 安装脚本: %s" % (self.count, bat_path))
+        if self.debug:
+            print(content)
+            print("")
+            return
+
+        with open(bat_path, "w+") as fp:
+            fp.write(content)
+
+
+    def create_bat_files(self):
+        for root, dirs, files in os.walk(SRC_PATH):
+            for fname in files:
+                fpath = os.path.join(root, fname)
+                fpath = os.path.abspath(fpath)
+
+                self.create_file(fpath)
+
+
+    def install(self):
+        if not os.path.exists(self.dirname):
+            os.makedirs(self.dirname)
+
+        self.create_bat_files()
+
+def install_for_windows():
+    print("准备安装duck_rush (windows平台) ...")
+    user_profile_path = os.environ["USERPROFILE"]
+
+    duck_bin_dir = os.path.join(user_profile_path, "duck_rush")
+
+    installer = WindowsInstaller(duck_bin_dir)
+    installer.install()
+
+    print("")
+    print("脚本安装完成!")
+    print("*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path)
+
+
+def install_for_unix():
     print("准备安装duck_rush ... ")
     for fname in os.listdir(SRC_PATH):
         fpath = os.path.join(SRC_PATH, fname)
@@ -60,6 +156,14 @@ def do_install():
     add_shell_path(LOCAL_PATH)
 
     print("安装完成!")
+
+def do_install():
+    env = check_environment()
+
+    if env == "nt":
+        install_for_windows()
+    else:
+        install_for_unix()
 
 if __name__ == '__main__':
     do_install()

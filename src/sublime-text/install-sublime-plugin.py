@@ -70,6 +70,7 @@ def get_os_type():
 
 def main():
     os_type = get_os_type()
+    installer = None
     if os_type == "mac":
         installer = MacInstaller()
 
