@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/02/23 22:09:31
-# @modified 2021/08/08 19:00:06
+# @modified 2021/10/02 15:10:44
 import os
 import time
 import sys
@@ -14,7 +14,7 @@ MUSIC_EXT_CONFIG = "mp3|m4a|midi|wav|m3u8"
 DOC_EXT_CONFIG   = "pdf|doc|docx|xls|xlsx|html|md|xmind|txt|key|numbers|csv"
 VIDEO_EXT_CONFIG = "mp4|mkv|avi|rmvb|flv"
 IMAGE_EXT_CONFIG = "jpg|jpeg|gif|jfif|ico|cur|png|webp|bmp|svg"
-ARCHIVE_EXT_CONFIG = "zip|rar|gz|apk|dmg|pkg|exe|msi|iso|ipk"
+ARCHIVE_EXT_CONFIG = "zip|rar|gz|apk|dmg|pkg|exe|msi|iso|ipk|img|sis|jar|7z"
 CODE_EXT_CONFIG = "h|c|cpp|hpp|java|py|js|html|json"
 
 def convert_config_to_set(text):

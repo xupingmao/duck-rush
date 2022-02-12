@@ -232,7 +232,6 @@ class FileFinder:
             print("")
             os.rename(fpath, newpath)
 
-
     def execute(self):
         self.check_args()
         hash_type = self.hash_type
@@ -279,7 +278,6 @@ class FileFinder:
 
                 line_buf.append(path_to_print)
                 print("|".join(line_buf))
-
                 self.move_file(fpath)
 
         if count == 0:
@@ -302,7 +300,6 @@ def main():
     # 'store_false': 如果有这个选项就设置成False
     # 'append': 存储成一个列表，可以追加多个值
     # 'append_const': 
-
     parser.add_argument("--hash", default = "none", help = "文件hash算法")
     parser.add_argument("--name", default = [], action = "append", help = "搜索名称")
     parser.add_argument("--move_to", default = "", help = "移动到的目标文件夹")

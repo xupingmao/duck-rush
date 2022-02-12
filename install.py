@@ -14,6 +14,10 @@ HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
 SRC_PATH   = os.path.join(DIR_PATH, "./src")
 LOCAL_PATH = os.path.join(DIR_PATH, "./local")
+CODE_EXT_SET = set([".py", ".sh"])
+
+def log_info(fmt, *args):
+    print(fmt % args)
 
 def find_bash_profile_path():
     bash_profile = os.path.join(HOME_PATH, ".bash_profile")
@@ -69,7 +73,9 @@ def check_environment():
     else:
         return "unix"
 
-
+def is_script_file(fpath):
+    name, ext = os.path.splitext(fpath)
+    return ext.lower() in CODE_EXT_SET
 
 class WindowsInstaller:
 
@@ -122,7 +128,6 @@ python "{fpath}" %*
 
                 self.create_file(fpath)
 
-
     def install(self):
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)
@@ -150,10 +155,70 @@ def install_for_unix():
         if os.path.isdir(fpath):
             add_shell_path(fpath)
 
+    def install(self):
+        if not os.path.exists(self.dirname):
+            os.makedirs(self.dirname)
+
+        self.create_bat_files()
+
+def install_for_windows():
+    print("准备安装duck_rush (windows平台) ...")
+    user_profile_path = os.environ["USERPROFILE"]
+
+    duck_bin_dir = os.path.join(user_profile_path, "duck_rush")
+
+    installer = WindowsInstaller(duck_bin_dir)
+    installer.install()
+
+    print("")
+    print("脚本安装完成!")
+    print("*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path)
+
+
+def install_for_unix():
+    log_info("准备安装duck_rush ... ")
+
+    def get_start_code(fpath, ext):
+        if ext == ".py":
+            return "python3 %r $*" % fpath
+        if ext == ".sh":
+            return "sh %r $*" % fpath
+        return ""
+
+    def save_start_code(fpath, code):
+        dirname = os.path.dirname(fpath)
+        # log_info("%s :: %s", fpath, code)
+        makedirs(dirname)
+        with open(fpath, "w") as fp:
+            fp.write(code)
+
+    index = 0
+    for root, dirs, files in os.walk(SRC_PATH):
+        for fname in files:
+            if not is_script_file(fname):
+                continue
+            fpath = os.path.join(root, fname)
+            fpath = os.path.abspath(fpath)
+
+            name, ext = os.path.splitext(fname)
+            start_code = get_start_code(fpath, ext)
+            start_file = os.path.join(LOCAL_PATH, "bin", name)
+            start_file = os.path.abspath(start_file)
+
+            save_start_code(start_file, start_code)
+
+            code  = "python3 %r" % fpath
+            log_info("[%03d]安装脚本[%r]", index+1, fpath)
+            index += 1
 
     # 本地的一些临时脚本
     makedirs(LOCAL_PATH)
     add_shell_path(LOCAL_PATH)
+
+    # 必须在最后添加并且标记为执行文件
+    local_bin_path = os.path.join(LOCAL_PATH, "bin")
+    makedirs(local_bin_path)
+    add_shell_path(local_bin_path)
 
     print("安装完成!")
 
