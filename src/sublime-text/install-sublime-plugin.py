@@ -57,6 +57,14 @@ class InstallerBase:
 class MacInstaller(InstallerBase):
     os_type = "mac"
 
+class WinInstaller(InstallerBase):
+    os_type = "windows"
+
+    def get_plugin_path(self, fpath):
+        # user_name = self.get_os_user()
+        app_data_dir = os.environ["APPDATA"]
+        return "%s\\Sublime Text\\Packages\\User\\%s" % (app_data_dir, fpath)
+
 
 def get_os_type():
     if platform.system() == "Darwin":
@@ -73,6 +81,9 @@ def main():
     installer = None
     if os_type == "mac":
         installer = MacInstaller()
+
+    if os_type == "windows":
+        installer = WinInstaller()
 
     if installer is None:
         raise Exception("unsupported os:", os_type)

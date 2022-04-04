@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 # @author xupingmao
 # @since 2021/04/18 17:26:24
-# @modified 2021/05/01 14:56:45
+# @modified 2022/02/19 12:45:07
 # @filename file_header_cmd.py
 
 import sublime
@@ -36,7 +36,11 @@ DOC_TEMPLATE_DICT = {
 }
 
 def get_os_user():
-    return os.environ["USER"]
+    if "USER" in os.environ:
+        return os.environ["USER"]
+    if "USERNAME" in os.environ:
+        return os.environ["USERNAME"]
+    raise Exception("can not get os user")
 
 
 class FileHeaderCommand(sublime_plugin.TextCommand):
