@@ -80,6 +80,7 @@ def is_script_file(fpath):
 class WindowsInstaller:
 
     BAT_SCRIPT_TEMPLATE = """
+@echo off
 python "{fpath}" %*
 """
     
@@ -127,33 +128,6 @@ python "{fpath}" %*
                 fpath = os.path.abspath(fpath)
 
                 self.create_file(fpath)
-
-    def install(self):
-        if not os.path.exists(self.dirname):
-            os.makedirs(self.dirname)
-
-        self.create_bat_files()
-
-def install_for_windows():
-    print("准备安装duck_rush (windows平台) ...")
-    user_profile_path = os.environ["USERPROFILE"]
-
-    duck_bin_dir = os.path.join(user_profile_path, "duck_rush")
-
-    installer = WindowsInstaller(duck_bin_dir)
-    installer.install()
-
-    print("")
-    print("脚本安装完成!")
-    print("*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path)
-
-
-def install_for_unix():
-    print("准备安装duck_rush ... ")
-    for fname in os.listdir(SRC_PATH):
-        fpath = os.path.join(SRC_PATH, fname)
-        if os.path.isdir(fpath):
-            add_shell_path(fpath)
 
     def install(self):
         if not os.path.exists(self.dirname):
