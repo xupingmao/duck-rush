@@ -136,6 +136,7 @@ python "{fpath}" %*
         self.create_bat_files()
 
 def install_for_windows():
+    import termcolor
     print("准备安装duck_rush (windows平台) ...")
     user_profile_path = os.environ["USERPROFILE"]
 
@@ -146,7 +147,8 @@ def install_for_windows():
 
     print("")
     print("脚本安装完成!")
-    print("*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path)
+    msg = "*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path
+    print(termcolor.colored(msg, "red"))
 
 
 def install_for_unix():
@@ -194,15 +196,23 @@ def install_for_unix():
     makedirs(local_bin_path)
     add_shell_path(local_bin_path)
 
-    print("安装完成!")
+def install_requirements():
+    import pip
+    pip.main(["install", "-r", "config/requirements.txt"])
 
 def do_install():
+    print("安装依赖包...")
+    install_requirements()
+
     env = check_environment()
 
     if env == "nt":
         install_for_windows()
     else:
         install_for_unix()
+    
+    import termcolor
+    print(termcolor.colored("安装完成!", "green"))
 
 if __name__ == '__main__':
     do_install()
