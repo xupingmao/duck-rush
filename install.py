@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-
+import sys
 
 def get_user_home_path():
     if os.name == "nt":
@@ -197,8 +197,8 @@ def install_for_unix():
     add_shell_path(local_bin_path)
 
 def install_requirements():
-    import pip
-    pip.main(["install", "-r", "config/requirements.txt"])
+    # import pip
+    os.system(f"{sys.executable} install -r config/requirements.txt")
 
 def do_install():
     print("安装依赖包...")
