@@ -5,7 +5,7 @@
 
 import setuptools
 
-with open("README.md", "r") as fp:
+with open("README.md", "r", encoding="utf-8") as fp:
     long_description = fp.read()
 
 

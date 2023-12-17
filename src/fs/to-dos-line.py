@@ -4,17 +4,28 @@
 # @since 2020/10/08 12:39:41
 # @modified 2020/10/11 13:40:34
 
-import argparse
+import fire
+import sys
+import termcolor
 
-parser = argparse.ArgumentParser()
-parser.add_argument("fpath")
-args = parser.parse_args()
+def red_color(text):
+    return termcolor.colored(text, "red")
 
-with open(args.fpath, "rb") as fp:
-    bin = fp.read()
+def main(fpath = ""):
+    """把文件转换成dos风格的换行(\r\n)"""
 
-new_bin = bin.replace(b'\r', b'')
-new_bin = bin.replace(b'\n', b'\r\n')
+    if fpath == "":
+        print(red_color("ERR: fpath不能为空"))
+        sys.exit(1)
 
-with open(args.fpath, "wb+") as fp:
-    fp.write(new_bin)
+    with open(fpath, "rb") as fp:
+        bin = fp.read()
+
+    new_bin = bin.replace(b'\r', b'')
+    new_bin = bin.replace(b'\n', b'\r\n')
+
+    with open(fpath, "wb+") as fp:
+        fp.write(new_bin)
+
+if __name__ == "__main__":
+    fire.Fire(main)

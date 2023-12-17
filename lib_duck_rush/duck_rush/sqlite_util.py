@@ -3,6 +3,12 @@
 # @since 2020/12/06 16:41:11
 # @modified 2020/12/06 16:56:01
 import sqlite3
+import logging
+
+# 配置日志模块
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d|%(message)s')
 
 class SqliteTableManager:
     """检查数据库字段，如果不存在就自动创建"""
@@ -85,15 +91,15 @@ class SqliteTableManager:
             sql = "CREATE INDEX IF NOT EXISTS idx_%s_%s ON `%s` (`%s`)" % (self.tablename, colname, self.tablename, colname)
         try:
             self.execute(sql)
-        except Exception:
-            xutils.print_exc()
+        except Exception as e:
+            logging.error("sql: %s, error: %s", sql, e)
 
     def drop_index(self, col_name):
         sql = "DROP INDEX idx_%s_%s" % (self.tablename, col_name)
         try:
             self.execute(sql)
-        except Exception:
-            xutils.print_exc()
+        except Exception as e:
+            logging.error("sql: %s, error: %s", sql, e)
 
 
     def drop_column(self, colname):
@@ -129,7 +135,7 @@ TableManager = SqliteTableManager
 
 def init_test_table():
     """测试数据库"""
-    path = os.path.join(xconfig.DATA_DIR, "test.db")
+    path = "./test.db"
     with TableManager(path, "test") as manager:
         manager.add_column("id1", "integer", 0)
         manager.add_column("int_value", "int", 0)
