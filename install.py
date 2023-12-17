@@ -12,7 +12,7 @@ def get_user_home_path():
 FILE_PATH  = os.path.abspath(__file__)
 HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
-SRC_PATH   = os.path.join(DIR_PATH, "./src")
+SRC_PATH   = os.path.join(DIR_PATH, "./duck_rush")
 LOCAL_PATH = os.path.join(DIR_PATH, "./local")
 CODE_EXT_SET = set([".py", ".sh"])
 
