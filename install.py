@@ -157,7 +157,7 @@ def install_for_unix():
 
     def get_start_code(fpath, ext):
         if ext == ".py":
-            return "python3 %r $*" % fpath
+            return f"{sys.executable} %r $*" % fpath
         if ext == ".sh":
             return "sh %r $*" % fpath
         return ""
