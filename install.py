@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import shutil
 
 def get_user_home_path():
     if os.name == "nt":
@@ -198,11 +199,22 @@ def install_for_unix():
 
 def install_requirements():
     # import pip
+    print("安装依赖包...")
     os.system(f"{sys.executable} install -r config/requirements.txt")
+    print("依赖包安装完成")
+
+def install_duck_rush_package():
+    print("安装 duck_rush 模块 ...")
+    os.system(f"{sys.executable} setup.py install")
+    print("清理临时文件...")
+    shutil.rmtree("./build")
+    shutil.rmtree("./dist")
+    shutil.rmtree("./duck_rush.egg-info")
+    print("duck_rush模块安装完成")
 
 def do_install():
-    print("安装依赖包...")
     install_requirements()
+    install_duck_rush_package()
 
     env = check_environment()
 
