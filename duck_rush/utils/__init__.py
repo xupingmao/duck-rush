@@ -3,4 +3,4 @@
 # @since 2020/11/21 11:35:05
 # @modified 2020/12/06 16:42:50
 
-from duck_rush.sqlite_util import SqliteTableManager
+from duck_rush.utils.sqlite_util import SqliteTableManager

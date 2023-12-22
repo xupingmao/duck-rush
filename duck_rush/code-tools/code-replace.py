@@ -1,12 +1,17 @@
-#!/usr/local/bin/python3
 # -*- coding:utf-8 -*-
 # @author xupingmao <578749341@qq.com>
 # @since 2020/10/14 00:04:26
 # @modified 2021/09/29 23:50:33
+
 import os
 import argparse
 import sys
 import chardet
+
+duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
+sys.path.append(duck_rush_dir)
+
+from duck_rush.utils.os_util import set_console_font_color
 
 CODE_EXT_SET = set([
     ".txt", 
@@ -33,17 +38,6 @@ def init_language():
     MESSAGE.CONFIRM_REPLACE = "是否确认替换?(Y/N):"
     MESSAGE.FIND_RESULT = "\n在%d个文件中找到目标代码"
 
-def set_console_font_color(color):
-    if color == "red":
-        sys.stdout.write("\033[31m")
-    if color == "green":
-        sys.stdout.write("\033[32m")
-    if color == "orange":
-        sys.stdout.write("\033[33m")
-    if color == "blue":
-        sys.stdout.write("\033[34m")
-    if color == "default":
-        sys.stdout.write("\033[0m")
 
 class CodeFinder:
 
@@ -75,7 +69,7 @@ class CodeFinder:
 
             set_console_font_color("default")
 
-    def readfile(self, fpath):
+    def readfile(self, fpath, raise_error=True):
         last_err = None
         ENCODING_TUPLE = ("utf-8", "gbk", "mbcs", "latin_1")
 
@@ -122,7 +116,7 @@ def check_file_size(fpath):
     if size > FILE_SIZE_LIMIT:
         return "file too large"
 
-def readfile(fpath):
+def readfile(fpath, raise_error=True):
     last_err = None
     ENCODING_TUPLE = ("utf-8", "gbk", "mbcs", "latin_1")
 
@@ -133,7 +127,7 @@ def readfile(fpath):
         except Exception as e:
             last_err = e
     if raise_error:
-        raise Exception("can not read file %s" % path, last_err)
+        raise Exception("can not read file %s" % fpath, last_err)
 
 
 def find_in_file(fpath, source, target):
@@ -176,12 +170,16 @@ def replace_dir(dirname, source = None, target = None):
         for result in results:
             result.do_replace()
 
-if __name__ == '__main__':
+
+def main():
     init_language()
     parser = argparse.ArgumentParser(description = "代码替换工具")
     parser.add_argument("source", help = "旧的字符串")
     parser.add_argument("target", help = "新的字符串")
 
-    args    = parser.parse_args()
+    args = parser.parse_args()
     dirname = "./"
     replace_dir(dirname, source = args.source, target = args.target)
+
+if __name__ == '__main__':
+    main()

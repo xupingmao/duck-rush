@@ -13,9 +13,18 @@ def get_user_home_path():
 FILE_PATH  = os.path.abspath(__file__)
 HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
-SRC_PATH   = os.path.join(DIR_PATH, "./duck_rush")
-LOCAL_PATH = os.path.join(DIR_PATH, "./local")
+SRC_PATH   = os.path.join(DIR_PATH, "duck_rush")
+LOCAL_PATH = os.path.join(DIR_PATH, "local")
 CODE_EXT_SET = set([".py", ".sh"])
+
+class InstallConfig:
+    
+    # 跳过的文件
+    skip_file_set = set(["__init__.py"])
+    
+    # 非代码文件
+    not_code_file_set = set([".md", ".txt", ".html"])
+
 
 def log_info(fmt, *args):
     print(fmt % args)
@@ -82,10 +91,11 @@ class WindowsInstaller:
 
     BAT_SCRIPT_TEMPLATE = """
 @echo off
-python "{fpath}" %*
+set DUCK_RUSH_DIR={duck_rush_dir}
+{python} "{fpath}" %*
 """
     
-    NON_CODE_EXT_SET = set([".md", ".txt", ".html"])
+    NON_CODE_EXT_SET = InstallConfig.not_code_file_set
 
 
     def __init__(self, dirname):
@@ -108,7 +118,7 @@ python "{fpath}" %*
             return
         
         # 只支持Python            
-        content = self.BAT_SCRIPT_TEMPLATE.format(fpath = fpath.replace("\\", "\\\\"))
+        content = self.BAT_SCRIPT_TEMPLATE.format(python = sys.executable, fpath = fpath.replace("\\", "\\\\"), duck_rush_dir=DIR_PATH)
         bat_path = os.path.join(self.dirname, fname_base + ".bat")
 
         self.count += 1
@@ -125,6 +135,8 @@ python "{fpath}" %*
     def create_bat_files(self):
         for root, dirs, files in os.walk(SRC_PATH):
             for fname in files:
+                if fname in InstallConfig.skip_file_set:
+                    continue
                 fpath = os.path.join(root, fname)
                 fpath = os.path.abspath(fpath)
 
@@ -156,6 +168,7 @@ def install_for_unix():
     log_info("准备安装duck_rush ... ")
 
     def get_start_code(fpath, ext):
+        """构建启动脚本"""
         if ext == ".py":
             return f"{sys.executable} %r $*" % fpath
         if ext == ".sh":
@@ -181,10 +194,7 @@ def install_for_unix():
             start_code = get_start_code(fpath, ext)
             start_file = os.path.join(LOCAL_PATH, "bin", name)
             start_file = os.path.abspath(start_file)
-
             save_start_code(start_file, start_code)
-
-            code  = "python3 %r" % fpath
             log_info("[%03d]安装脚本[%r]", index+1, fpath)
             index += 1
 
@@ -200,12 +210,12 @@ def install_for_unix():
 def install_requirements():
     # import pip
     print("安装依赖包...")
-    os.system(f"{sys.executable} install -r config/requirements.txt")
+    os.system(f"{sys.executable} -m pip install -r config/requirements.txt")
     print("依赖包安装完成")
 
 def install_duck_rush_package():
     print("安装 duck_rush 模块 ...")
-    os.system(f"{sys.executable} setup.py install")
+    os.system(f"{sys.executable} setup.py sdist install")
     print("清理临时文件...")
     shutil.rmtree("./build")
     shutil.rmtree("./dist")

@@ -1,14 +1,5 @@
-'''
-Author: xupingmao
-email: 578749341@qq.com
-Date: 2023-12-22 21:59:17
-LastEditors: xupingmao
-LastEditTime: 2023-12-22 22:10:51
-FilePath: \duck-rush\duck_rush\utils\os_util.py
-Description: 描述
-'''
 # encoding=utf-8
-
+import sys
 import subprocess
 
 def popen(cmd):
@@ -19,3 +10,17 @@ def popen(cmd):
 
 def popen_str(cmd, encoding="utf-8") -> str:
     return popen(cmd).read().decode(encoding=encoding)
+
+
+def set_console_font_color(color):
+    """设置终端的字体颜色"""
+    if color == "red":
+        sys.stdout.write("\033[31m")
+    if color == "green":
+        sys.stdout.write("\033[32m")
+    if color == "orange":
+        sys.stdout.write("\033[33m")
+    if color == "blue":
+        sys.stdout.write("\033[34m")
+    if color == "default":
+        sys.stdout.write("\033[0m")
