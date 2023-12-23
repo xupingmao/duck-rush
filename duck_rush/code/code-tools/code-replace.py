@@ -9,7 +9,8 @@ import sys
 import chardet
 
 duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
-sys.path.append(duck_rush_dir)
+if duck_rush_dir not in sys.path:
+    sys.path.append(duck_rush_dir)
 
 from duck_rush.utils.os_util import set_console_font_color
 

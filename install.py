@@ -217,9 +217,9 @@ def install_duck_rush_package():
     print("安装 duck_rush 模块 ...")
     os.system(f"{sys.executable} setup.py sdist install")
     print("清理临时文件...")
-    shutil.rmtree("./build")
-    shutil.rmtree("./dist")
-    shutil.rmtree("./duck_rush.egg-info")
+    shutil.rmtree("./build", ignore_errors=True)
+    shutil.rmtree("./dist", ignore_errors=True)
+    shutil.rmtree("./duck_rush.egg-info", ignore_errors=True)
     print("duck_rush模块安装完成")
 
 def do_install():

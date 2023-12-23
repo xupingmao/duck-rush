@@ -5,6 +5,7 @@
 import os
 import time
 import sys
+import shutil
 
 IS_PY2 = sys.version_info[0] == 2
 
@@ -87,3 +88,8 @@ def write_file(path, content, mode = "wb"):
             buf = content
         fp.write(buf)
     return content
+
+
+def rmtree(dirname=""):
+    if os.path.exists(dirname):
+        shutil.rmtree(dirname)

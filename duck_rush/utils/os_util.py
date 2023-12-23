@@ -1,6 +1,8 @@
 # encoding=utf-8
 import sys
 import subprocess
+import os
+import platform
 
 def popen(cmd):
     proc = subprocess.Popen(cmd,
@@ -24,3 +26,14 @@ def set_console_font_color(color):
         sys.stdout.write("\033[34m")
     if color == "default":
         sys.stdout.write("\033[0m")
+
+
+def is_windows():
+    return os.name == "nt"
+
+def is_mac():
+    return platform.system() == "Darwin"
+
+def is_linux():
+    return os.name == "linux"
+

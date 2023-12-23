@@ -1,13 +1,25 @@
 # -*- coding:utf-8 -*-
-# @author xupingmao
-# @since 2021/12/25 12:07:03
-# @modified 2021/12/25 15:03:40
-# @filename duck-sort.py
+'''
+Author: xupingmao
+email: 578749341@qq.com
+Date: 2023-12-23 12:09:14
+LastEditors: xupingmao
+LastEditTime: 2023-12-23 12:37:35
+FilePath: /duck_rush/duck_rush/text/duck-sort.py
+Description: 描述
+'''
 
 import os
 import sys
 import re
 import argparse
+
+duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
+if duck_rush_dir not in sys.path:
+    sys.path.append(duck_rush_dir)
+
+
+from duck_rush.utils import os_util
 
 def parse_size(size_str):
     result = re.match(r"([0-9\.]+)(B|K|M|G)", size_str)
