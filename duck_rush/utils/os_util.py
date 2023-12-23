@@ -14,6 +14,11 @@ def popen_str(cmd, encoding="utf-8") -> str:
     return popen(cmd).read().decode(encoding=encoding)
 
 
+def exec_cmd(cmd="", do_print=True):
+    if do_print:
+        print(cmd)
+    os.system(cmd)
+
 def set_console_font_color(color):
     """设置终端的字体颜色"""
     if color == "red":
