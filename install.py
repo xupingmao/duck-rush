@@ -15,15 +15,25 @@ HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
 SRC_PATH   = os.path.join(DIR_PATH, "duck_rush")
 LOCAL_PATH = os.path.join(DIR_PATH, "local")
-CODE_EXT_SET = set([".py", ".sh"])
+
 
 class InstallConfig:
+    code_ext_set = set([".py", ".sh"])
     
     # 跳过的文件
     skip_file_set = set(["__init__.py"])
     
     # 非代码文件
     not_code_file_set = set([".md", ".txt", ".html"])
+
+    @classmethod
+    def is_skip_file(cls, fname=""):
+        if fname in cls.skip_file_set:
+            return True
+        if fname.endswith("_util.py"):
+            # 跳过 *_util.py 工具类
+            return True
+        return False
 
 
 def log_info(fmt, *args):
@@ -85,7 +95,7 @@ def check_environment():
 
 def is_script_file(fpath):
     name, ext = os.path.splitext(fpath)
-    return ext.lower() in CODE_EXT_SET
+    return ext.lower() in InstallConfig.code_ext_set
 
 class WindowsInstaller:
 
@@ -135,7 +145,7 @@ set DUCK_RUSH_DIR={duck_rush_dir}
     def create_bat_files(self):
         for root, dirs, files in os.walk(SRC_PATH):
             for fname in files:
-                if fname in InstallConfig.skip_file_set:
+                if InstallConfig.is_skip_file(fname):
                     continue
                 fpath = os.path.join(root, fname)
                 fpath = os.path.abspath(fpath)
@@ -187,6 +197,10 @@ def install_for_unix():
         for fname in files:
             if not is_script_file(fname):
                 continue
+
+            if InstallConfig.is_skip_file(fname):
+                continue
+
             fpath = os.path.join(root, fname)
             fpath = os.path.abspath(fpath)
 
