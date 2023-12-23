@@ -11,18 +11,31 @@
 
 import os
 import sys
+import fire
 
 def list_remote():
     result = os.popen("git remote").read()
     parts = result.split()
     return list(filter(lambda x:x.strip()!="", parts))
 
-def push_all():
+def exec_cmd(cmd="", do_print=True):
+    if do_print:
+        print(cmd)
+    os.system(cmd)
+
+def push_all(actions=set()):
+    """推送到所有的远端
+
+    操作选项:
+    * with-tags 推送所有的tag
+    """
     remote_list = list_remote()
     print("检测到远端配置: %s" % remote_list)
     for remote in remote_list:
-        print("准备推送到 %s ..." % remote)
-        os.system("git push %s" % remote)
+        # print("准备推送到 %s ..." % remote)
+        exec_cmd(f"git push {remote}")
+        if "with-tags" in actions:
+            exec_cmd(f"git push {remote} --tags")
     
 def check_git():
     ret = os.system("git --version")
@@ -32,4 +45,4 @@ def check_git():
 
 if __name__ == "__main__":
     check_git()
-    push_all()
+    fire.Fire(push_all)
