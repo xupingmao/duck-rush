@@ -93,3 +93,31 @@ def write_file(path, content, mode = "wb"):
 def rmtree(dirname=""):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
+        
+        
+
+def get_relative_path(path="", parent=""):
+    """获取文件相对parent的路径
+    @param {str} path 当前文件路径
+    @param {str} parent 父级文件路径
+    @return {str} 相对路径
+    
+    >>> get_relative_path('/users/xxx/test/hello.html', '/users/xxx')
+    'test/hello.html'
+    >>> get_relative_path('/tmp/test.html', '/tmp/test.html')
+    ''
+    """
+    path1 = os.path.abspath(path)
+    parent1 = os.path.abspath(parent)
+    # abpath之后最后没有/
+    # 比如
+    # ./                 -> /users/xxx
+    # ./test/hello.html  -> /users/xxx/test/hello.html
+    # 相减的结果是         -> /test/hello.html
+    # 需要除去第一个/
+    relative_path = path1[len(parent1):]
+    relative_path = relative_path.replace("\\", "/")
+    if relative_path.startswith("/"):
+        relative_path = relative_path[1:]
+    return relative_path
+
