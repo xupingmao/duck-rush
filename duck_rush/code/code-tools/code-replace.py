@@ -143,7 +143,7 @@ def find_in_file(fpath, source, target):
     return finder.get_result()
 
 
-def replace_dir(dirname, source = None, target = None):
+def replace_dir(dirname = "./", source = None, target = None):
     results = []
 
     for root, dirs, files in os.walk(dirname):
