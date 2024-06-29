@@ -7,6 +7,7 @@ def get_user_home_path():
     if os.name == "nt":
         return os.environ["USERPROFILE"]
     else:
+        # linux/unix/macOS
         return os.environ["HOME"]
 
 
