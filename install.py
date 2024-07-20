@@ -5,6 +5,12 @@ import os
 import sys
 import shutil
 
+try:
+    from termcolor import colored
+except:
+    def colored(msg, color):
+        return msg
+
 def get_user_home_path():
     if os.name == "nt":
         return os.environ["USERPROFILE"]
@@ -254,8 +260,7 @@ def do_install():
     else:
         install_for_unix()
     
-    import termcolor
-    print(termcolor.colored("安装完成!", "green"))
+    print(colored("安装完成!", "green"))
 
 if __name__ == '__main__':
     do_install()
