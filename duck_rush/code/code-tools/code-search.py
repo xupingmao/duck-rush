@@ -21,7 +21,8 @@ CODE_EXT_SET = set([
     ".py", 
     ".html", ".js", ".css",
     ".rb",
-    ".sql"
+    ".sql",
+    ".go",
 ])
 
 # [[func1, args], [func2, args2]]
