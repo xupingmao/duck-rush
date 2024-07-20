@@ -240,6 +240,10 @@ def install_duck_rush_package():
     print("duck_rush模块安装完成")
 
 def do_install():
+    if sys.version_info < (3,6):
+        sys.stderr.write("require python >= 3.6")
+        sys.exit(1)
+
     install_requirements()
     install_duck_rush_package()
 
