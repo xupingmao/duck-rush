@@ -13,6 +13,7 @@ import os
 import argparse
 import sys
 import chardet
+import fire
 
 CODE_EXT_SET = set([
     ".txt", 
@@ -45,11 +46,12 @@ def set_console_font_color(color):
 
 class CodeFinder:
 
-    def __init__(self, fpath, source):
+    def __init__(self, fpath, source, ignore_case=False):
         self.fpath  = fpath
         self.lines  = []
         self.source = source
         self.encoding = None
+        self.ignore_case = ignore_case
 
     def get_result(self):
         if len(self.lines) > 0:
@@ -71,15 +73,19 @@ class CodeFinder:
                     return text
             except Exception as e:
                 last_err = e
-        if raise_error:
-            raise Exception("can not read file %s" % path, last_err)
+        raise Exception(f"can not read file {fpath}", last_err)
 
     def do_find(self):
-        text      = self.readfile(self.fpath)
+        text = self.readfile(self.fpath)
         self.text = text
+        source = self.source
+        if self.ignore_case:
+            source = self.source.lower()
 
         for index, line in enumerate(text.split("\n")):
-            if self.source in line:
+            if self.ignore_case:
+                line = line.lower()
+            if source in line:
                 self.lines.append((index,line))
 
     def print_detail(self):
@@ -120,12 +126,11 @@ def readfile(fpath):
                 return fp.read()
         except Exception as e:
             last_err = e
-    if raise_error:
-        raise Exception("can not read file %s" % path, last_err)
+    raise Exception(f"can not read file {fpath}", last_err)
 
 
-def find_in_file(fpath, source):
-    finder = CodeFinder(fpath, source)
+def find_in_file(fpath, source, ignore_case=False):
+    finder = CodeFinder(fpath, source, ignore_case=ignore_case)
 
     error = check_file_size(fpath)
     if error != None:
@@ -136,15 +141,19 @@ def find_in_file(fpath, source):
     return finder.get_result()
 
 
-def code_search(dirname, source = None):
+def code_search(dirname="./", source = "", ignore_case=True):
     results = []
+
+    if source == "":
+        print("source不能为空")
+        return
 
     for root, dirs, files in os.walk(dirname):
         for fname in files:
             fpath = os.path.join(root, fname)
             if not is_code_file(fpath):
                 continue
-            find_result = find_in_file(fpath, source)
+            find_result = find_in_file(fpath, source, ignore_case=ignore_case)
             if find_result is None:
                 continue
             results.append(find_result)
@@ -159,11 +168,5 @@ def code_search(dirname, source = None):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    # parser.add_argument("dirname")
-    parser.add_argument("source")
-
-    args    = parser.parse_args()
-    dirname = "./"
-    code_search(dirname, source = args.source)
+    fire.Fire(code_search)
 
