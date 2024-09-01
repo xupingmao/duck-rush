@@ -8,6 +8,7 @@ import os
 import sys
 import argparse
 import logging
+import fnmatch
 
 CODE_TYPE_MAPPING = {
     ".py"   : "Python",
@@ -55,9 +56,9 @@ class CodeCounter:
         name, ext = os.path.splitext(fpath)
         return CODE_TYPE_MAPPING.get(ext)
 
-    def need_exclude(self, fpath):
+    def need_exclude(self, fpath: str):
         for dirname in self.exclude_dirs:
-            if fpath.startswith(dirname):
+            if fpath.startswith(dirname) or fnmatch.fnmatch(fpath, dirname):
                 return True
         return False
 
