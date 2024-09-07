@@ -4,6 +4,7 @@ import os
 import sys
 
 def main(branch=""):
+    """checkout出git分支"""
     if branch == "":
         script_file = os.path.basename(sys.argv[0])
         script_name, ext = os.path.splitext(script_file)
