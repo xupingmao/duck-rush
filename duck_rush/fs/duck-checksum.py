@@ -20,6 +20,8 @@ hash_dict = {
     "sha1": hashlib.sha1(),
     "md5": hashlib.md5(),
     "sha256": hashlib.sha256(),
+    "sha384": hashlib.sha384(),
+    "sha512": hashlib.sha512(),
 }
 
 def get_hash_lib(hash_type=""):
@@ -46,13 +48,14 @@ def calc_checksum(fname="", checksum_type="sha1"):
         for chunk in read_chunks(fh):
             m.update(chunk)
     return m.hexdigest()
-
+ 
 def main(path:str, checksum_type="sha1", **kw):
+    """计算文件/文件夹的校验码,支持的类型:sha1/md5/sha256/sha384/sha512"""
     if os.path.isdir(path):
         for name in os.listdir(path):
             child_path = os.path.join(path, name)
             if os.path.isfile(child_path):
-                print('%s  %s' % (calc_checksum(child_path, checksum_type=checksum_type), child_path))
+                print(f'{checksum_type.upper()} %s\t%s' % (calc_checksum(child_path, checksum_type=checksum_type), child_path))
     else:
         print(f'{checksum_type}:', calc_checksum(path, checksum_type=checksum_type))
 
