@@ -179,7 +179,7 @@ def install_for_windows():
 
     print("")
     print("脚本安装完成!")
-    msg = "*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path
+    msg = f"*注意* Windows需要手动配置环境变量 {user_profile_path}\\duck_rush"
     print(termcolor.colored(msg, "red"))
     print("打开SystemPropertiesAdvanced进行配置...")
     os.system("SystemPropertiesAdvanced.exe")
