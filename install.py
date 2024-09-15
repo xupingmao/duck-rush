@@ -181,6 +181,8 @@ def install_for_windows():
     print("脚本安装完成!")
     msg = "*注意* Windows需要手动配置环境变量 C:\\Users\\%s\\duck_rush" % user_profile_path
     print(termcolor.colored(msg, "red"))
+    print("打开SystemPropertiesAdvanced进行配置...")
+    os.system("SystemPropertiesAdvanced.exe")
 
 
 def install_for_unix():
@@ -233,7 +235,7 @@ def install_for_unix():
 def install_requirements():
     # import pip
     print("安装依赖包...")
-    os.system(f"{sys.executable} -m pip install -r config/requirements.txt")
+    os.system(f"pip install -r config/requirements.txt")
     print("依赖包安装完成")
 
 def install_duck_rush_package():
