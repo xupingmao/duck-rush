@@ -30,6 +30,7 @@ class CodeType:
     typescript = "TypeScript"
     php = "PHP"
     sql = "SQL"
+    css = "CSS"
     
     @classmethod
     def get_check_func(cls, code_type):
@@ -72,6 +73,7 @@ CODE_TYPE_MAPPING = {
 
     ".xml"  : CodeType.xml,
     ".html" : CodeType.html,
+    ".css": CodeType.css,
     ".xhtml": CodeType.xhtml,
     ".yml"  : CodeType.yaml,
     
