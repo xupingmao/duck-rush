@@ -13,6 +13,14 @@ import os
 import sys
 import fire
 
+try:
+    import termcolor
+    def yellow_text(text):
+        return termcolor.colored(text, "yellow")
+except ImportError:
+    def yellow_text(text):
+        return text
+
 def list_remote():
     result = os.popen("git remote").read()
     parts = result.split()
@@ -20,7 +28,7 @@ def list_remote():
 
 def exec_cmd(cmd="", do_print=True):
     if do_print:
-        print(cmd)
+        print(yellow_text(f"[executing]: {cmd}"))
     os.system(cmd)
 
 def push_all(actions=set()):
