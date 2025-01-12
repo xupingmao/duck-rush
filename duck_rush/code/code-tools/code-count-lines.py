@@ -34,13 +34,15 @@ class CodeType:
     
     @classmethod
     def get_check_func(cls, code_type):
-        """快速检测评论,不是基于语义的,可能不准确"""
+        """快速检测注释,不是基于语义的,可能不准确"""
         if code_type in (cls.python, cls.shell, cls.yaml):
             return CodeType.is_hash_comment
         if code_type in (cls.java, cls.php, cls.javascript, cls.typescript, cls.go):
             return CodeType.is_double_slash_comment
         if code_type in (CodeType.lua, CodeType.sql):
             return CodeType.is_double_minus_comment
+        if code_type in (CodeType.c_header, CodeType.c):
+            return CodeType.is_slash_block_comment
         return None
     
     @staticmethod
@@ -54,6 +56,25 @@ class CodeType:
     @staticmethod
     def is_double_minus_comment(line: str):
         return line.startswith("--")
+    
+    @staticmethod
+    def is_slash_block_comment(line: str):
+        """支持下列模式
+        /* 单行注释 */
+
+        /* 多行注释
+        ** 第2行注释
+        ** 第3行注释
+        */
+
+        int i = 0; /* 这种先算到代码,不统计到注释 */
+        """
+        line = line.strip()
+        if line.startswith("/*") and line.endswith("*/"):
+            return True
+        if line.startswith("**"):
+            return True
+        return line.startswith("/*")
 
 CODE_TYPE_MAPPING = {
     ".py"   : CodeType.python,
@@ -119,8 +140,8 @@ class CodeCounter:
     def __init__(self, dirname, exclude_dirname = None):
         self.dirname = dirname
         self.exclude_dirname = exclude_dirname
-        self.lines_dict = dict()
         self.blank_lines_dict = dict()
+        self.code_lines_dict = dict() # dict[code_type, code_lines]
         self.files_dict = dict()
         self.comment_dict = dict()
         self.exclude_dirs = set()
@@ -146,9 +167,9 @@ class CodeCounter:
 
     def count_lines_no_check(self, code_type, fpath):
         bufsize = 1024 * 4 # 4K
-        lines = 0
         blank_lines = 0
         comment_lines = 0
+        code_lines = 0
         is_comment_func = CodeType.get_check_func(code_type)
 
         with open(fpath, "r", encoding = "utf-8", errors="ignore") as fp:
@@ -165,18 +186,18 @@ class CodeCounter:
                     elif is_comment_func != None and is_comment_func(line_strip):
                         comment_lines += 1
                     else:
-                        lines += 1
+                        code_lines += 1
 
-        if code_type not in self.lines_dict:
-            self.lines_dict[code_type] = 0
+        if code_type not in self.code_lines_dict:
             self.blank_lines_dict[code_type] = 0
             self.files_dict[code_type] = 0
             self.comment_dict[code_type] = 0
+            self.code_lines_dict[code_type] = 0
         
-        self.lines_dict[code_type] += lines
         self.blank_lines_dict[code_type] += blank_lines
         self.files_dict[code_type] += 1
         self.comment_dict[code_type] += comment_lines
+        self.code_lines_dict[code_type] += code_lines
 
     def count_lines(self, code_type, fpath):
         try:
@@ -207,8 +228,8 @@ class CodeCounter:
         total_comments = 0
         total_blanks = 0
 
-        for key in sorted(self.lines_dict.keys()):
-            code_lines = self.lines_dict[key]
+        for key in sorted(self.code_lines_dict.keys()):
+            code_lines = self.code_lines_dict[key]
             blank_lines = self.blank_lines_dict.get(key, 0)
             comment_lines = self.comment_dict.get(key, 0)
             files = self.files_dict.get(key, 0)
