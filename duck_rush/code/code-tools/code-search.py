@@ -83,10 +83,11 @@ class CodeFinder:
             source = self.source.lower()
 
         for index, line in enumerate(text.split("\n")):
+            original_line = line
             if self.ignore_case:
                 line = line.lower()
             if source in line:
-                self.lines.append((index,line))
+                self.lines.append((index,original_line))
 
     def print_detail(self):
         # set_console_font_color("blue")
