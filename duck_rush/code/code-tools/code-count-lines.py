@@ -11,38 +11,73 @@ import logging
 import fnmatch
 import typing
 
-class CodeType:
-    python = "Python"
-    cython = "Cython"
-    c = "C"
-    c_header = "C-Header"
-    cpp = "CPP"
-    cpp_header = "CPP-Header"
-    go = "Go"
-    lua = "Lua"
-    java = "Java"
-    shell = "Shell"
-    xml = "XML"
-    html = "HTML"
-    xhtml = "XHTML"
-    yaml = "YAML"
-    javascript = "JavaScript"
-    typescript = "TypeScript"
-    php = "PHP"
-    sql = "SQL"
-    css = "CSS"
+class CommentType:
+    HASH = 1 # `#`号注释比如python
+    DOUBLE_SLASH = 2 # // 双斜线风格
+    SLASH_BLOCK  = 3 # /**/ C语言风格注释
+    DOUBLE_MINUS = 4 # -- 双减号风格， sql/lua等
+
+class CodeTypeEnumItem:
+    def __init__(self, name="", ext_list=[], comment_type=0):
+        self.name = name
+        self.ext_list = ext_list
+        self.comment_type = comment_type
+
+class CodeTypeEnum:
+    python = CodeTypeEnumItem("Python", [".py"], comment_type=CommentType.HASH)
+    cython = CodeTypeEnumItem("Cython", [".pyx"], comment_type=CommentType.HASH)
+    c = CodeTypeEnumItem("C", [".c"], comment_type=CommentType.SLASH_BLOCK)
+    c_header = CodeTypeEnumItem("C-Header", [".h"], comment_type=CommentType.SLASH_BLOCK)
+    cpp = CodeTypeEnumItem("CPP", [".cpp", ".cxx", ".cc"], comment_type=CommentType.DOUBLE_SLASH)
+    cpp_header = CodeTypeEnumItem("CPP-Header", [".hpp", ".hh"], comment_type=CommentType.DOUBLE_SLASH)
+    go = CodeTypeEnumItem("Go", [".go"], comment_type=CommentType.DOUBLE_SLASH)
+    lua = CodeTypeEnumItem("Lua", [".lua"], comment_type=CommentType.DOUBLE_MINUS)
+    java = CodeTypeEnumItem("Java", [".java"], comment_type=CommentType.DOUBLE_SLASH)
+    shell = CodeTypeEnumItem("Shell", [".sh"], comment_type=CommentType.HASH)
+    xml = CodeTypeEnumItem("XML", [".xml"])
+    html = CodeTypeEnumItem("HTML", [".html"])
+    xhtml = CodeTypeEnumItem("XHTML", [".xhtml"])
+    yaml = CodeTypeEnumItem("YAML", [".yml"], comment_type=CommentType.HASH)
+    javascript = CodeTypeEnumItem("JavaScript", [".js"], comment_type=CommentType.DOUBLE_SLASH)
+    typescript = CodeTypeEnumItem("TypeScript", [".ts"], comment_type=CommentType.DOUBLE_SLASH)
+    php = CodeTypeEnumItem("PHP", [".php"], comment_type=CommentType.DOUBLE_SLASH)
+    sql = CodeTypeEnumItem("SQL", [".sql"], comment_type=CommentType.DOUBLE_MINUS)
+    css = CodeTypeEnumItem("CSS", [".css"], comment_type=CommentType.SLASH_BLOCK)
+
+    @classmethod
+    def init(cls):
+        ext_to_name_dict = {}
+        code_type_dict = {} # type: dict[str, CodeTypeEnumItem]
+        for key in cls.__dict__:
+            value = getattr(cls, key, None)
+            if isinstance(value, CodeTypeEnumItem):
+                code_type_dict[value.name] = value
+                for ext in value.ext_list:
+                    ext_to_name_dict[ext] = value.name
+        
+        cls.code_type_dict = code_type_dict
+        cls.ext_to_name_dict = ext_to_name_dict
+
+    @classmethod
+    def get_code_type_name_by_ext(cls, ext=""):
+        return cls.ext_to_name_dict.get(ext)
     
     @classmethod
     def get_check_func(cls, code_type):
         """快速检测注释,不是基于语义的,可能不准确"""
-        if code_type in (cls.python, cls.shell, cls.yaml):
-            return CodeType.is_hash_comment
-        if code_type in (cls.java, cls.php, cls.javascript, cls.typescript, cls.go):
-            return CodeType.is_double_slash_comment
-        if code_type in (CodeType.lua, CodeType.sql):
-            return CodeType.is_double_minus_comment
-        if code_type in (CodeType.c_header, CodeType.c):
-            return CodeType.is_slash_block_comment
+        type_info = cls.code_type_dict.get(code_type)
+        if type_info is None:
+            return None
+        
+        if type_info.comment_type == CommentType.HASH:
+            return cls.is_hash_comment
+        if type_info.comment_type == CommentType.DOUBLE_SLASH:
+            return cls.is_double_slash_comment
+        if type_info.comment_type == CommentType.DOUBLE_MINUS:
+            return cls.is_double_minus_comment
+        if type_info.comment_type == CommentType.SLASH_BLOCK:
+            return cls.is_slash_block_comment
+
         return None
     
     @staticmethod
@@ -76,34 +111,7 @@ class CodeType:
             return True
         return line.startswith("/*")
 
-CODE_TYPE_MAPPING = {
-    ".py"   : CodeType.python,
-    ".pyx"  : CodeType.cython,
-
-    ".c"    : CodeType.c,
-    ".h"    : CodeType.c_header,
-    ".cpp"  : CodeType.cpp,
-    ".cc"   : CodeType.cpp,
-    ".hpp"  : CodeType.cpp_header,
-    ".hh"   : CodeType.cpp_header,
-    
-    ".go"   : CodeType.go,
-    ".lua"  : CodeType.lua,
-    ".java" : CodeType.java,
-    ".sh"   : CodeType.shell,
-
-    ".xml"  : CodeType.xml,
-    ".html" : CodeType.html,
-    ".css": CodeType.css,
-    ".xhtml": CodeType.xhtml,
-    ".yml"  : CodeType.yaml,
-    
-    ".js"   : CodeType.javascript,
-    ".ts"   : CodeType.typescript,
-
-    ".php": CodeType.php,
-    ".sql": CodeType.sql,
-}
+CodeTypeEnum.init()
 
 class MyPrinter:
     
@@ -137,8 +145,10 @@ class MyPrinter:
 
 class CodeCounter:
 
-    def __init__(self, dirname, exclude_dirname = None):
-        self.dirname = dirname
+    def __init__(self, dirname_list, exclude_dirname = None, debug=False):
+        if debug:
+            print(f"dirname_list:{dirname_list}, exclude_dirname:{exclude_dirname}")
+        self.dirname_list = dirname_list
         self.exclude_dirname = exclude_dirname
         self.blank_lines_dict = dict()
         self.code_lines_dict = dict() # dict[code_type, code_lines]
@@ -157,7 +167,7 @@ class CodeCounter:
 
     def get_code_type(self, fpath):
         name, ext = os.path.splitext(fpath)
-        return CODE_TYPE_MAPPING.get(ext)
+        return CodeTypeEnum.get_code_type_name_by_ext(ext)
 
     def need_exclude(self, fpath: str):
         for dirname in self.exclude_dirs:
@@ -170,7 +180,7 @@ class CodeCounter:
         blank_lines = 0
         comment_lines = 0
         code_lines = 0
-        is_comment_func = CodeType.get_check_func(code_type)
+        is_comment_func = CodeTypeEnum.get_check_func(code_type)
 
         with open(fpath, "r", encoding = "utf-8", errors="ignore") as fp:
             while True:
@@ -206,21 +216,22 @@ class CodeCounter:
             logging.error(f"process file {fpath} failed, err: {e}")
 
     def count(self):
-        for root, dirs, files in os.walk(self.dirname):
-            for fname in files:
-                fpath = os.path.join(root, fname)
-                fpath = os.path.abspath(fpath)
-                if self.need_exclude(fpath):
-                    continue
-                
-                code_type = self.get_code_type(fpath)
-                if code_type is None:
-                    continue
+        for dirname in self.dirname_list:
+            for root, dirs, files in os.walk(dirname):
+                for fname in files:
+                    fpath = os.path.join(root, fname)
+                    fpath = os.path.abspath(fpath)
+                    if self.need_exclude(fpath):
+                        continue
+                    
+                    code_type = self.get_code_type(fpath)
+                    if code_type is None:
+                        continue
 
-                self.count_lines(code_type, fpath)   
+                    self.count_lines(code_type, fpath)   
 
     def print_info(self):
-        pt = MyPrinter(["Language".ljust(20), "files", "blank", "comment", "code".rjust(10)])
+        pt = MyPrinter(["Language".ljust(20), "files", "blank".ljust(10), "comment".ljust(10), "code".rjust(10)])
         pt.print_line_sep()
         pt.print_headings()
         total_codes = 0
@@ -248,11 +259,12 @@ class CodeCounter:
 
 def main():
     parser = argparse.ArgumentParser(description = "代码行统计工具")
-    parser.add_argument("dirname", help = "代码文件夹", default = "./", nargs = "?")
+    parser.add_argument("dirname", help = "代码文件夹", default = ["./"], nargs = "*")
     parser.add_argument("--exclude", help = "排除的文件夹", nargs = "*")
+    parser.add_argument("--debug", help="是否开启调试", default=False, action="store_true")
     args = parser.parse_args()
 
-    counter = CodeCounter(args.dirname)
+    counter = CodeCounter(args.dirname, debug=args.debug)
     counter.set_exclude_dirs(args.exclude)    
     counter.count()
     counter.print_info()
