@@ -44,7 +44,9 @@ def scan(prefix="", next=[], port=80):
 def main(ip="127.0.0.*", port=80, timeout=1.0):
     ScanConfig.timeout = timeout
     parts = ip.split(".")
-    return scan(prefix="", next=parts, port=port)
+    scan(prefix="", next=parts, port=port)
+    clean_line()
+    print("done")
 
 
 
