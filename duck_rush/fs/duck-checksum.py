@@ -14,7 +14,9 @@ import hashlib
 import os
 import fire
 
-CHUNK_SIZE = 8096
+from io import BufferedReader
+
+CHUNK_SIZE = 8192
 
 hash_dict = {
     "sha1": hashlib.sha1(),
@@ -34,7 +36,7 @@ def get_hash_lib(hash_type=""):
 def calc_checksum(fname="", checksum_type="sha1"):
     """ 计算文件的SHA1值
     """
-    def read_chunks(fh):
+    def read_chunks(fh: BufferedReader):
         fh.seek(0)
         chunk = fh.read(CHUNK_SIZE)
         while chunk:
