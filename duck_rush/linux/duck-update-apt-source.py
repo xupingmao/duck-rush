@@ -39,6 +39,9 @@ def run_with_root():
         os.execvp('sudo', args)  # 替换当前进程为 sudo 进程
 
 def main():
+    if not is_posix_system():
+        print("错误：此脚本仅支持 POSIX 兼容系统（如 Linux、macOS）")
+        sys.exit(1)
     # backup file
     shutil.copyfile(sources_list_file, sources_list_file + ".bak")
     with open(sources_list_file, mode="w+", encoding="utf-8") as fp:
