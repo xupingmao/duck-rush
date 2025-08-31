@@ -14,6 +14,7 @@ import fire
 from datetime import datetime
 
 def format_money(value=0, round_digits=2):
+    value = round(value, round_digits)
     if value < 10000:
         return f"{value}"
     if value < 10000_0000:
@@ -31,7 +32,7 @@ def main(savings=0, work_years=10,
          income_increase_rate=0.05,
          spend=20,
          spend_increase_rate=0.02, 
-         investment_return_rate=0.05,
+         investment_return_rate=0.1,
          start_year=THIS_YEAR,
          total_years=50):
     """投资计算器"""
@@ -50,9 +51,9 @@ def main(savings=0, work_years=10,
         savings = round(savings, round_digits)
 
         print(f"第{year+1}年({abs_year}年)"
-              f"\t年收入: {format_money(income_this_year)}"
-              f"\t投资收入: {format_money(investment)}"
-                f"\t消费支出: {format_money(spend_this_year)}"
+              f"\t年收入: {format_money(income_this_year):6s}"
+              f"\t投资收入: {format_money(investment):6s}"
+                f"\t消费支出: {format_money(spend_this_year):6s}"
                 f"\t存款: {format_money(savings)}")
         income_this_year = income_this_year * (1+income_increase_rate)
         income_this_year = round(income_this_year, round_digits)
