@@ -1,4 +1,79 @@
-<!DOCTYPE html>
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Duck Rush - Web 工具索引生成器
+
+该脚本会扫描 web-tools 目录下的 HTML 文件，并自动生成 web-tools-index.html 文件，
+包含工具卡片、使用说明和工具列表。
+"""
+
+import os
+import datetime
+
+def get_tool_info(filename):
+    """
+    根据文件名获取工具信息
+    
+    Args:
+        filename: HTML 文件名
+    
+    Returns:
+        dict: 包含工具信息的字典
+    """
+    import re
+    
+    # 读取 HTML 文件内容
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 提取 meta 标签信息
+        name_match = re.search(r'<meta name="tool-name" content="([^"]*)"', content)
+        description_match = re.search(r'<meta name="tool-description" content="([^"]*)"', content)
+        
+        # 构建工具信息
+        tool_info = {
+            'name': name_match.group(1) if name_match else os.path.splitext(filename)[0].replace('-', ' ').title(),
+            'description': description_match.group(1) if description_match else 'Duck Rush 项目中的 Web 工具。'
+        }
+        
+        return tool_info
+    except Exception as e:
+        # 异常情况下返回默认信息
+        name = os.path.splitext(filename)[0].replace('-', ' ').title()
+        return {
+            'name': name,
+            'description': 'Duck Rush 项目中的 Web 工具。'
+        }
+
+def generate_html(tools, html_files):
+    """
+    生成 HTML 内容
+    
+    Args:
+        tools: 工具信息列表
+        html_files: HTML 文件列表
+    
+    Returns:
+        str: 生成的 HTML 内容
+    """
+    current_year = datetime.datetime.now().year
+    
+    # 生成工具卡片
+    tool_cards = []
+    for i, tool_info in enumerate(tools):
+        filename = html_files[i]
+        tool_cards.append(f'''
+                    <div class="tool-card">
+                        <h3 class="tool-title">{tool_info['name']}</h3>
+                        <p class="tool-description">{tool_info['description']}</p>
+                        <a href="{filename}" class="tool-link">打开工具</a>
+                    </div>
+        ''')
+    
+    # HTML 模板
+    html_template = '''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -204,25 +279,7 @@
             <section>
                 <h2 class="section-title">🔧 可用工具</h2>
                 <div class="tools-grid">
-                    
-                    <div class="tool-card">
-                        <h3 class="tool-title">投资计算器</h3>
-                        <p class="tool-description">基于长期投资和储蓄的财务规划工具，帮助您预测未来财务状况。</p>
-                        <a href="investment-calculator.html" class="tool-link">打开工具</a>
-                    </div>
-        
-                    <div class="tool-card">
-                        <h3 class="tool-title">工具中心</h3>
-                        <p class="tool-description">集成了各种 Web 工具的综合管理界面，支持分类浏览和快速访问。</p>
-                        <a href="tool-hub.html" class="tool-link">打开工具</a>
-                    </div>
-        
-                    <div class="tool-card">
-                        <h3 class="tool-title">Web工具面板</h3>
-                        <p class="tool-description">提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。</p>
-                        <a href="web-tool-panel.html" class="tool-link">打开工具</a>
-                    </div>
-        
+                    {tool_cards}
                 </div>
             </section>
 
@@ -241,8 +298,44 @@
         </main>
 
         <footer>
-            <p class="footer-text">© 2026 Duck Rush 项目 | Web 工具索引</p>
+            <p class="footer-text">© {current_year} Duck Rush 项目 | Web 工具索引</p>
         </footer>
     </div>
 </body>
-</html>
+</html>'''
+    
+    # 替换占位符
+    html_content = html_template.replace('{tool_cards}', ''.join(tool_cards))
+    html_content = html_content.replace('{current_year}', str(current_year))
+    
+    return html_content
+
+def main():
+    """
+    主函数
+    """
+    # 获取 web-tools 目录路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # 扫描 HTML 文件
+    html_files = [f for f in os.listdir(current_dir) if f.endswith('.html') and f != 'web-tools-index.html']
+    html_files.sort()
+    
+    # 获取工具信息
+    tools = [get_tool_info(f) for f in html_files]
+    
+    # 生成 HTML
+    html_content = generate_html(tools, html_files)
+    
+    # 写入文件
+    output_file = os.path.join(current_dir, 'web-tools-index.html')
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    
+    print(f"✅ Web 工具索引已生成：{output_file}")
+    print(f"📁 扫描到 {len(html_files)} 个工具文件：")
+    for file in html_files:
+        print(f"   - {file}")
+
+if __name__ == '__main__':
+    main()
