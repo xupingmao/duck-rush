@@ -179,10 +179,23 @@ def install_for_windows():
 
     print("")
     print("脚本安装完成!")
-    msg = f"*注意* Windows需要手动配置环境变量 {user_profile_path}\\duck_rush"
-    print(termcolor.colored(msg, "red"))
-    print("打开SystemPropertiesAdvanced进行配置...")
-    os.system("SystemPropertiesAdvanced.exe")
+    
+    # 检查环境变量是否已经设置
+    path_env = os.environ.get("PATH", "")
+    duck_bin_dir_normalized = duck_bin_dir.replace("\\", "/")
+    path_env_normalized = path_env.replace("\\", "/")
+    
+    if duck_bin_dir_normalized in path_env_normalized:
+        # 环境变量已经设置
+        msg = f"环境变量已经设置: {duck_bin_dir}"
+        print(termcolor.colored(msg, "green"))
+        print("无需再配置环境变量，可直接使用duck_rush工具!")
+    else:
+        # 环境变量未设置
+        msg = f"*注意* Windows需要手动配置环境变量 {duck_bin_dir}"
+        print(termcolor.colored(msg, "red"))
+        print("打开SystemPropertiesAdvanced进行配置...")
+        os.system("SystemPropertiesAdvanced.exe")
 
 
 def install_for_unix():
