@@ -1,0 +1,3017 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导航中心</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 100%;
+        }
+
+        /* 左侧分类导航 - PC端 */
+        .sidebar {
+            width: 240px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-title {
+            font-size: 1.4rem;
+            color: #444;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-subtitle {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .category-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px 0;
+        }
+
+        .sidebar-footer {
+            padding: 20px 0 0 0;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .category-item {
+            padding: 12px 20px;
+            color: #555;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+        }
+
+        .category-item:hover {
+            background: rgba(120, 182, 178, 0.1);
+            color: #4a8a86;
+        }
+
+        .category-item.active {
+            background: rgba(120, 182, 178, 0.15);
+            color: #4a8a86;
+            border-left-color: #4a8a86;
+        }
+
+        .category-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            opacity: 0.8;
+        }
+
+        .category-name {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .category-count {
+            font-size: 0.8rem;
+            background: rgba(120, 182, 178, 0.1);
+            color: #4a8a86;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        /* 右侧主内容区 */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 15px;
+            color: white;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 30px;
+            padding: 12px 25px;
+            width: 100%;
+            max-width: 700px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .search-box:focus-within {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .search-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            opacity: 0.7;
+        }
+
+        #searchInput {
+            border: none;
+            outline: none;
+            flex-grow: 1;
+            font-size: 1rem;
+            color: #333;
+        }
+
+        #searchInput::placeholder {
+            color: #999;
+        }
+
+        .tools-container {
+            padding: 25px;
+        }
+
+        .category-section {
+            margin-bottom: 40px;
+            scroll-margin-top: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #444;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+            opacity: 0.8;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .link-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: #444;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+            border: 1px solid #f1f1f1;
+        }
+
+        .link-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(120, 182, 178, 0.15);
+            border-color: #c1e0dd;
+        }
+
+        .link-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: #f8f8f8;
+        }
+
+        .link-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .link-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .link-info h3 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .link-info p {
+            font-size: 0.8rem;
+            color: #777;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-switcher {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .theme-switcher span {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .theme-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .theme-btn {
+            padding: 6px 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .theme-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .theme-btn.active {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+        }
+
+        /* 暗黑主题 */
+        body.theme-dark {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .sidebar {
+            background: rgba(30, 41, 59, 0.92);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-dark .sidebar-title {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .sidebar-subtitle {
+            color: #a0aec0;
+        }
+
+        body.theme-dark .category-item {
+            color: #a0aec0;
+        }
+
+        body.theme-dark .category-item:hover {
+            background: rgba(79, 209, 197, 0.1);
+            color: #4fd1c5;
+        }
+
+        body.theme-dark .category-item.active {
+            background: rgba(79, 209, 197, 0.15);
+            color: #4fd1c5;
+            border-left-color: #4fd1c5;
+        }
+
+        body.theme-dark .category-count {
+            background: rgba(79, 209, 197, 0.1);
+            color: #4fd1c5;
+        }
+
+        body.theme-dark header {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        body.theme-dark .search-box {
+            background: #2d3748;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        body.theme-dark #searchInput {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark #searchInput::placeholder {
+            color: #718096;
+        }
+
+        body.theme-dark .tools-container {
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        body.theme-dark .category-section {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        body.theme-dark .section-title {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .link-card {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .link-card:hover {
+            box-shadow: 0 8px 20px rgba(79, 209, 197, 0.2);
+            border-color: #4fd1c5;
+        }
+
+        body.theme-dark .link-info h3 {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .link-info p {
+            color: #a0aec0;
+        }
+
+        body.theme-dark footer {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        body.theme-dark .settings-page {
+            background: rgba(30, 41, 59, 0.98);
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .settings-section {
+            background: #2d3748;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        body.theme-dark .settings-section h3 {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .category-sidebar,
+        body.theme-dark .category-content {
+            background: #2d3748;
+        }
+
+        body.theme-dark .category-sidebar-title {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .category-list-item {
+            background: #1a202c;
+            border-color: #4a5568;
+        }
+
+        body.theme-dark .category-list-item:hover {
+            border-color: #4fd1c5;
+        }
+
+        body.theme-dark .category-list-item.active {
+            border-color: #4fd1c5;
+            background: rgba(79, 209, 197, 0.1);
+        }
+
+        body.theme-dark .category-list-item-name {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .category-list-item-desc {
+            color: #a0aec0;
+        }
+
+        body.theme-dark .category-list-item-count {
+            background: rgba(79, 209, 197, 0.1);
+            color: #4fd1c5;
+        }
+
+        body.theme-dark .category-content-title {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .tool-item {
+            background: #1a202c;
+            border-color: #4a5568;
+        }
+
+        body.theme-dark .tool-info h4 {
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .tool-info p {
+            color: #a0aec0;
+        }
+
+        body.theme-dark .tool-info small {
+            color: #718096;
+        }
+
+        body.theme-dark .form-control {
+            background: #1a202c;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+
+        body.theme-dark .form-control:focus {
+            border-color: #4fd1c5;
+        }
+
+        body.theme-dark .btn-primary {
+            background: #4fd1c5;
+        }
+
+        body.theme-dark .btn-primary:hover {
+            background: #38b2ac;
+        }
+
+        body.theme-dark .close-settings-btn {
+            background: #4fd1c5;
+        }
+
+        body.theme-dark .close-settings-btn:hover {
+            background: #38b2ac;
+        }
+
+        body.theme-dark .settings-tab:hover {
+            color: #4fd1c5;
+        }
+
+        body.theme-dark .settings-tab.active {
+            color: #4fd1c5;
+        }
+
+        body.theme-dark .settings-tab.active::after {
+            background: #4fd1c5;
+        }
+
+        /* 科技蓝色主题 */
+        body.theme-tech {
+            background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+            color: #333;
+        }
+
+        body.theme-tech .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-right: 1px solid rgba(147, 197, 253, 0.3);
+        }
+
+        body.theme-tech .sidebar-title {
+            color: #444;
+        }
+
+        body.theme-tech .sidebar-subtitle {
+            color: #666;
+        }
+
+        body.theme-tech .category-item {
+            color: #555;
+        }
+
+        body.theme-tech .btn-primary {
+            background: #60a5fa;
+        }
+
+        body.theme-tech .btn-primary:hover {
+            background: #3b82f6;
+        }
+
+        body.theme-tech .category-item:hover {
+            background: rgba(96, 165, 250, 0.15);
+            color: #4a8a86;
+        }
+
+        body.theme-tech .category-item.active {
+            background: rgba(96, 165, 250, 0.2);
+            color: #4a8a86;
+            border-left-color: #60a5fa;
+        }
+
+        body.theme-tech .category-count {
+            background: rgba(96, 165, 250, 0.15);
+            color: #4a8a86;
+        }
+
+        body.theme-tech .search-box {
+            background: white;
+            box-shadow: 0 8px 25px rgba(96, 165, 250, 0.2);
+        }
+
+        body.theme-tech #searchInput {
+            color: #333;
+        }
+
+        body.theme-tech #searchInput::placeholder {
+            color: #999;
+        }
+
+        body.theme-tech .tools-container {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        body.theme-tech .category-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            box-shadow: 0 4px 12px rgba(96, 165, 250, 0.1);
+        }
+
+        body.theme-tech .section-title {
+            color: #444;
+        }
+
+        body.theme-tech .link-card {
+            background: white;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            color: #444;
+        }
+
+        body.theme-tech .link-card:hover {
+            box-shadow: 0 8px 20px rgba(96, 165, 250, 0.3);
+            border-color: #60a5fa;
+            transform: translateY(-3px);
+        }
+
+        body.theme-tech .link-info h3 {
+            color: #444;
+        }
+
+        body.theme-tech .link-info p {
+            color: #777;
+        }
+
+        body.theme-tech footer {
+            background: rgba(0, 0, 0, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        body.theme-tech .theme-switcher span {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        body.theme-tech .theme-btn {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        body.theme-tech .theme-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        body.theme-tech .theme-btn.active {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: white;
+        }
+
+        body.theme-tech .close-settings-btn {
+            background: #4a8a86;
+        }
+
+        body.theme-tech .close-settings-btn:hover {
+            background: #3a706c;
+        }
+
+        body.theme-tech .settings-tab:hover {
+            color: #4a8a86;
+        }
+
+        body.theme-tech .settings-tab.active {
+            color: #4a8a86;
+        }
+
+        body.theme-tech .settings-tab.active::after {
+            background: #4a8a86;
+        }
+
+        body.theme-tech .settings-page {
+            background: rgba(255, 255, 255, 0.98);
+            color: #333;
+        }
+
+        body.theme-tech .settings-section {
+            background: white;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+        }
+
+        body.theme-tech .settings-section h3 {
+            color: #333;
+        }
+
+        body.theme-tech .category-sidebar,
+        body.theme-tech .category-content {
+            background: #f8f8f8;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+        }
+
+        body.theme-tech .category-sidebar-title {
+            color: #333;
+        }
+
+        body.theme-tech .category-list-item {
+            background: white;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+        }
+
+        body.theme-tech .category-list-item:hover {
+            border-color: #60a5fa;
+            background: rgba(240, 249, 255, 0.8);
+        }
+
+        body.theme-tech .category-list-item.active {
+            border-color: #60a5fa;
+            background: rgba(239, 246, 255, 0.9);
+        }
+
+        body.theme-tech .category-list-item-name {
+            color: #333;
+        }
+
+        body.theme-tech .category-list-item-desc {
+            color: #666;
+        }
+
+        body.theme-tech .category-list-item-count {
+            background: rgba(96, 165, 250, 0.15);
+            color: #4a8a86;
+        }
+
+        body.theme-tech .category-content-title {
+            color: #333;
+        }
+
+        body.theme-tech .tool-item {
+            background: white;
+            border: 1px solid #eee;
+        }
+
+        body.theme-tech .tool-info h4 {
+            color: #333;
+        }
+
+        body.theme-tech .tool-info p {
+            color: #666;
+        }
+
+        body.theme-tech .tool-info small {
+            color: #888;
+        }
+
+        body.theme-tech .form-control {
+            background: white;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            color: #333;
+        }
+
+        body.theme-tech .form-control:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        body.theme-tech .import-export-box {
+            border: 2px dashed rgba(96, 165, 250, 0.3);
+        }
+
+        body.theme-tech .import-export-box:hover {
+            border-color: #60a5fa;
+        }
+
+        body.theme-tech .file-label {
+            background: #764ba2;
+        }
+
+        body.theme-tech .file-label:hover {
+            background: #5d3a82;
+        }
+
+        body.theme-tech .backup-info {
+            color: #666;
+        }
+
+        body.theme-tech .dialog {
+            background: white;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            color: #333;
+        }
+
+        body.theme-tech .dialog-title {
+            color: #333;
+        }
+
+        body.theme-tech .dialog-close {
+            background: #f8f8f8;
+            color: #333;
+        }
+
+        body.theme-tech .dialog-close:hover {
+            background: #eee;
+            color: #333;
+        }
+
+        body.theme-tech .dialog-content p {
+            color: #333;
+        }
+
+        /* 简约主题 */
+        body.theme-minimal {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #334155;
+        }
+
+        body.theme-minimal header {
+            background: rgba(255, 255, 255, 0.9);
+            color: #334155;
+        }
+
+        body.theme-minimal .sidebar {
+            background: rgba(255, 255, 255, 0.92);
+            border-right: 1px solid #e2e8f0;
+        }
+
+        body.theme-minimal .category-item {
+            color: #475569;
+        }
+
+        body.theme-minimal .category-item:hover {
+            background: rgba(100, 116, 139, 0.1);
+            color: #64748b;
+        }
+
+        body.theme-minimal .category-item.active {
+            background: rgba(100, 116, 139, 0.15);
+            color: #64748b;
+            border-left-color: #64748b;
+        }
+
+        body.theme-minimal .category-count {
+            background: rgba(100, 116, 139, 0.1);
+            color: #64748b;
+        }
+
+        body.theme-minimal .search-box {
+            background: white;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        body.theme-minimal #searchInput {
+            color: #334155;
+        }
+
+        body.theme-minimal .tools-container {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        body.theme-minimal .category-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        body.theme-minimal .section-title {
+            color: #334155;
+        }
+
+        body.theme-minimal .link-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+        }
+
+        body.theme-minimal .link-card:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
+        }
+
+        body.theme-minimal .link-info h3 {
+            color: #334155;
+        }
+
+        body.theme-minimal .link-info p {
+            color: #64748b;
+        }
+
+        body.theme-minimal footer {
+            background: rgba(0, 0, 0, 0.05);
+            color: #64748b;
+        }
+
+        body.theme-minimal .theme-switcher span {
+            color: #334155;
+        }
+
+        body.theme-minimal .theme-btn {
+            border: 2px solid rgba(100, 116, 139, 0.3);
+            background: rgba(100, 116, 139, 0.1);
+            color: #334155;
+        }
+
+        body.theme-minimal .theme-btn:hover {
+            background: rgba(100, 116, 139, 0.2);
+        }
+
+        body.theme-minimal .theme-btn.active {
+            background: rgba(100, 116, 139, 0.3);
+            border-color: rgba(100, 116, 139, 0.8);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 30px;
+            color: #888;
+            font-size: 0.95rem;
+            display: none;
+        }
+
+        .no-results svg {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        .stats {
+            font-size: 0.85rem;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* PC端侧边栏布局调整 */
+        @media (min-width: 769px) {
+            .sidebar {
+                padding-bottom: 20px;
+            }
+        }
+
+        /* 设置页面 */
+        .settings-page {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 240px;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .settings-page.active {
+            display: block;
+        }
+        
+        /* 移动端设置页面 */
+        @media (max-width: 768px) {
+            .settings-page {
+                left: 0;
+                z-index: 1000;
+                padding-bottom: 80px;
+            }
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .settings-title {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .close-settings-btn {
+            position: relative;
+            right: 0;
+            top: 0;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: #4a8a86;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .close-settings-btn:hover {
+            background: #3a706c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .close-settings-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .settings-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .settings-tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .settings-tab:hover {
+            color: #4a8a86;
+        }
+
+        .settings-tab.active {
+            color: #4a8a86;
+            font-weight: 600;
+        }
+
+        .settings-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #4a8a86;
+        }
+        
+        /* 移动端设置页面样式 */
+        @media (max-width: 768px) {
+            .settings-page {
+                padding: 15px;
+            }
+            
+            .settings-header {
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+            
+            .settings-title {
+                font-size: 1.5rem;
+                margin-bottom: 5px;
+            }
+            
+            .close-settings-btn {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .settings-tabs {
+                margin-bottom: 20px;
+            }
+            
+            .settings-tab {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+                flex: 1;
+                text-align: center;
+            }
+        }
+
+        .settings-tab-content {
+            display: none;
+        }
+
+        .settings-tab-content.active {
+            display: block;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .settings-section h3 {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .category-manager {
+            display: flex;
+            gap: 20px;
+        }
+
+        .category-sidebar {
+            width: 280px;
+            background: #f8f8f8;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+
+        .category-content {
+            flex: 1;
+            background: #f8f8f8;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        
+        /* 移动端分类管理样式 */
+        @media (max-width: 768px) {
+            .category-manager {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .category-sidebar {
+                width: 100%;
+                max-height: 250px;
+                padding: 15px;
+            }
+            
+            .category-content {
+                max-height: 300px;
+                padding: 15px;
+            }
+            
+            .category-list-item {
+                padding: 12px;
+            }
+            
+            .category-list-item-actions {
+                gap: 6px;
+            }
+            
+            .category-list-item-actions .btn {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .tool-item {
+                padding: 12px;
+            }
+            
+            .tool-actions .btn {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        .category-sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .category-sidebar-title {
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        .category-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .category-list-item {
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .category-list-item:hover {
+            border-color: #c1e0dd;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .category-list-item.active {
+            border-color: #4a8a86;
+            background: rgba(120, 182, 178, 0.05);
+        }
+
+        .category-list-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-list-item-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .category-list-item-count {
+            font-size: 0.8rem;
+            background: rgba(120, 182, 178, 0.1);
+            color: #4a8a86;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .category-list-item-desc {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .category-list-item-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 5px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .category-list-item-actions .btn {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .category-content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .category-content-title {
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        .tool-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tool-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .tool-info h4 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .tool-info p {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .tool-info small {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .tool-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4a8a86;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: #4a8a86;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3a706c;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-primary {
+            background: #764ba2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5d3a82;
+        }
+
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #555;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        /* 移动端按钮和表单元素样式 */
+        @media (max-width: 768px) {
+            .btn {
+                padding: 14px 24px;
+                font-size: 1rem;
+                min-height: 48px;
+            }
+            
+            .btn-sm {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+                min-height: 40px;
+            }
+            
+            .form-control {
+                padding: 14px 16px;
+                font-size: 1rem;
+                min-height: 48px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn-group .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        .import-export-box {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .import-export-box:hover {
+            border-color: #764ba2;
+        }
+
+        .file-input {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #764ba2;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .file-label:hover {
+            background: #5d3a82;
+        }
+
+        .backup-info {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        /* 对话框样式 */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            display: none;
+        }
+
+        .dialog-overlay.active {
+            display: flex;
+        }
+
+        .dialog {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .dialog-title {
+            font-size: 1.4rem;
+            color: #333;
+        }
+
+        .dialog-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #f8f8f8;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .dialog-close:hover {
+            background: #eee;
+        }
+
+        .dialog-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .alert-dialog,
+        .confirm-dialog {
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .dialog-content {
+            padding: 20px 0;
+        }
+
+        .dialog-content p {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #333;
+            text-align: center;
+        }
+        
+        /* 移动端对话框样式 */
+        @media (max-width: 768px) {
+            .dialog {
+                padding: 20px;
+                width: 95%;
+                max-width: 95%;
+            }
+            
+            .dialog-header {
+                margin-bottom: 15px;
+            }
+            
+            .dialog-title {
+                font-size: 1.2rem;
+            }
+            
+            .dialog-close {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .dialog-content {
+                padding: 15px 0;
+            }
+            
+            .dialog-content p {
+                font-size: 0.95rem;
+                line-height: 1.4;
+            }
+            
+            .dialog-footer {
+                margin-top: 15px;
+                gap: 8px;
+                flex-direction: column;
+            }
+            
+            .dialog-footer .btn {
+                padding: 12px;
+                font-size: 1rem;
+                text-align: center;
+            }
+        }
+
+        /* 移动端样式 - 隐藏左侧导航 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                padding: 0;
+            }
+            
+            .tools-container {
+                padding: 20px;
+            }
+            
+            .links-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .link-card {
+                padding: 12px;
+            }
+            
+            .link-icon {
+                width: 36px;
+                height: 36px;
+                margin-right: 10px;
+            }
+            
+            .link-icon svg {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .settings-page {
+                padding: 15px;
+            }
+            
+            .category-manager {
+                flex-direction: column;
+            }
+            
+            .category-sidebar {
+                width: 100%;
+                max-height: 300px;
+            }
+            
+            .category-content {
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .links-grid {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            }
+            
+            .close-settings-btn {
+                padding: 10px 14px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        /* 移动端底部导航栏 */
+        .mobile-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            z-index: 1500;
+            display: none;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        
+        .nav-item.active {
+            color: #3b82f6;
+        }
+        
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 5px;
+            fill: currentColor;
+        }
+        
+        .nav-label {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        /* 移动端显示导航栏 */
+        @media (max-width: 768px) {
+            .mobile-nav {
+                display: flex;
+            }
+            
+            /* 调整主内容区底部边距，避免被导航栏遮挡 */
+            .main-content {
+                padding-bottom: 80px;
+            }
+            
+            /* 调整设置页面底部边距 */
+            .settings-page {
+                padding-bottom: 80px;
+            }
+        }
+        
+        /* 小屏幕移动端适配 */
+        @media (max-width: 480px) {
+            .mobile-nav {
+                padding: 8px 0;
+            }
+            
+            .nav-icon {
+                width: 22px;
+                height: 22px;
+            }
+            
+            .nav-label {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧分类导航 - PC端显示 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">工具分类</h2>
+                <p class="sidebar-subtitle">快速切换分类</p>
+            </div>
+            <div class="category-nav" id="categoryNav">
+                <!-- 分类导航将通过JavaScript动态生成 -->
+            </div>
+            <div class="sidebar-footer">
+                <div class="category-item" id="settingsBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="category-icon">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                    </svg>
+                    <span class="category-name">设置</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧主内容区 -->
+        <div class="main-content">
+            <header>
+                <h1>导航中心</h1>
+                <p class="subtitle">专注效率，快速访问，已收录 <span id="totalCount">0</span> 个工具</p>
+                <div class="search-box">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="输入关键词搜索工具...">
+                </div>
+            </header>
+
+            <div class="tools-container">
+                <div id="categoriesContainer">
+                    <!-- 分类将通过JavaScript动态生成 -->
+                </div>
+
+                <div class="no-results" id="noResults">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                    <p>没有找到匹配的工具，请尝试其他关键词。</p>
+                </div>
+            </div>
+
+            <footer>
+                <div class="theme-switcher">
+                    <span>主题风格:</span>
+                    <div class="theme-options">
+                        <button class="theme-btn" data-theme="default">小清新</button>
+                        <button class="theme-btn" data-theme="dark">暗黑</button>
+                        <button class="theme-btn" data-theme="tech">科技蓝</button>
+                        <button class="theme-btn" data-theme="minimal">简约</button>
+                    </div>
+                </div>
+                <p class="stats">页面加载时间: <span id="loadTime">0</span>ms | 最后更新: <span id="lastUpdate">2023-12-01</span></p>
+            </footer>
+        </div>
+    </div>
+
+
+
+    <!-- 移动端底部导航栏 -->
+    <div class="mobile-nav">
+        <div class="nav-item active" data-page="main">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="nav-icon">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+            <span class="nav-label">主页</span>
+        </div>
+        <div class="nav-item" data-page="settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="nav-icon">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+            <span class="nav-label">设置</span>
+        </div>
+    </div>
+
+    <!-- 设置页面 -->
+    <div class="settings-page" id="settingsPage">
+        <div class="settings-header">
+            <div>
+                <h1 class="settings-title">设置中心</h1>
+                <p>管理您的工具和分类</p>
+            </div>
+
+        </div>
+        
+        <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="categories">分类管理</button>
+            <button class="settings-tab" data-tab="import-export">导入/导出</button>
+        </div>
+        
+        <!-- 分类管理标签页 -->
+        <div class="settings-tab-content active" id="categories-tab">
+            <div class="settings-section">
+                <h3>分类管理</h3>
+                <p>管理您的工具分类和对应的工具</p>
+                
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="addCategoryDialogBtn">添加分类</button>
+                    <button class="btn btn-primary" id="addToolDialogBtn">添加工具</button>
+                </div>
+                
+                <div class="category-manager">
+                    <div class="category-sidebar">
+                        <div class="category-sidebar-header">
+                            <h4 class="category-sidebar-title">分类列表</h4>
+                        </div>
+                        <div class="category-list" id="categoryList">
+                            <!-- 分类列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <div class="category-content">
+                        <div class="category-content-header">
+                            <h4 class="category-content-title" id="selectedCategoryTitle">请选择一个分类</h4>
+                        </div>
+                        <div class="tool-list" id="toolList">
+                            <!-- 工具列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 导入/导出标签页 -->
+        <div class="settings-tab-content" id="import-export-tab">
+            <div class="settings-section">
+                <h3>导出数据</h3>
+                <p>导出当前的所有工具数据，方便备份或迁移。</p>
+                <div class="import-export-box">
+                    <p>导出格式：JSON (包含版本信息)</p>
+                    <button class="btn btn-primary" id="exportBtn">导出数据</button>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>导入数据</h3>
+                <p>导入之前导出的工具数据文件。注意：导入会覆盖当前数据。</p>
+                <div class="import-export-box">
+                    <input type="file" id="importFile" class="file-input" accept=".json">
+                    <label for="importFile" class="file-label">选择文件</label>
+                    <p id="selectedFile"></p>
+                    <button class="btn btn-success" id="importBtn" disabled>导入数据</button>
+                </div>
+                <p class="backup-info">建议在导入前先导出当前数据进行备份。</p>
+            </div>
+            
+            <div class="settings-section">
+                <h3>重置数据</h3>
+                <p>重置为默认的工具数据，当前数据将被清空。</p>
+                <button class="btn btn-danger" id="resetBtn">重置为默认数据</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加分类对话框 -->
+    <div class="dialog-overlay" id="categoryDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">添加分类</h3>
+                <button class="dialog-close" id="closeCategoryDialog">×</button>
+            </div>
+            <form id="addCategoryForm">
+                <div class="form-group">
+                    <label for="categoryName">分类名称</label>
+                    <input type="text" id="categoryName" class="form-control" placeholder="输入分类名称" required>
+                </div>
+                <div class="dialog-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelCategoryDialog">取消</button>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 编辑分类对话框 -->
+    <div class="dialog-overlay" id="editCategoryDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">编辑分类</h3>
+                <button class="dialog-close" id="closeEditCategoryDialog">×</button>
+            </div>
+            <form id="editCategoryForm">
+                <input type="hidden" id="editCategoryId">
+                <div class="form-group">
+                    <label for="editCategoryName">分类名称</label>
+                    <input type="text" id="editCategoryName" class="form-control" placeholder="输入分类名称" required>
+                </div>
+                <div class="dialog-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelEditCategoryDialog">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 提示对话框 -->
+    <div class="dialog-overlay" id="alertDialog" style="display: none;">
+        <div class="dialog alert-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title" id="alertTitle">提示</h3>
+            </div>
+            <div class="dialog-content">
+                <p id="alertMessage"></p>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-primary" id="alertOkBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="dialog-overlay" id="confirmDialog" style="display: none;">
+        <div class="dialog confirm-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title" id="confirmTitle">确认操作</h3>
+            </div>
+            <div class="dialog-content">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" id="confirmCancelBtn">取消</button>
+                <button class="btn btn-primary" id="confirmOkBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加工具对话框 -->
+    <div class="dialog-overlay" id="toolDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">添加工具</h3>
+                <button class="dialog-close" id="closeToolDialog">×</button>
+            </div>
+            <form id="addToolForm">
+                <div class="form-group">
+                    <label for="toolCategory">选择分类</label>
+                    <select id="toolCategory" class="form-control" required>
+                        <!-- 分类将通过JavaScript动态生成 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="toolName">工具名称</label>
+                    <input type="text" id="toolName" class="form-control" placeholder="输入工具名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="toolUrl">工具网址</label>
+                    <input type="url" id="toolUrl" class="form-control" placeholder="https://example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="toolDesc">工具描述</label>
+                    <input type="text" id="toolDesc" class="form-control" placeholder="输入工具描述" required>
+                </div>
+                <div class="dialog-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelToolDialog">取消</button>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Schema版本
+        const SCHEMA_VERSION = 1;
+        
+        // 默认工具数据
+        const defaultToolData = [
+            {
+                id: "development",
+                name: "开发工具",
+                icon: "M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z",
+                tools: [
+                    { name: "GitHub", url: "https://github.com", desc: "代码托管平台" },
+                    { name: "GitLab", url: "https://gitlab.com", desc: "DevOps平台" },
+                    { name: "Bitbucket", url: "https://bitbucket.org", desc: "Git代码托管" },
+                    { name: "Stack Overflow", url: "https://stackoverflow.com", desc: "开发者问答社区" },
+                    { name: "MDN Web Docs", url: "https://developer.mozilla.org", desc: "Web技术文档" },
+                    { name: "npm", url: "https://www.npmjs.com", desc: "JavaScript包管理器" },
+                    { name: "Docker Hub", url: "https://hub.docker.com", desc: "容器镜像仓库" },
+                    { name: "Vue.js", url: "https://vuejs.org", desc: "JavaScript框架" },
+                    { name: "React", url: "https://reactjs.org", desc: "UI库" },
+                    { name: "Angular", url: "https://angular.io", desc: "Web应用框架" },
+                    { name: "Node.js", url: "https://nodejs.org", desc: "JavaScript运行时" },
+                    { name: "Python", url: "https://www.python.org", desc: "编程语言" },
+                    { name: "Java", url: "https://www.java.com", desc: "编程语言" },
+                    { name: "Go", url: "https://golang.org", desc: "编程语言" },
+                    { name: "Rust", url: "https://www.rust-lang.org", desc: "系统编程语言" },
+                    { name: "VS Code", url: "https://code.visualstudio.com", desc: "代码编辑器" },
+                    { name: "JetBrains", url: "https://www.jetbrains.com", desc: "开发工具" },
+                    { name: "Postman", url: "https://www.postman.com", desc: "API测试工具" },
+                    { name: "Swagger", url: "https://swagger.io", desc: "API文档工具" },
+                    { name: "Jira", url: "https://www.atlassian.com/software/jira", desc: "项目管理和问题跟踪" }
+                ]
+            },
+            {
+                id: "productivity",
+                name: "效率工具",
+                icon: "M4 13h6c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1zm0 8h6c.55 0 1-.45 1-1v-4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1zm10 0h6c.55 0 1-.45 1-1v-8c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1zM13 4v4c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1z",
+                tools: [
+                    { name: "Google", url: "https://www.google.com", desc: "搜索引擎" },
+                    { name: "Gmail", url: "https://mail.google.com", desc: "电子邮件" },
+                    { name: "Google Drive", url: "https://drive.google.com", desc: "云存储" },
+                    { name: "Google Docs", url: "https://docs.google.com", desc: "在线文档" },
+                    { name: "Google Sheets", url: "https://sheets.google.com", desc: "在线表格" },
+                    { name: "Google Slides", url: "https://slides.google.com", desc: "在线演示" },
+                    { name: "Notion", url: "https://www.notion.so", desc: "笔记和项目管理" },
+                    { name: "Trello", url: "https://trello.com", desc: "项目管理看板" },
+                    { name: "Asana", url: "https://asana.com", desc: "团队协作工具" },
+                    { name: "Slack", url: "https://slack.com", desc: "团队沟通工具" },
+                    { name: "Microsoft Teams", url: "https://teams.microsoft.com", desc: "团队协作平台" },
+                    { name: "Zoom", url: "https://zoom.us", desc: "视频会议" },
+                    { name: "Dropbox", url: "https://www.dropbox.com", desc: "文件同步和共享" },
+                    { name: "OneDrive", url: "https://onedrive.live.com", desc: "微软云存储" },
+                    { name: "Evernote", url: "https://evernote.com", desc: "笔记应用" },
+                    { name: "Todoist", url: "https://todoist.com", desc: "任务管理" },
+                    { name: "Grammarly", url: "https://www.grammarly.com", desc: "语法检查工具" },
+                    { name: "Canva", url: "https://www.canva.com", desc: "在线设计工具" },
+                    { name: "Figma", url: "https://www.figma.com", desc: "界面设计工具" },
+                    { name: "Adobe Creative Cloud", url: "https://www.adobe.com/creativecloud.html", desc: "创意软件套件" }
+                ]
+            },
+            {
+                id: "learning",
+                name: "学习资源",
+                icon: "M12 3L1 9l11 6 9-5v6h2V9l-11-6zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z",
+                tools: [
+                    { name: "Coursera", url: "https://www.coursera.org", desc: "在线课程平台" },
+                    { name: "edX", url: "https://www.edx.org", desc: "在线学习平台" },
+                    { name: "Udemy", url: "https://www.udemy.com", desc: "技能学习平台" },
+                    { name: "Khan Academy", url: "https://www.khanacademy.org", desc: "免费在线教育" },
+                    { name: "YouTube", url: "https://www.youtube.com", desc: "视频学习平台" },
+                    { name: "Medium", url: "https://medium.com", desc: "文章和教程" },
+                    { name: "知乎", url: "https://www.zhihu.com", desc: "问答社区" },
+                    { name: "B站", url: "https://www.bilibili.com", desc: "视频学习社区" },
+                    { name: "Stack Exchange", url: "https://stackexchange.com", desc: "问答网络" },
+                    { name: "Quora", url: "https://www.quora.com", desc: "知识分享社区" },
+                    { name: "Wikipedia", url: "https://www.wikipedia.org", desc: "在线百科全书" },
+                    { name: "GitHub Learning", url: "https://skills.github.com", desc: "GitHub学习资源" },
+                    { name: "freeCodeCamp", url: "https://www.freecodecamp.org", desc: "免费编程学习" },
+                    { name: "Codecademy", url: "https://www.codecademy.com", desc: "交互式编程学习" },
+                    { name: "LeetCode", url: "https://leetcode.com", desc: "算法练习平台" },
+                    { name: "HackerRank", url: "https://www.hackerrank.com", desc: "编程挑战平台" },
+                    { name: "Kaggle", url: "https://www.kaggle.com", desc: "数据科学社区" },
+                    { name: "arXiv", url: "https://arxiv.org", desc: "学术论文预印本" },
+                    { name: "Google Scholar", url: "https://scholar.google.com", desc: "学术搜索引擎" },
+                    { name: "ResearchGate", url: "https://www.researchgate.net", desc: "科研社交网络" }
+                ]
+            },
+            {
+                id: "media",
+                name: "娱乐媒体",
+                icon: "M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z",
+                tools: [
+                    { name: "YouTube", url: "https://www.youtube.com", desc: "视频分享平台" },
+                    { name: "Netflix", url: "https://www.netflix.com", desc: "流媒体服务" },
+                    { name: "Spotify", url: "https://www.spotify.com", desc: "音乐流媒体" },
+                    { name: "Apple Music", url: "https://music.apple.com", desc: "苹果音乐服务" },
+                    { name: "Disney+", url: "https://www.disneyplus.com", desc: "迪士尼流媒体" },
+                    { name: "Amazon Prime", url: "https://www.amazon.com/primevideo", desc: "亚马逊视频" },
+                    { name: "Twitch", url: "https://www.twitch.tv", desc: "游戏直播平台" },
+                    { name: "Steam", url: "https://store.steampowered.com", desc: "游戏平台" },
+                    { name: "Epic Games", url: "https://www.epicgames.com/store", desc: "游戏商店" },
+                    { name: "Twitter", url: "https://twitter.com", desc: "社交网络" },
+                    { name: "Facebook", url: "https://www.facebook.com", desc: "社交网络" },
+                    { name: "Instagram", url: "https://www.instagram.com", desc: "图片分享" },
+                    { name: "TikTok", url: "https://www.tiktok.com", desc: "短视频平台" },
+                    { name: "Reddit", url: "https://www.reddit.com", desc: "社交新闻" },
+                    { name: "Discord", url: "https://discord.com", desc: "游戏社区聊天" },
+                    { name: "Pinterest", url: "https://www.pinterest.com", desc: "图片收藏" },
+                    { name: "LinkedIn", url: "https://www.linkedin.com", desc: "职业社交" },
+                    { name: "豆瓣", url: "https://www.douban.com", desc: "图书电影音乐" },
+                    { name: "网易云音乐", url: "https://music.163.com", desc: "音乐平台" },
+                    { name: "喜马拉雅", url: "https://www.ximalaya.com", desc: "音频分享平台" }
+                ]
+            }
+        ];
+
+        // 默认SVG图标 - 所有工具使用同一个图标
+        const defaultIconSVG = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#764ba2">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        `;
+
+        // 工具管理类
+        class ToolManager {
+            constructor() {
+                this.toolData = [];
+                this.loadData();
+            }
+            
+            // 从localStorage加载数据
+            loadData() {
+                const savedData = localStorage.getItem('navToolsData');
+                if (savedData) {
+                    try {
+                        const parsedData = JSON.parse(savedData);
+                        // 验证schema版本
+                        if (parsedData.schemaVersion === SCHEMA_VERSION) {
+                            this.toolData = parsedData.categories;
+                        } else {
+                            console.warn('Schema版本不匹配，使用默认数据');
+                            this.resetToDefault();
+                        }
+                    } catch (e) {
+                        console.error('解析保存的数据时出错，使用默认数据', e);
+                        this.resetToDefault();
+                    }
+                } else {
+                    this.resetToDefault();
+                }
+            }
+            
+            // 保存数据到localStorage
+            saveData() {
+                const dataToSave = {
+                    schemaVersion: SCHEMA_VERSION,
+                    lastModified: new Date().toISOString(),
+                    categories: this.toolData
+                };
+                localStorage.setItem('navToolsData', JSON.stringify(dataToSave));
+                this.updateLastModified();
+            }
+            
+            // 重置为默认数据
+            resetToDefault() {
+                this.toolData = JSON.parse(JSON.stringify(defaultToolData));
+                this.saveData();
+            }
+            
+            // 获取所有分类
+            getCategories() {
+                return this.toolData;
+            }
+            
+            // 添加新分类
+            addCategory(name) {
+                const newCategory = {
+                    id: 'category_' + Date.now(),
+                    name: name,
+                    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
+                    tools: []
+                };
+                this.toolData.push(newCategory);
+                this.saveData();
+                return newCategory;
+            }
+            
+            // 删除分类
+            deleteCategory(categoryId) {
+                this.toolData = this.toolData.filter(cat => cat.id !== categoryId);
+                this.saveData();
+            }
+            
+            // 编辑分类
+            editCategory(categoryId, newName) {
+                const category = this.toolData.find(cat => cat.id === categoryId);
+                if (category) {
+                    category.name = newName;
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+            
+            // 添加工具
+            addTool(categoryId, name, url, desc) {
+                const category = this.toolData.find(cat => cat.id === categoryId);
+                if (category) {
+                    category.tools.push({ name, url, desc });
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+            
+            // 编辑工具
+            editTool(categoryId, toolIndex, name, url, desc) {
+                const category = this.toolData.find(cat => cat.id === categoryId);
+                if (category && category.tools[toolIndex]) {
+                    category.tools[toolIndex] = { name, url, desc };
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+            
+            // 删除工具
+            deleteTool(categoryId, toolIndex) {
+                const category = this.toolData.find(cat => cat.id === categoryId);
+                if (category && category.tools[toolIndex]) {
+                    category.tools.splice(toolIndex, 1);
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+            
+            // 导出数据
+            exportData() {
+                const exportData = {
+                    schemaVersion: SCHEMA_VERSION,
+                    exportDate: new Date().toISOString(),
+                    categories: this.toolData
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `nav-tools-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            // 导入数据
+            importData(jsonData) {
+                try {
+                    const importedData = JSON.parse(jsonData);
+                    
+                    // 验证schema版本
+                    if (importedData.schemaVersion !== SCHEMA_VERSION) {
+                        throw new Error(`不支持的schema版本: ${importedData.schemaVersion} (当前版本: ${SCHEMA_VERSION})`);
+                    }
+                    
+                    // 验证数据结构
+                    if (!Array.isArray(importedData.categories)) {
+                        throw new Error('导入的数据格式无效: 缺少categories数组');
+                    }
+                    
+                    this.toolData = importedData.categories;
+                    this.saveData();
+                    return { success: true, message: '数据导入成功' };
+                } catch (error) {
+                    console.error('导入数据时出错:', error);
+                    return { success: false, message: error.message };
+                }
+            }
+            
+            // 更新最后修改时间
+            updateLastModified() {
+                document.getElementById('lastUpdate').textContent = new Date().toISOString().split('T')[0];
+            }
+        }
+
+        // 初始化工具管理器
+        const toolManager = new ToolManager();
+
+        // 生成工具卡片的函数
+        function createToolCard(tool) {
+            return `
+                <a href="${tool.url}" target="_blank" class="link-card" data-name="${tool.name.toLowerCase()}" data-desc="${tool.desc.toLowerCase()}">
+                    <div class="link-icon">
+                        ${defaultIconSVG}
+                    </div>
+                    <div class="link-info">
+                        <h3>${tool.name}</h3>
+                        <p>${tool.desc}</p>
+                    </div>
+                </a>
+            `;
+        }
+
+        // 生成分类的函数
+        function createCategory(category) {
+            return `
+                <div class="category-section" id="${category.id}">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="${category.icon}"/>
+                            </svg>
+                            ${category.name}
+                        </h2>
+                        <span class="category-count">${category.tools.length}</span>
+                    </div>
+                    <div class="links-grid" id="grid-${category.id}">
+                        ${category.tools.map(createToolCard).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成左侧分类导航的函数
+        function createCategoryNav(category) {
+            return `
+                <a href="#${category.id}" class="category-item" data-category="${category.id}">
+                    <svg class="category-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="${category.icon}"/>
+                    </svg>
+                    <span class="category-name">${category.name}</span>
+                    <span class="category-count">${category.tools.length}</span>
+                </a>
+            `;
+        }
+
+        // 生成分类管理列表项的函数
+        function createCategoryListItem(category, isActive = false) {
+            return `
+                <div class="category-list-item ${isActive ? 'active' : ''}" data-category-id="${category.id}">
+                    <div class="category-list-item-header">
+                        <div class="category-list-item-name">${category.name}</div>
+                        <span class="category-list-item-count">${category.tools.length}</span>
+                    </div>
+                    <div class="category-list-item-desc">${category.tools.length} 个工具</div>
+                    <div class="category-list-item-actions">
+                        <button class="btn btn-primary edit-category" 
+                            data-category-id="${category.id}" 
+                            data-category-name="${category.name}">编辑</button>
+                        <button class="btn btn-danger delete-category" 
+                            data-category-id="${category.id}">删除</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成工具管理列表项的函数
+        function createToolListItem(tool, toolIndex, categoryId) {
+            return `
+                <div class="tool-item">
+                    <div class="tool-info">
+                        <h4>${tool.name}</h4>
+                        <p>${tool.desc}</p>
+                        <small>${tool.url}</small>
+                    </div>
+                    <div class="tool-actions">
+                        <button class="btn btn-sm btn-danger delete-tool" 
+                            data-category-id="${categoryId}" 
+                            data-tool-index="${toolIndex}">删除</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 初始化页面，渲染所有工具
+        function renderAllTools() {
+            const categories = toolManager.getCategories();
+            const container = document.getElementById('categoriesContainer');
+            container.innerHTML = categories.map(createCategory).join('');
+
+            // 生成左侧分类导航
+            const navContainer = document.getElementById('categoryNav');
+            navContainer.innerHTML = categories.map(createCategoryNav).join('');
+
+            // 计算工具总数
+            const totalTools = categories.reduce((sum, category) => sum + category.tools.length, 0);
+            document.getElementById('totalCount').textContent = totalTools;
+            
+            // 更新页脚统计
+            toolManager.updateLastModified();
+        }
+
+        // 更新分类管理界面
+        function updateCategoryManager() {
+            const categories = toolManager.getCategories();
+            const categoryListContainer = document.getElementById('categoryList');
+            const toolListContainer = document.getElementById('toolList');
+            
+            // 清空容器
+            categoryListContainer.innerHTML = '';
+            toolListContainer.innerHTML = '';
+            
+            // 如果没有分类，显示提示
+            if (categories.length === 0) {
+                categoryListContainer.innerHTML = '<p style="color: #666; text-align: center;">暂无分类</p>';
+                toolListContainer.innerHTML = '<p style="color: #666; text-align: center;">请先添加一个分类</p>';
+                document.getElementById('selectedCategoryTitle').textContent = '请选择一个分类';
+                return;
+            }
+            
+            // 生成分类列表
+            categories.forEach((category, index) => {
+                const isActive = index === 0;
+                categoryListContainer.innerHTML += createCategoryListItem(category, isActive);
+                
+                // 如果是第一个分类，显示其工具列表
+                if (isActive) {
+                    document.getElementById('selectedCategoryTitle').textContent = category.name;
+                    if (category.tools.length === 0) {
+                        toolListContainer.innerHTML = '<p style="color: #666; text-align: center;">此分类暂无工具</p>';
+                    } else {
+                        category.tools.forEach((tool, toolIndex) => {
+                            toolListContainer.innerHTML += createToolListItem(tool, toolIndex, category.id);
+                        });
+                    }
+                }
+            });
+            
+            // 绑定分类点击事件
+            document.querySelectorAll('.category-list-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const categoryId = this.getAttribute('data-category-id');
+                    
+                    // 移除所有激活状态
+                    document.querySelectorAll('.category-list-item').forEach(i => i.classList.remove('active'));
+                    
+                    // 添加当前激活状态
+                    this.classList.add('active');
+                    
+                    // 更新工具列表
+                    updateToolList(categoryId);
+                });
+            });
+            
+            // 绑定分类编辑按钮事件
+            document.querySelectorAll('.edit-category').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡，避免触发分类点击事件
+                    const categoryId = this.getAttribute('data-category-id');
+                    const categoryName = this.getAttribute('data-category-name');
+                    
+                    // 填充编辑表单
+                    document.getElementById('editCategoryId').value = categoryId;
+                    document.getElementById('editCategoryName').value = categoryName;
+                    
+                    // 显示编辑对话框
+                    document.getElementById('editCategoryDialog').style.display = 'flex';
+                });
+            });
+            
+            // 绑定分类删除按钮事件
+            document.querySelectorAll('.delete-category').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡，避免触发分类点击事件
+                    const categoryId = this.getAttribute('data-category-id');
+                    
+                    showConfirm('确定要删除这个分类吗？删除后该分类下的所有工具也会被删除。', '确认删除', function(confirmed) {
+                        if (confirmed) {
+                            toolManager.deleteCategory(categoryId);
+                            renderAllTools();
+                            filterTools();
+                            updateCategoryManager();
+                        }
+                    });
+                });
+            });
+            
+            // 绑定工具删除按钮事件
+            bindToolDeleteEvents();
+        }
+
+        // 更新工具列表
+        function updateToolList(categoryId) {
+            const categories = toolManager.getCategories();
+            const category = categories.find(cat => cat.id === categoryId);
+            const toolListContainer = document.getElementById('toolList');
+            
+            if (!category) {
+                toolListContainer.innerHTML = '<p style="color: #666; text-align: center;">分类不存在</p>';
+                document.getElementById('selectedCategoryTitle').textContent = '分类不存在';
+                return;
+            }
+            
+            document.getElementById('selectedCategoryTitle').textContent = category.name;
+            
+            if (category.tools.length === 0) {
+                toolListContainer.innerHTML = '<p style="color: #666; text-align: center;">此分类暂无工具</p>';
+            } else {
+                toolListContainer.innerHTML = '';
+                category.tools.forEach((tool, toolIndex) => {
+                    toolListContainer.innerHTML += createToolListItem(tool, toolIndex, categoryId);
+                });
+            }
+            
+            // 重新绑定删除按钮事件
+            bindToolDeleteEvents();
+        }
+
+        // 绑定工具删除按钮事件
+        function bindToolDeleteEvents() {
+            document.querySelectorAll('.delete-tool').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const categoryId = this.getAttribute('data-category-id');
+                    const toolIndex = parseInt(this.getAttribute('data-tool-index'));
+                    
+                    showConfirm('确定要删除这个工具吗？', '确认删除', function(confirmed) {
+                        if (confirmed) {
+                            toolManager.deleteTool(categoryId, toolIndex);
+                            renderAllTools();
+                            filterTools();
+                            updateCategoryManager();
+                            
+                            // 重新选中当前分类
+                            const currentCategory = document.querySelector('.category-list-item.active');
+                            if (currentCategory) {
+                                updateToolList(currentCategory.getAttribute('data-category-id'));
+                            }
+                        }
+                    });
+                });
+            });
+        }
+        
+        // 绑定编辑分类表单提交事件
+        document.getElementById('editCategoryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const categoryId = document.getElementById('editCategoryId').value;
+            const newName = document.getElementById('editCategoryName').value;
+            
+            if (newName.trim()) {
+                toolManager.editCategory(categoryId, newName);
+                renderAllTools();
+                filterTools();
+                updateCategoryManager();
+                updateCategorySelector(); // 更新分类选择器
+                
+                // 关闭对话框
+                document.getElementById('editCategoryDialog').style.display = 'none';
+            }
+        });
+        
+        // 绑定关闭编辑分类对话框事件
+        document.getElementById('closeEditCategoryDialog').addEventListener('click', function() {
+            document.getElementById('editCategoryDialog').style.display = 'none';
+        });
+        
+        document.getElementById('cancelEditCategoryDialog').addEventListener('click', function() {
+            document.getElementById('editCategoryDialog').style.display = 'none';
+        });
+        
+        // 自定义提示对话框函数
+        function showAlert(message, title = '提示') {
+            const alertDialog = document.getElementById('alertDialog');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertMessage = document.getElementById('alertMessage');
+            
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+            alertDialog.style.display = 'flex';
+        }
+        
+        // 绑定提示对话框确定按钮事件
+        document.getElementById('alertOkBtn').addEventListener('click', function() {
+            document.getElementById('alertDialog').style.display = 'none';
+        });
+        
+        // 自定义确认对话框函数
+        function showConfirm(message, title = '确认操作', callback) {
+            const confirmDialog = document.getElementById('confirmDialog');
+            const confirmTitle = document.getElementById('confirmTitle');
+            const confirmMessage = document.getElementById('confirmMessage');
+            const confirmOkBtn = document.getElementById('confirmOkBtn');
+            const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+            
+            // 保存回调函数
+            window.confirmCallback = callback;
+            
+            confirmTitle.textContent = title;
+            confirmMessage.textContent = message;
+            confirmDialog.style.display = 'flex';
+        }
+        
+        // 绑定确认对话框按钮事件
+        document.getElementById('confirmOkBtn').addEventListener('click', function() {
+            const confirmDialog = document.getElementById('confirmDialog');
+            confirmDialog.style.display = 'none';
+            
+            // 执行确认回调
+            if (window.confirmCallback) {
+                window.confirmCallback(true);
+                window.confirmCallback = null;
+            }
+        });
+        
+        document.getElementById('confirmCancelBtn').addEventListener('click', function() {
+            const confirmDialog = document.getElementById('confirmDialog');
+            confirmDialog.style.display = 'none';
+            
+            // 执行取消回调
+            if (window.confirmCallback) {
+                window.confirmCallback(false);
+                window.confirmCallback = null;
+            }
+        });
+
+        // 更新工具分类选择器
+        function updateCategorySelector() {
+            const categories = toolManager.getCategories();
+            const selector = document.getElementById('toolCategory');
+            selector.innerHTML = categories.map(cat => 
+                `<option value="${cat.id}">${cat.name}</option>`
+            ).join('');
+        }
+
+        // 搜索过滤功能
+        function filterTools() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const allToolCards = document.querySelectorAll('.link-card');
+            const noResultsEl = document.getElementById('noResults');
+            const categorySections = document.querySelectorAll('.category-section');
+            
+            let visibleCount = 0;
+            let visibleCategories = 0;
+
+            allToolCards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                const desc = card.getAttribute('data-desc');
+                const isVisible = name.includes(searchTerm) || desc.includes(searchTerm);
+                
+                card.style.display = isVisible ? 'flex' : 'none';
+                if (isVisible) visibleCount++;
+            });
+
+            // 显示/隐藏分类
+            categorySections.forEach(section => {
+                const categoryId = section.id;
+                const categoryCards = section.querySelectorAll('.link-card');
+                const hasVisibleCards = Array.from(categoryCards)
+                    .some(card => card.style.display !== 'none');
+                
+                section.style.display = hasVisibleCards ? 'block' : 'none';
+                if (hasVisibleCards) visibleCategories++;
+            });
+
+            // 显示/隐藏"无结果"提示
+            noResultsEl.style.display = visibleCount === 0 && searchTerm !== '' ? 'block' : 'none';
+            
+            // 更新搜索结果统计
+            if (searchTerm !== '') {
+                const totalTools = toolManager.getCategories().reduce((sum, category) => sum + category.tools.length, 0);
+                document.getElementById('totalCount').textContent = `${visibleCount} / ${totalTools}`;
+            } else {
+                const totalTools = toolManager.getCategories().reduce((sum, category) => sum + category.tools.length, 0);
+                document.getElementById('totalCount').textContent = totalTools;
+            }
+        }
+
+        // 处理左侧分类导航点击事件
+        function setupCategoryNavigation() {
+            const categoryLinks = document.querySelectorAll('.category-item');
+            const categorySections = document.querySelectorAll('.category-section');
+            
+            // 观察可见的分类
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const activeCategory = entry.target.id;
+                        // 更新左侧导航激活状态
+                        categoryLinks.forEach(link => {
+                            if (link.getAttribute('data-category') === activeCategory) {
+                                link.classList.add('active');
+                            } else {
+                                link.classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            }, { threshold: 0.5 });
+            
+            // 观察所有分类
+            categorySections.forEach(section => {
+                observer.observe(section);
+            });
+            
+            // 点击左侧导航跳转到对应分类
+            categoryLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const categoryId = link.getAttribute('data-category');
+                    const targetSection = document.getElementById(categoryId);
+                    
+                    if (targetSection) {
+                        // 检查并关闭设置页面
+                        const settingsPage = document.getElementById('settingsPage');
+                        if (settingsPage.classList.contains('active')) {
+                            settingsPage.classList.remove('active');
+                        }
+                        
+                        // 移除所有激活状态
+                        categoryLinks.forEach(l => l.classList.remove('active'));
+                        // 添加当前激活状态
+                        link.classList.add('active');
+                        // 滚动到目标分类
+                        targetSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+            });
+            
+            // 初始激活第一个分类
+            if (categoryLinks.length > 0) {
+                categoryLinks[0].classList.add('active');
+            }
+        }
+
+        // 设置页面功能
+        function setupSettingsPage() {
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsPage = document.getElementById('settingsPage');
+            const closeSettingsBtn = document.getElementById('closeSettings');
+            
+            // 对话框元素
+            const categoryDialog = document.getElementById('categoryDialog');
+            const toolDialog = document.getElementById('toolDialog');
+            const addCategoryDialogBtn = document.getElementById('addCategoryDialogBtn');
+            const addToolDialogBtn = document.getElementById('addToolDialogBtn');
+            const closeCategoryDialog = document.getElementById('closeCategoryDialog');
+            const closeToolDialog = document.getElementById('closeToolDialog');
+            const cancelCategoryDialog = document.getElementById('cancelCategoryDialog');
+            const cancelToolDialog = document.getElementById('cancelToolDialog');
+            
+            // 打开设置页面
+            settingsBtn.addEventListener('click', () => {
+                settingsPage.classList.add('active');
+                updateCategorySelector();
+                updateCategoryManager();
+            });
+            
+
+            
+            // 点击背景关闭设置页面
+            settingsPage.addEventListener('click', (e) => {
+                if (e.target === settingsPage) {
+                    settingsPage.classList.remove('active');
+                }
+            });
+            
+            // 标签切换
+            document.querySelectorAll('.settings-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // 移除所有激活状态
+                    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // 添加当前激活状态
+                    this.classList.add('active');
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                });
+            });
+            
+            // 打开添加分类对话框
+            addCategoryDialogBtn.addEventListener('click', () => {
+                categoryDialog.classList.add('active');
+            });
+            
+            // 关闭添加分类对话框
+            closeCategoryDialog.addEventListener('click', () => {
+                categoryDialog.classList.remove('active');
+            });
+            
+            // 取消添加分类对话框
+            cancelCategoryDialog.addEventListener('click', () => {
+                categoryDialog.classList.remove('active');
+            });
+            
+            // 打开添加工具对话框
+            addToolDialogBtn.addEventListener('click', () => {
+                toolDialog.classList.add('active');
+            });
+            
+            // 关闭添加工具对话框
+            closeToolDialog.addEventListener('click', () => {
+                toolDialog.classList.remove('active');
+            });
+            
+            // 取消添加工具对话框
+            cancelToolDialog.addEventListener('click', () => {
+                toolDialog.classList.remove('active');
+            });
+            
+            // 点击对话框背景关闭
+            [categoryDialog, toolDialog].forEach(dialog => {
+                dialog.addEventListener('click', (e) => {
+                    if (e.target === dialog) {
+                        dialog.classList.remove('active');
+                    }
+                });
+            });
+            
+            // 添加分类表单
+            document.getElementById('addCategoryForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const categoryName = document.getElementById('categoryName').value.trim();
+                if (categoryName) {
+                    toolManager.addCategory(categoryName);
+                    renderAllTools();
+                    filterTools();
+                    updateCategoryManager();
+                    this.reset();
+                    categoryDialog.classList.remove('active');
+                    showAlert('分类添加成功！');
+                }
+            });
+            
+            // 添加工具表单
+            document.getElementById('addToolForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const categoryId = document.getElementById('toolCategory').value;
+                const toolName = document.getElementById('toolName').value.trim();
+                const toolUrl = document.getElementById('toolUrl').value.trim();
+                const toolDesc = document.getElementById('toolDesc').value.trim();
+                
+                if (categoryId && toolName && toolUrl && toolDesc) {
+                    const success = toolManager.addTool(categoryId, toolName, toolUrl, toolDesc);
+                    if (success) {
+                        renderAllTools();
+                        filterTools();
+                        updateCategoryManager();
+                        this.reset();
+                        toolDialog.classList.remove('active');
+                        showAlert('工具添加成功！');
+                    } else {
+                        showAlert('添加工具失败，请重试！', '错误');
+                    }
+                }
+            });
+            
+            // 导出功能
+            document.getElementById('exportBtn').addEventListener('click', () => {
+                toolManager.exportData();
+            });
+            
+            // 导入功能
+            const importFileInput = document.getElementById('importFile');
+            const importBtn = document.getElementById('importBtn');
+            const selectedFileText = document.getElementById('selectedFile');
+            
+            importFileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    selectedFileText.textContent = `已选择: ${this.files[0].name}`;
+                    importBtn.disabled = false;
+                } else {
+                    selectedFileText.textContent = '';
+                    importBtn.disabled = true;
+                }
+            });
+            
+            importBtn.addEventListener('click', () => {
+                if (importFileInput.files.length === 0) {
+                    showAlert('请先选择文件！', '提示');
+                    return;
+                }
+                
+                const file = importFileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const result = toolManager.importData(e.target.result);
+                    if (result.success) {
+                        showAlert('数据导入成功！');
+                        renderAllTools();
+                        filterTools();
+                        updateCategoryManager();
+                        importFileInput.value = '';
+                        selectedFileText.textContent = '';
+                        importBtn.disabled = true;
+                        document.getElementById('settingsPage').classList.remove('active');
+                    } else {
+                        showAlert(`导入失败: ${result.message}`, '错误');
+                    }
+                };
+                
+                reader.readAsText(file);
+            });
+            
+            // 重置功能
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                showConfirm('确定要重置为默认数据吗？当前数据将被清空！', '确认重置', function(confirmed) {
+                    if (confirmed) {
+                        toolManager.resetToDefault();
+                        renderAllTools();
+                        filterTools();
+                        updateCategoryManager();
+                        showAlert('已重置为默认数据！');
+                    }
+                });
+            });
+        }
+
+        // 初始化主题
+        function initTheme() {
+            // 从localStorage加载保存的主题
+            const savedTheme = localStorage.getItem('navToolsTheme') || 'default';
+            
+            // 应用主题
+            applyTheme(savedTheme);
+            
+            // 绑定主题切换按钮事件
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const theme = this.getAttribute('data-theme');
+                    applyTheme(theme);
+                    
+                    // 保存主题到localStorage
+                    localStorage.setItem('navToolsTheme', theme);
+                });
+            });
+        }
+        
+        // 应用主题
+        function applyTheme(theme) {
+            // 移除所有主题类
+            document.body.className = '';
+            
+            // 添加新主题类
+            if (theme !== 'default') {
+                document.body.classList.add(`theme-${theme}`);
+            }
+            
+            // 更新主题按钮状态
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-theme') === theme) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // 设置移动端导航栏
+        function setupMobileNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            const settingsPage = document.getElementById('settingsPage');
+            
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    
+                    // 移除所有激活状态
+                    navItems.forEach(navItem => navItem.classList.remove('active'));
+                    
+                    // 添加当前激活状态
+                    this.classList.add('active');
+                    
+                    // 切换页面
+                    if (page === 'settings') {
+                        settingsPage.classList.add('active');
+                        // 更新设置页面内容
+                        updateCategorySelector();
+                        updateCategoryManager();
+                    } else if (page === 'main') {
+                        settingsPage.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const startTime = performance.now();
+            
+            // 初始化主题
+            initTheme();
+            
+            renderAllTools();
+            setupCategoryNavigation();
+            setupSettingsPage();
+            setupMobileNavigation();
+            
+            // 绑定搜索输入事件
+            document.getElementById('searchInput').addEventListener('input', filterTools);
+            
+            // 初始过滤
+            filterTools();
+            
+            // 搜索框回车键快捷搜索
+            document.getElementById('searchInput').addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    const firstVisibleLink = document.querySelector('.link-card[style*="display: flex"]');
+                    if (firstVisibleLink) {
+                        firstVisibleLink.click();
+                    }
+                }
+            });
+            
+            // 计算加载时间
+            const loadTime = Math.round(performance.now() - startTime);
+            document.getElementById('loadTime').textContent = loadTime;
+        });
+    </script>
+</body>
+</html>
