@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>投资计算器 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 40px 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #444;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .form-group input {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group .unit {
+            font-size: 0.85rem;
+            color: #777;
+            margin-top: 4px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .results {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+
+        .results-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 20px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow-x: auto;
+            display: block;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-table th {
+            background: #f0f0f0;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+        }
+
+        .results-table tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .results-table .positive {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .results-table .negative {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 10px;
+        }
+
+        .summary p {
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 12px 24px;
+            background: #f0f0f0;
+            color: #555;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+
+        .saved-params {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .param-item {
+            background: white;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .param-item:hover {
+            background: #f0f4ff;
+            border-color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .param-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .param-item-date {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .param-item-details {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.3;
+        }
+
+        .param-item-amount {
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .no-params {
+            text-align: center;
+            color: #999;
+            padding: 30px 0;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            header {
+                padding: 30px 20px;
+            }
+
+            .header-title {
+                font-size: 1.8rem;
+            }
+
+            main {
+                padding: 30px 20px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .results {
+                padding: 20px;
+            }
+
+            .results-table {
+                font-size: 0.9rem;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 10px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">投资计算器</h1>
+            <p class="header-subtitle">基于长期投资和储蓄的财务规划工具</p>
+        </header>
+
+        <main>
+            <section class="section">
+                <h2 class="section-title">📊 输入参数</h2>
+                <form id="investmentForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="savings">年初财富</label>
+                            <input type="number" id="savings" name="savings" value="0" min="0" step="1000">
+                            <div class="unit">单位：万元</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="income">初始年收入</label>
+                            <input type="number" id="income" name="income" value="100" min="0" step="10">
+                            <div class="unit">单位：万元</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="workYears">工作年限</label>
+                            <input type="number" id="workYears" name="workYears" value="10" min="1" max="50">
+                            <div class="unit">单位：年</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="incomeIncreaseRate">年收入增长率</label>
+                            <input type="number" id="incomeIncreaseRate" name="incomeIncreaseRate" value="5" min="0" max="100" step="0.1">
+                            <div class="unit">单位：%</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="spend">年支出</label>
+                            <input type="number" id="spend" name="spend" value="20" min="0" step="10">
+                            <div class="unit">单位：万元</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="spendIncreaseRate">支出增长率</label>
+                            <input type="number" id="spendIncreaseRate" name="spendIncreaseRate" value="2" min="0" max="100" step="0.1">
+                            <div class="unit">单位：%</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="investmentReturnRate">投资回报率</label>
+                            <input type="number" id="investmentReturnRate" name="investmentReturnRate" value="10" min="0" max="100" step="0.1">
+                            <div class="unit">单位：%</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="totalYears">计算总年限</label>
+                            <input type="number" id="totalYears" name="totalYears" value="50" min="1" max="100">
+                            <div class="unit">单位：年</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="birthYear">出生年份</label>
+                            <input type="number" id="birthYear" name="birthYear" value="1990" min="1900" max="2026">
+                            <div class="unit">格式：YYYY</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button type="button" class="btn" onclick="calculateInvestment()">开始计算</button>
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);" onclick="saveParameters()">保存参数</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">📈 计算结果</h2>
+                <div id="results" class="results" style="display: none;">
+                    <h3 class="results-title">年度财务状况</h3>
+                    <table class="results-table" id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>年份</th>
+                                <th>绝对年份</th>
+                                <th>年龄</th>
+                                <th>年收入</th>
+                                <th>投资收入</th>
+                                <th>消费支出</th>
+                                <th>年初财富</th>
+                                <th>年底财富</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                            <!-- 计算结果将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+
+                    <div class="summary" id="summary">
+                        <h3>📋 财务总结</h3>
+                        <p id="summaryText"></p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">💾 保存的参数</h2>
+                <div id="savedParamsList" class="saved-params">
+                    <div id="paramsList" style="margin-top: 15px;">
+                        <!-- 保存的参数列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </section>
+
+            <a href="web-tools-index.html" class="back-link">⬅️ 返回工具索引</a>
+        </main>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="toast" style="position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); z-index: 2100; transform: translateX(400px); transition: transform 0.3s ease; opacity: 0;">
+        <span id="toastMessage"></span>
+    </div>
+
+    <!-- 自定义对话框 -->
+    <div id="customDialog" class="custom-dialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div class="dialog-content" style="background: white; border-radius: 8px; padding: 24px; width: 90%; max-width: 400px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);">
+            <div class="dialog-header" style="margin-bottom: 16px;">
+                <h3 id="dialogTitle" class="dialog-title" style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #333;"></h3>
+            </div>
+            <div class="dialog-body" style="margin-bottom: 20px;">
+                <p id="dialogMessage" class="dialog-message" style="margin: 0; color: #666; line-height: 1.4;"></p>
+            </div>
+            <div class="dialog-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="dialogCancelBtn" class="dialog-btn" style="padding: 8px 16px; border: 1px solid #e0e0e0; border-radius: 4px; background: white; color: #666; cursor: pointer; transition: all 0.2s ease;">取消</button>
+                <button id="dialogConfirmBtn" class="dialog-btn" style="padding: 8px 16px; border: none; border-radius: 4px; background: #667eea; color: white; cursor: pointer; transition: all 0.2s ease;">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatMoney(value, roundDigits = 2) {
+            /*
+            格式化金额，超过1亿使用亿单位表示
+            */
+            if (value >= 10000) {
+                // 超过1亿（10000万元），使用亿单位
+                return (value / 10000).toFixed(roundDigits) + '亿';
+            } else {
+                // 未超过1亿，使用原单位
+                return value.toFixed(roundDigits);
+            }
+        }
+
+        function calculateAge(birthYear, currentYear) {
+            /*
+            根据出生年份计算年龄
+            */
+            return currentYear - birthYear;
+        }
+
+        function saveParameters() {
+            /*
+            保存参数到localStorage，最多支持100条记录
+            */
+            // 获取表单数据
+            const params = {
+                savings: parseFloat(document.getElementById('savings').value) || 0,
+                workYears: parseInt(document.getElementById('workYears').value) || 10,
+                income: parseFloat(document.getElementById('income').value) || 30,
+                incomeIncreaseRate: parseFloat(document.getElementById('incomeIncreaseRate').value) || 5,
+                spend: parseFloat(document.getElementById('spend').value) || 20,
+                spendIncreaseRate: parseFloat(document.getElementById('spendIncreaseRate').value) || 2,
+                investmentReturnRate: parseFloat(document.getElementById('investmentReturnRate').value) || 10,
+                totalYears: parseInt(document.getElementById('totalYears').value) || 50,
+                birthYear: parseInt(document.getElementById('birthYear').value) || 1990,
+                timestamp: new Date().toISOString()
+            };
+
+            // 从localStorage获取现有记录
+            let savedParams = JSON.parse(localStorage.getItem('investmentCalculatorParams') || '[]');
+
+            // 添加新记录到开头
+            savedParams.unshift(params);
+
+            // 限制最多100条记录
+            if (savedParams.length > 100) {
+                savedParams = savedParams.slice(0, 100);
+            }
+
+            // 保存回localStorage
+            localStorage.setItem('investmentCalculatorParams', JSON.stringify(savedParams));
+
+            // 显示保存成功提示
+            showToast('参数已成功保存！');
+            loadSavedParameters();
+        }
+
+        function calculateInvestment() {
+            // 获取表单数据
+            const form = document.getElementById('investmentForm');
+            const savings = parseFloat(document.getElementById('savings').value) || 0;
+            const workYears = parseInt(document.getElementById('workYears').value) || 10;
+            const income = parseFloat(document.getElementById('income').value) || 100;
+            const incomeIncreaseRate = parseFloat(document.getElementById('incomeIncreaseRate').value) / 100 || 0.05;
+            const spend = parseFloat(document.getElementById('spend').value) || 20;
+            const spendIncreaseRate = parseFloat(document.getElementById('spendIncreaseRate').value) / 100 || 0.02;
+            const investmentReturnRate = parseFloat(document.getElementById('investmentReturnRate').value) / 100 || 0.1;
+            const totalYears = parseInt(document.getElementById('totalYears').value) || 50;
+            const birthYear = parseInt(document.getElementById('birthYear').value) || 1990;
+
+            // 计算逻辑
+            let incomeThisYear = income;
+            let spendThisYear = spend;
+            let currentSavings = savings;
+            let workedYears = 0;
+            const startYear = new Date().getFullYear();
+
+            // 清空结果
+            const resultsBody = document.getElementById('resultsBody');
+            resultsBody.innerHTML = '';
+
+            // 计算每年的数据
+            for (let year = 0; year < totalYears; year++) {
+                const absYear = startYear + year;
+                workedYears++;
+
+                // 工作年限结束后，收入变为0
+                if (workedYears > workYears) {
+                    incomeThisYear = 0;
+                }
+
+                // 年初财富
+                const startWealth = currentSavings;
+
+                // 计算投资收入
+                const investment = startWealth * investmentReturnRate;
+
+                // 计算年底财富
+                currentSavings = startWealth + incomeThisYear + investment - spendThisYear;
+                currentSavings = Math.max(0, currentSavings); // 确保储蓄不为负
+
+                // 计算年龄
+                const age = calculateAge(birthYear, absYear);
+
+                // 添加到结果表格
+                const row = document.createElement('tr');
+                const formattedIncome = formatMoney(incomeThisYear);
+                const formattedInvestment = formatMoney(investment);
+                const formattedSpend = formatMoney(spendThisYear);
+                const formattedStartWealth = formatMoney(startWealth);
+                const formattedEndWealth = formatMoney(currentSavings);
+                
+                row.innerHTML = `
+                    <td>${year + 1}</td>
+                    <td>${absYear}</td>
+                    <td>${age}</td>
+                    <td>${formattedIncome}${formattedIncome.includes('亿') ? '' : '万'}</td>
+                    <td class="positive">${formattedInvestment}${formattedInvestment.includes('亿') ? '' : '万'}</td>
+                    <td class="negative">${formattedSpend}${formattedSpend.includes('亿') ? '' : '万'}</td>
+                    <td>${formattedStartWealth}${formattedStartWealth.includes('亿') ? '' : '万'}</td>
+                    <td>${formattedEndWealth}${formattedEndWealth.includes('亿') ? '' : '万'}</td>
+                `;
+                resultsBody.appendChild(row);
+
+                // 更新下一年的收入和支出
+                incomeThisYear = incomeThisYear * (1 + incomeIncreaseRate);
+                spendThisYear = spendThisYear * (1 + spendIncreaseRate);
+            }
+
+            // 生成总结
+            const summaryText = document.getElementById('summaryText');
+            const formattedSavings = formatMoney(currentSavings);
+            const savingsUnit = currentSavings >= 10000 ? '' : ' 万';
+            summaryText.innerHTML = `
+                基于您的输入参数，经过 ${totalYears} 年的投资和储蓄，最终储蓄为 <strong>${formattedSavings}${savingsUnit}</strong>。
+                <br><br>
+                关键假设：
+                <ul style="margin-top: 10px; padding-left: 20px;">
+                    <li>工作年限：${workYears} 年</li>
+                    <li>年收入增长率：${(incomeIncreaseRate * 100).toFixed(1)}%</li>
+                    <li>支出增长率：${(spendIncreaseRate * 100).toFixed(1)}%</li>
+                    <li>投资回报率：${(investmentReturnRate * 100).toFixed(1)}%</li>
+                </ul>
+                <br>
+                注意：此计算仅供参考，实际投资收益会受到市场波动等多种因素影响。
+            `;
+
+            // 显示结果
+            document.getElementById('results').style.display = 'block';
+        }
+
+        // Toast 函数
+        function showToast(message, duration = 2000) {
+            /*
+            显示自定义 toast 提示
+            */
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+            toast.style.transform = 'translateX(0)';
+            toast.style.opacity = '1';
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(400px)';
+                toast.style.opacity = '0';
+            }, duration);
+        }
+
+        // 自定义对话框函数
+        let dialogCallback = null;
+
+        function showAlert(message, title = '提示') {
+            /*
+            显示自定义 alert 对话框
+            */
+            const dialog = document.getElementById('customDialog');
+            const dialogTitle = document.getElementById('dialogTitle');
+            const dialogMessage = document.getElementById('dialogMessage');
+            const dialogCancelBtn = document.getElementById('dialogCancelBtn');
+            const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
+
+            dialogTitle.textContent = title;
+            dialogMessage.textContent = message;
+            dialogCancelBtn.style.display = 'none';
+            dialogConfirmBtn.textContent = '确定';
+
+            dialog.style.display = 'flex';
+
+            // 绑定确定按钮事件
+            function handleConfirm() {
+                dialog.style.display = 'none';
+                dialogConfirmBtn.removeEventListener('click', handleConfirm);
+            }
+
+            dialogConfirmBtn.addEventListener('click', handleConfirm);
+        }
+
+        function showConfirm(message, title = '确认', callback) {
+            /*
+            显示自定义 confirm 对话框
+            */
+            const dialog = document.getElementById('customDialog');
+            const dialogTitle = document.getElementById('dialogTitle');
+            const dialogMessage = document.getElementById('dialogMessage');
+            const dialogCancelBtn = document.getElementById('dialogCancelBtn');
+            const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
+
+            dialogTitle.textContent = title;
+            dialogMessage.textContent = message;
+            dialogCancelBtn.style.display = 'inline-block';
+            dialogConfirmBtn.textContent = '确定';
+
+            dialog.style.display = 'flex';
+            dialogCallback = callback;
+
+            // 绑定按钮事件
+            function handleConfirm() {
+                dialog.style.display = 'none';
+                if (typeof dialogCallback === 'function') {
+                    dialogCallback(true);
+                }
+                dialogConfirmBtn.removeEventListener('click', handleConfirm);
+                dialogCancelBtn.removeEventListener('click', handleCancel);
+            }
+
+            function handleCancel() {
+                dialog.style.display = 'none';
+                if (typeof dialogCallback === 'function') {
+                    dialogCallback(false);
+                }
+                dialogConfirmBtn.removeEventListener('click', handleConfirm);
+                dialogCancelBtn.removeEventListener('click', handleCancel);
+            }
+
+            dialogConfirmBtn.addEventListener('click', handleConfirm);
+            dialogCancelBtn.addEventListener('click', handleCancel);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSavedParameters();
+        });
+
+        function loadSavedParameters() {
+            /*
+            加载保存的参数列表并显示
+            */
+            const paramsList = document.getElementById('paramsList');
+            const savedParams = JSON.parse(localStorage.getItem('investmentCalculatorParams') || '[]');
+
+            if (savedParams.length === 0) {
+                paramsList.innerHTML = '<div class="no-params">暂无保存的参数</div>';
+                return;
+            }
+
+            paramsList.innerHTML = '';
+
+            savedParams.forEach((params, index) => {
+                const paramItem = document.createElement('div');
+                paramItem.className = 'param-item';
+
+                const date = new Date(params.timestamp);
+                const formattedDate = date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                paramItem.innerHTML = `
+                    <div class="param-item-header">
+                        <span>参数 #${index + 1}</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="param-item-date">${formattedDate}</span>
+                            <button type="button" class="delete-btn" style="background: #ff4757; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.7rem; cursor: pointer;">删除</button>
+                        </div>
+                    </div>
+                    <div class="param-item-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                        <div>年初财富：<span class="param-item-amount">${params.savings.toFixed(2)}</span> 万元</div>
+                        <div>初始年收入：<span class="param-item-amount">${params.income.toFixed(2)}</span> 万元</div>
+                        <div>工作年限：<span class="param-item-amount">${params.workYears}</span> 年</div>
+                        <div>年收入增长率：<span class="param-item-amount">${params.incomeIncreaseRate.toFixed(1)}</span>%</div>
+                        <div>年支出：<span class="param-item-amount">${params.spend.toFixed(2)}</span> 万元</div>
+                        <div>支出增长率：<span class="param-item-amount">${params.spendIncreaseRate.toFixed(1)}</span>%</div>
+                        <div>投资回报率：<span class="param-item-amount">${params.investmentReturnRate.toFixed(1)}</span>%</div>
+                        <div>总年限：<span class="param-item-amount">${params.totalYears}</span> 年</div>
+                        <div>出生年份：<span class="param-item-amount">${params.birthYear}</span></div>
+                    </div>
+                `;
+
+                // 添加恢复参数的点击事件（排除删除按钮）
+                paramItem.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        restoreParameters(params);
+                    }
+                });
+
+                // 添加删除按钮的点击事件
+                const deleteBtn = paramItem.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    deleteParameter(index);
+                });
+
+                paramsList.appendChild(paramItem);
+            });
+        }
+
+        function restoreParameters(params) {
+            /*
+            恢复参数到输入框
+            */
+            document.getElementById('savings').value = params.savings;
+            document.getElementById('workYears').value = params.workYears;
+            document.getElementById('income').value = params.income;
+            document.getElementById('incomeIncreaseRate').value = params.incomeIncreaseRate;
+            document.getElementById('spend').value = params.spend;
+            document.getElementById('spendIncreaseRate').value = params.spendIncreaseRate;
+            document.getElementById('investmentReturnRate').value = params.investmentReturnRate;
+            document.getElementById('totalYears').value = params.totalYears;
+            document.getElementById('birthYear').value = params.birthYear;
+
+            showToast('参数已成功恢复！');
+            // 自动触发重新计算
+            calculateInvestment();
+        }
+
+        function deleteParameter(index) {
+            /*
+            删除保存的参数
+            */
+            showConfirm('确定要删除这个参数吗？', '删除确认', function(confirmed) {
+                if (confirmed) {
+                    let savedParams = JSON.parse(localStorage.getItem('investmentCalculatorParams') || '[]');
+                    savedParams.splice(index, 1); // 删除指定索引的参数
+                    localStorage.setItem('investmentCalculatorParams', JSON.stringify(savedParams));
+                    loadSavedParameters(); // 重新加载参数列表
+                }
+            });
+        }
+    </script>
+</body>
+</html>
