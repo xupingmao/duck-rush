@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="tool-name" content="LocalStorage管理器">
+    <meta name="tool-description" content="用于管理浏览器LocalStorage数据的工具，支持添加、编辑、删除、清空和导入/导出操作。">
+    <title>LocalStorage管理器 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 24px 20px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            color: #444;
+            margin-bottom: 16px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        /* 控制按钮区域 */
+        .controls-section {
+            margin-bottom: 24px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .export-import {
+            margin-left: auto;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+        }
+
+        .status {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        /* 数据列表区域 */
+        .data-section {
+            margin-bottom: 24px;
+        }
+
+        .data-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        .data-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .data-item:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .item-key {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+            word-break: break-all;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.edit {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .action-btn.edit:hover {
+            background: #e0a800;
+        }
+
+        .action-btn.delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-btn.delete:hover {
+            background: #c82333;
+        }
+
+        .item-value {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
+            word-break: break-all;
+            background: #ffffff;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+        }
+
+        /* 表单区域 */
+        .form-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #444;
+            font-size: 0.85rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            .container {
+                border-radius: 8px;
+            }
+
+            header {
+                padding: 20px 16px;
+            }
+
+            .header-title {
+                font-size: 1.4rem;
+            }
+
+            main {
+                padding: 20px 16px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .export-import {
+                margin-left: 0;
+                margin-top: 10px;
+                justify-content: center;
+            }
+
+            .data-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .data-item {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">LocalStorage管理器</h1>
+            <p class="header-subtitle">管理浏览器LocalStorage数据</p>
+        </header>
+
+        <main>
+            <!-- 操作按钮区域 -->
+            <section class="controls-section">
+                <div class="controls">
+                    <button id="add-btn" class="btn btn-primary">添加数据</button>
+                    <button id="clear-btn" class="btn btn-danger">清空所有</button>
+                    <div class="export-import">
+                        <button id="export-btn" class="btn btn-secondary">导出数据</button>
+                        <button id="import-btn" class="btn btn-secondary">导入数据</button>
+                        <input type="file" id="import-file" accept=".json" style="display: none;">
+                    </div>
+                </div>
+                <div id="status" class="status"></div>
+            </section>
+
+            <!-- 数据列表区域 -->
+            <section class="data-section">
+                <h2 class="section-title">LocalStorage数据</h2>
+                <div id="data-list" class="data-list">
+                    <!-- 数据项将通过JavaScript动态生成 -->
+                </div>
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <p>LocalStorage为空</p>
+                </div>
+            </section>
+
+            <!-- 添加/编辑表单 -->
+            <section id="form-section" class="form-section" style="display: none;">
+                <h2 class="section-title">添加/编辑数据</h2>
+                <form id="data-form">
+                    <input type="hidden" id="edit-key">
+                    <div class="form-group">
+                        <label for="key">键名</label>
+                        <input type="text" id="key" name="key" required placeholder="请输入键名">
+                    </div>
+                    <div class="form-group">
+                        <label for="value">值</label>
+                        <textarea id="value" name="value" required placeholder="请输入值"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" id="cancel-btn" class="btn btn-secondary">取消</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+
+        <footer>
+            <p class="footer-text">© 2026 Duck Rush 项目 | LocalStorage管理器</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM元素
+        const addBtn = document.getElementById('add-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const importBtn = document.getElementById('import-btn');
+        const importFile = document.getElementById('import-file');
+        const statusEl = document.getElementById('status');
+        const dataList = document.getElementById('data-list');
+        const emptyState = document.getElementById('empty-state');
+        const formSection = document.getElementById('form-section');
+        const dataForm = document.getElementById('data-form');
+        const editKey = document.getElementById('edit-key');
+        const keyInput = document.getElementById('key');
+        const valueInput = document.getElementById('value');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            renderData();
+            updateStatus('LocalStorage管理器已就绪');
+        });
+
+        // 渲染LocalStorage数据
+        function renderData() {
+            // 清空列表
+            dataList.innerHTML = '';
+            
+            // 检查LocalStorage是否为空
+            if (localStorage.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            // 遍历LocalStorage数据
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                let value = localStorage.getItem(key);
+                
+                // 尝试格式化JSON值
+                try {
+                    const parsedValue = JSON.parse(value);
+                    value = JSON.stringify(parsedValue, null, 2);
+                } catch (e) {
+                    // 非JSON值保持原样
+                }
+                
+                // 创建数据项
+                const dataItem = document.createElement('div');
+                dataItem.className = 'data-item';
+                dataItem.innerHTML = `
+                    <div class="item-header">
+                        <div class="item-key">${escapeHtml(key)}</div>
+                        <div class="item-actions">
+                            <button class="action-btn edit" onclick="editData('${escapeHtml(key)}')">编辑</button>
+                            <button class="action-btn delete" onclick="deleteData('${escapeHtml(key)}')">删除</button>
+                        </div>
+                    </div>
+                    <div class="item-value">${escapeHtml(value)}</div>
+                `;
+                
+                dataList.appendChild(dataItem);
+            }
+        }
+
+        // 添加数据
+        addBtn.addEventListener('click', function() {
+            resetForm();
+            formSection.style.display = 'block';
+        });
+
+        // 编辑数据
+        function editData(key) {
+            const value = localStorage.getItem(key);
+            editKey.value = key;
+            keyInput.value = key;
+            valueInput.value = value;
+            formSection.style.display = 'block';
+        }
+
+        // 删除数据
+        function deleteData(key) {
+            if (confirm(`确定要删除键 "${key}" 吗？`)) {
+                localStorage.removeItem(key);
+                renderData();
+                updateStatus(`已删除键 "${key}"`);
+            }
+        }
+
+        // 清空所有数据
+        clearBtn.addEventListener('click', function() {
+            if (confirm('确定要清空所有LocalStorage数据吗？此操作不可恢复。')) {
+                localStorage.clear();
+                renderData();
+                updateStatus('已清空所有LocalStorage数据');
+            }
+        });
+
+        // 保存数据
+        dataForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const key = keyInput.value.trim();
+            const value = valueInput.value;
+            const oldKey = editKey.value;
+            
+            if (!key) {
+                alert('请输入键名');
+                return;
+            }
+            
+            // 如果是编辑且键名已更改，先删除旧键
+            if (oldKey && oldKey !== key) {
+                localStorage.removeItem(oldKey);
+            }
+            
+            // 保存数据
+            localStorage.setItem(key, value);
+            renderData();
+            resetForm();
+            formSection.style.display = 'none';
+            
+            if (oldKey) {
+                updateStatus(`已更新键 "${key}"`);
+            } else {
+                updateStatus(`已添加键 "${key}"`);
+            }
+        });
+
+        // 取消操作
+        cancelBtn.addEventListener('click', function() {
+            resetForm();
+            formSection.style.display = 'none';
+        });
+
+        // 重置表单
+        function resetForm() {
+            editKey.value = '';
+            keyInput.value = '';
+            valueInput.value = '';
+        }
+
+        // 导出数据
+        exportBtn.addEventListener('click', function() {
+            const data = {};
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                data[key] = localStorage.getItem(key);
+            }
+            
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `localStorage-export-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            updateStatus('已导出LocalStorage数据');
+        });
+
+        // 导入数据
+        importBtn.addEventListener('click', function() {
+            importFile.click();
+        });
+
+        importFile.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (typeof data !== 'object' || data === null) {
+                        throw new Error('无效的JSON格式');
+                    }
+                    
+                    // 确认是否覆盖现有数据
+                    if (localStorage.length > 0 && !confirm('导入数据将覆盖现有LocalStorage数据，确定要继续吗？')) {
+                        return;
+                    }
+                    
+                    // 清空现有数据
+                    localStorage.clear();
+                    
+                    // 导入数据
+                    let count = 0;
+                    for (const [key, value] of Object.entries(data)) {
+                        localStorage.setItem(key, value);
+                        count++;
+                    }
+                    
+                    renderData();
+                    updateStatus(`已成功导入 ${count} 条数据`);
+                } catch (error) {
+                    alert('导入失败：' + error.message);
+                    updateStatus('导入数据失败');
+                }
+            };
+            reader.onerror = function() {
+                alert('文件读取失败');
+                updateStatus('文件读取失败');
+            };
+            reader.readAsText(file);
+            
+            // 重置文件输入
+            importFile.value = '';
+        });
+
+        // 更新状态信息
+        function updateStatus(message) {
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            
+            // 3秒后自动隐藏状态信息
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
