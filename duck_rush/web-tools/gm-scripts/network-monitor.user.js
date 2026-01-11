@@ -35,7 +35,7 @@
                 const state = JSON.parse(savedState);
                 isCapturing = state.isCapturing || false;
                 isPanelExpanded = state.isPanelExpanded || false;
-                console.log('加载持久化状态:', { isCapturing, isPanelExpanded });
+                // console.log('加载持久化状态:', { isCapturing, isPanelExpanded });
             }
         } catch (e) {
             console.error('加载持久化状态失败:', e);
@@ -50,7 +50,7 @@
                 isPanelExpanded: isPanelExpanded
             };
             localStorage.setItem('networkMonitorState', JSON.stringify(state));
-            console.log('保存持久化状态:', { isCapturing, isPanelExpanded });
+            // console.log('保存持久化状态:', { isCapturing, isPanelExpanded });
         } catch (e) {
             console.error('保存持久化状态失败:', e);
         }
@@ -104,7 +104,7 @@
                         requestData.readyState = xhr.readyState;
                         addRequest(requestData);
                         const result = originalSend.apply(this, arguments);
-                        console.log('XMLHttpRequest.send result:', result);
+                        // console.log('XMLHttpRequest.send result:', result);
                         return result;
                     } catch (e) {
                         console.error('XMLHttpRequest.send error:', e);
@@ -128,7 +128,7 @@
                         originalOnReadyStateChange = callback;
                         // 重新设置包装后的回调
                         const wrappedCallback = function() {
-                            console.log('XMLHttpRequest.response:', this.response);
+                            // console.log('XMLHttpRequest.response:', this.response);
                             // 先调用原始的回调
                             if (typeof originalOnReadyStateChange === 'function') {
                                 originalOnReadyStateChange.apply(this, arguments);
@@ -150,7 +150,7 @@
                                     requestToUpdate.statusText = this.statusText;
                                     requestToUpdate.responseHeaders = parseHeaders(this.getAllResponseHeaders());
 
-                                    console.log('XMLHttpRequest.response:', this.response);
+                                    // console.log('XMLHttpRequest.response:', this.response);
 
                                     // 根据responseType处理响应
                                     try {
@@ -186,8 +186,8 @@
                 });
             }
             const result = originalOpen.apply(this, arguments);
-            console.log('XMLHttpRequest.open:', method, url, ...args);
-            console.log('XMLHttpRequest.open result:', result);
+            // console.log('XMLHttpRequest.open:', method, url, ...args);
+            // console.log('XMLHttpRequest.open result:', result);
             return result;
         };
 
@@ -475,7 +475,7 @@
         clearButton.addEventListener('click', clearData);
         filterInput.addEventListener('input', function(e) {
             filterKeyword = e.target.value;
-            console.log('过滤关键字:', filterKeyword);
+            // console.log('过滤关键字:', filterKeyword);
             applyFilter();
         });
 
@@ -565,13 +565,19 @@
         requestCounter++;
         requestData.id = requestCounter;
         // 将请求数据添加到数组开头
-        networkData.unshift(requestData);
-        // 应用过滤
-        applyFilter();
-        // 确保面板已创建
-        if (document.getElementById('network-request-list')) {
-            renderRequestList();
-        }
+            networkData.unshift(requestData);
+            
+            // 限制记录条数最大100条
+            if (networkData.length > 100) {
+                networkData = networkData.slice(0, 100);
+            }
+            
+            // 应用过滤
+            applyFilter();
+            // 确保面板已创建
+            if (document.getElementById('network-request-list')) {
+                renderRequestList();
+            }
         // 返回添加的请求对象引用
         return requestData;
     }
@@ -582,6 +588,25 @@
             return url.substring(0, 100) + '...';
         }
         return url;
+    }
+
+    // 获取响应体大小
+    function getPayloadSummary(responseBody) {
+        if (!responseBody) {
+            return '无';
+        }
+        
+        // 计算响应体大小
+        const size = new Blob([responseBody]).size;
+        
+        // 格式化大小显示
+        if (size < 1024) {
+            return `${size}B`;
+        } else if (size < 1024 * 1024) {
+            return `${(size / 1024).toFixed(2)}KB`;
+        } else {
+            return `${(size / (1024 * 1024)).toFixed(2)}MB`;
+        }
     }
 
     // 根据状态码获取颜色
@@ -634,7 +659,7 @@
                 cursor: pointer;
                 transition: background 0.2s ease;
                 display: grid;
-                grid-template-columns: 50px 60px 80px 1fr 100px 80px 80px;
+                grid-template-columns: 50px 60px 80px 1fr 100px 80px 80px 80px;
                 gap: 10px;
                 align-items: center;
                 background: #333;
@@ -688,6 +713,11 @@
             time.textContent = timeStr;
             time.style.cssText = 'color: #999; font-size: 10px;';
 
+            // 返回的body大小
+            const payload = document.createElement('div');
+            payload.textContent = getPayloadSummary(request.responseBody);
+            payload.style.cssText = 'color: #999; font-size: 10px; text-align: center;';
+
             requestItem.appendChild(id);
             requestItem.appendChild(type);
             requestItem.appendChild(method);
@@ -695,12 +725,13 @@
             requestItem.appendChild(status);
             requestItem.appendChild(duration);
             requestItem.appendChild(time);
+            requestItem.appendChild(payload);
 
             // 创建详情面板
             const detailPanel = document.createElement('div');
             detailPanel.id = `detail-panel-${request.id}`;
             detailPanel.style.cssText = `
-                padding: 12px;
+                padding: 4px;
                 border: 1px solid #444;
                 border-top: none;
                 border-radius: 0 0 3px 3px;
@@ -711,7 +742,7 @@
             // 详情头部
             const detailHeader = document.createElement('div');
             detailHeader.style.cssText = `
-                margin-bottom: 12px;
+                margin-bottom: 4px;
                 font-weight: bold;
             `;
             detailHeader.textContent = `${request.method} ${request.url}`;
@@ -721,14 +752,14 @@
             detailContent.style.cssText = `
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 12px;
+                gap: 4px;
             `;
 
             // 请求详情
             const requestDetail = document.createElement('div');
             requestDetail.style.cssText = `
                 background: #222;
-                padding: 8px;
+                padding: 4px;
                 border-radius: 3px;
                 max-height: 200px;
                 overflow-y: auto;
@@ -737,15 +768,14 @@
             const requestTitle = document.createElement('div');
             requestTitle.textContent = '请求';
             requestTitle.style.cssText = `
-                margin-bottom: 8px;
+                margin-bottom: 4px;
                 font-weight: bold;
                 color: #999;
             `;
 
-            const requestBody = document.createElement('pre');
+            const requestBody = document.createElement('div');
             requestBody.style.cssText = `
                 margin: 0;
-                white-space: pre-wrap;
                 word-break: break-all;
                 color: #e0e0e0;
             `;
@@ -754,7 +784,7 @@
             const responseDetail = document.createElement('div');
             responseDetail.style.cssText = `
                 background: #222;
-                padding: 8px;
+                padding: 4px;
                 border-radius: 3px;
                 max-height: 200px;
                 overflow-y: auto;
@@ -763,37 +793,93 @@
             const responseTitle = document.createElement('div');
             responseTitle.textContent = '响应';
             responseTitle.style.cssText = `
-                margin-bottom: 8px;
+                margin-bottom: 4px;
                 font-weight: bold;
                 color: #999;
             `;
 
-            const responseBody = document.createElement('pre');
+            const responseBody = document.createElement('div');
             responseBody.style.cssText = `
                 margin: 0;
-                white-space: pre-wrap;
                 word-break: break-all;
                 color: #e0e0e0;
             `;
+
+            // 格式化显示数据
+            function formatData(data, isBody = false) {
+                if (!data) {
+                    return '无';
+                }
+                
+                if (isBody) {
+                    // 尝试解析JSON
+                    try {
+                        const parsed = JSON.parse(data);
+                        return JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        // 非JSON格式，直接返回
+                        return data;
+                    }
+                } else {
+                    return JSON.stringify(data, null, 2);
+                }
+            }
+
+            // 生成详情HTML
+            function generateDetailHtml(title, content, isBody = false) {
+                return `
+                    <div style="margin-bottom: 4px;">
+                        <div style="font-weight: bold; color: #999; margin-bottom: 4px;">${title}:</div>
+                        <div style="background: #1a1a1a; border-radius: 3px; padding: 4px;">
+                            <textarea style="width: 100%; height: 100px; margin: 0; font-size: 10px; color: #e0e0e0; background: transparent; border: none; resize: vertical; word-break: break-all; font-family: monospace;">${formatData(content, isBody)}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 生成body详情HTML
+            function generateBodyHtml(title, body) {
+                if (!body) {
+                    return '';
+                }
+                return `
+                    <div style="margin-bottom: 4px;">
+                        <div style="font-weight: bold; color: #999; margin-bottom: 4px;">${title}:</div>
+                        <div style="background: #1a1a1a; border-radius: 3px; padding: 4px;">
+                            <textarea style="width: 100%; height: 100px; margin: 0; font-size: 10px; color: #e0e0e0; background: transparent; border: none; resize: vertical; word-break: break-all; font-family: monospace;">${formatData(body, true)}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
 
             // 更新请求详情
             const requestInfo = {
                 url: request.url,
                 method: request.method,
                 headers: request.requestHeaders,
-                body: request.requestBody,
                 readyState: request.readyState
             };
-            requestBody.textContent = JSON.stringify(requestInfo, null, 2);
+            
+            // 构建请求详情HTML
+            let requestHtml = generateDetailHtml('基本信息', requestInfo);
+            if (request.requestBody) {
+                requestHtml += generateBodyHtml('请求体', request.requestBody);
+            }
+            requestBody.innerHTML = requestHtml;
 
             // 更新响应详情
             const responseInfo = {
                 status: request.status,
                 statusText: request.statusText,
-                headers: request.responseHeaders,
-                body: request.responseBody
+                headers: request.responseHeaders
             };
-            responseBody.textContent = JSON.stringify(responseInfo, null, 2);
+            
+            // 构建响应详情HTML
+            let responseHtml = generateDetailHtml('基本信息', responseInfo);
+            if (request.responseBody) {
+                responseHtml += generateBodyHtml('响应体', request.responseBody);
+            }
+            responseBody.innerHTML = responseHtml;
 
             // 组装详情面板
             requestDetail.appendChild(requestTitle);
