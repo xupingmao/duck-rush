@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="tool-name" content="用户脚本安装工具">
+    <meta name="tool-description" content="帮助您安装和管理用户脚本，提升浏览器功能。">
+    <title>用户脚本安装工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .script-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .script-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .script-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .install-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .install-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+        }
+        .install-btn:hover {
+            background-color: #45a049;
+        }
+        .install-btn.violentmonkey {
+            background-color: #7B68EE;
+        }
+        .install-btn.violentmonkey:hover {
+            background-color: #6A5ACD;
+        }
+        .script-meta {
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        .script-description {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #333;
+            line-height: 1.4;
+        }
+        .no-scripts {
+            background-color: white;
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            color: #666;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .extension-note {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>用户脚本安装工具</h1>
+    <p>本工具用于安装 <code>gm-scripts</code> 目录下的用户脚本，支持油猴和暴力猴扩展。</p>
+    
+    <div class="extension-note">
+        <strong>使用说明：</strong>
+        <ul>
+            <li>油猴 (Tampermonkey)：点击"油猴安装"按钮</li>
+            <li>暴力猴 (Violentmonkey)：点击"暴力猴安装"按钮</li>
+            <li>如果没有安装相应扩展，会提示安装扩展</li>
+        </ul>
+    </div>
+    
+    <div id="scripts-list">
+        <!-- 脚本列表将通过JavaScript动态生成 -->
+    </div>
+
+    <script>
+        // 模拟脚本数据 - 实际使用时可以通过服务器端生成或AJAX获取
+        const scripts = [
+            {
+                name: "网络监控脚本",
+                filename: "network-monitor.user.js",
+                description: "监控网页的网络请求，包括XHR和Fetch请求，支持查看请求详情和过滤功能。",
+                version: "1.0.0",
+                author: "Unknown"
+            }
+        ];
+
+        function generateInstallUrl(filename, extension) {
+            // 获取当前页面的协议和主机，用于构建完整的localhost URL
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port || 8000; // 默认端口8000
+            
+            // 构建完整的脚本URL
+            return `${protocol}//${hostname}:${port}/gm-scripts/${filename}`;
+        }
+
+        function renderScripts() {
+            const container = document.getElementById('scripts-list');
+            
+            if (scripts.length === 0) {
+                container.innerHTML = '<div class="no-scripts">没有找到用户脚本</div>';
+                return;
+            }
+
+            container.innerHTML = scripts.map(script => `
+                <div class="script-container">
+                    <div class="script-header">
+                        <div class="script-name">${script.name}</div>
+                        <div class="install-buttons">
+                            <a href="${generateInstallUrl(script.filename, 'tampermonkey')}" class="install-btn" target="_blank">
+                                油猴安装
+                            </a>
+                            <a href="${generateInstallUrl(script.filename, 'violentmonkey')}" class="install-btn violentmonkey" target="_blank">
+                                暴力猴安装
+                            </a>
+                        </div>
+                    </div>
+                    <div class="script-meta">
+                        <strong>文件名:</strong> ${script.filename}<br>
+                        <strong>版本:</strong> ${script.version}<br>
+                        <strong>作者:</strong> ${script.author}
+                    </div>
+                    <div class="script-description">
+                        ${script.description}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 页面加载时渲染脚本列表
+        renderScripts();
+    </script>
+</body>
+</html>
