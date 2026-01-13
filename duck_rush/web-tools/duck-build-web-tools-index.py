@@ -5,12 +5,47 @@ Duck Rush - Web 工具索引生成器
 
 该脚本会扫描 web-tools 目录下的 HTML 文件，并自动生成 web-tools-index.html 文件，
 包含工具卡片、使用说明和工具列表。
+
+Usage:
+    duck-build-web-tools-index.py        # 递归扫描所有子目录（默认）
+    duck-build-web-tools-index.py --no-recursive  # 禁用递归扫描，只扫描当前目录
+    duck-build-web-tools-index.py --exclude dir1,dir2  # 排除指定目录
+    duck-build-web-tools-index.py --help  # 显示帮助信息
+
+Examples:
+    # 递归扫描并排除 node_modules 目录（默认行为）
+    duck-build-web-tools-index.py --exclude node_modules
+
+    # 禁用递归扫描，只扫描当前目录
+    duck-build-web-tools-index.py --no-recursive
+
+    # 排除多个目录和文件
+    duck-build-web-tools-index.py --exclude node_modules,dist,build
 """
 
 import os
 import datetime
+import argparse
+from typing import List, Optional, Set
 
-def get_tool_info(filename):
+
+class ToolInfo:
+    """
+    工具信息类
+    """
+    def __init__(self, name: str, description: str):
+        """
+        初始化工具信息
+        
+        Args:
+            name: 工具名称
+            description: 工具描述
+        """
+        self.name = name
+        self.description = description
+
+
+def get_tool_info(filename: str) -> ToolInfo:
     """
     根据文件名获取工具信息
     
@@ -18,7 +53,7 @@ def get_tool_info(filename):
         filename: HTML 文件名
     
     Returns:
-        dict: 包含工具信息的字典
+        ToolInfo: 包含工具信息的对象
     """
     import re
     
@@ -33,21 +68,67 @@ def get_tool_info(filename):
         description_match = re.search(r'<meta name="tool-description" content="([^"]*)"', content)
         
         # 构建工具信息
-        tool_info = {
-            'name': name_match.group(1) if name_match else os.path.splitext(filename)[0].replace('-', ' ').title(),
-            'description': description_match.group(1) if description_match else 'Duck Rush 项目中的 Web 工具。'
-        }
+        name = name_match.group(1) if name_match else os.path.splitext(filename)[0].replace('-', ' ').title()
+        description = description_match.group(1) if description_match else 'Duck Rush 项目中的 Web 工具。'
         
-        return tool_info
+        return ToolInfo(name=name, description=description)
     except Exception as e:
         # 异常情况下返回默认信息
         name = os.path.splitext(filename)[0].replace('-', ' ').title()
-        return {
-            'name': name,
-            'description': 'Duck Rush 项目中的 Web 工具。'
-        }
+        return ToolInfo(
+            name=name,
+            description='Duck Rush 项目中的 Web 工具。'
+        )
 
-def generate_html(tools, html_files):
+def scan_html_files(directory: str, recursive: bool = True, exclude: Set[str] = None) -> List[str]:
+    """
+    扫描目录下的 HTML 文件
+    
+    Args:
+        directory: 扫描目录
+        recursive: 是否递归扫描子目录
+        exclude: 要排除的目录和文件列表
+    
+    Returns:
+        List[str]: HTML 文件路径列表
+    """
+    if exclude is None:
+        exclude = set()
+    
+    html_files = []
+    
+    def is_excluded(path: str) -> bool:
+        """
+        检查路径是否被排除
+        """
+        basename = os.path.basename(path)
+        return basename in exclude
+    
+    if recursive:
+        # 递归扫描
+        for root, dirs, files in os.walk(directory):
+            # 排除指定目录
+            dirs[:] = [d for d in dirs if not is_excluded(d)]
+            
+            # 扫描 HTML 文件
+            for file in files:
+                if file.endswith('.html') and file != 'web-tools-index.html' and not is_excluded(file):
+                    # 计算相对路径
+                    rel_path = os.path.relpath(os.path.join(root, file), directory)
+                    html_files.append(rel_path)
+    else:
+        # 非递归扫描
+        for file in os.listdir(directory):
+            file_path = os.path.join(directory, file)
+            if (os.path.isfile(file_path) and 
+                file.endswith('.html') and 
+                file != 'web-tools-index.html' and 
+                not is_excluded(file)):
+                html_files.append(file)
+    
+    return sorted(html_files)
+
+def generate_html(tools: List[ToolInfo], html_files: List[str]) -> str:
     """
     生成 HTML 内容
     
@@ -66,8 +147,8 @@ def generate_html(tools, html_files):
         filename = html_files[i]
         tool_cards.append(f'''
                     <div class="tool-card">
-                        <h3 class="tool-title">{tool_info['name']}</h3>
-                        <p class="tool-description">{tool_info['description']}</p>
+                        <h3 class="tool-title">{tool_info.name}</h3>
+                        <p class="tool-description">{tool_info.description}</p>
                         <a href="{filename}" class="tool-link">打开工具</a>
                     </div>
         ''')
@@ -310,19 +391,38 @@ def generate_html(tools, html_files):
     
     return html_content
 
-def main():
+def main() -> int:
     """
     主函数
+    
+    Returns:
+        int: 退出码
     """
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(
+        description='Duck Rush - Web 工具索引生成器',
+        epilog='示例:\n  duck-build-web-tools-index.py --exclude node_modules\n  duck-build-web-tools-index.py --no-recursive\n  duck-build-web-tools-index.py --exclude dir1,dir2'
+    )
+    
+    parser.add_argument('--no-recursive', '-n', action='store_true', help='禁用递归扫描，只扫描当前目录')
+    parser.add_argument('--exclude', '-e', type=str, default='', help='要排除的目录和文件，用逗号分隔')
+    
+    args = parser.parse_args()
+    
     # 获取 web-tools 目录路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
+    # 解析排除列表
+    exclude_set = set(args.exclude.split(',')) if args.exclude else set()
+    # 移除空字符串
+    exclude_set = {item for item in exclude_set if item}
+    
     # 扫描 HTML 文件
-    html_files = [f for f in os.listdir(current_dir) if f.endswith('.html') and f != 'web-tools-index.html']
-    html_files.sort()
+    recursive = not args.no_recursive
+    html_files = scan_html_files(current_dir, recursive, exclude_set)
     
     # 获取工具信息
-    tools = [get_tool_info(f) for f in html_files]
+    tools: List[ToolInfo] = [get_tool_info(f) for f in html_files]
     
     # 生成 HTML
     html_content = generate_html(tools, html_files)
@@ -336,6 +436,8 @@ def main():
     print(f"📁 扫描到 {len(html_files)} 个工具文件：")
     for file in html_files:
         print(f"   - {file}")
+    
+    return 0
 
 if __name__ == '__main__':
-    main()
+    exit(main())

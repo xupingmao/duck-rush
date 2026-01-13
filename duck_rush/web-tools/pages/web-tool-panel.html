@@ -852,13 +852,7 @@
         // ========== 核心优化：基于文件名生成唯一存储前缀 ==========
         // 获取当前页面文件名（去除后缀）作为唯一标识
         function getUniqueStoragePrefix() {
-            // 获取当前页面URL的文件名部分
-            const path = window.location.pathname;
-            const fileName = path.split('/').pop() || 'webtool_default';
-            // 去除文件后缀，只保留名称部分
-            const fileNameWithoutExt = fileName.split('.')[0];
-            // 生成安全的前缀（替换特殊字符）
-            return `webtool_${fileNameWithoutExt.replace(/[^a-zA-Z0-9_]/g, '_')}_`;
+            return "webtool_";
         }
 
         // 生成带唯一前缀的存储KEY
