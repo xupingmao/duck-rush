@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji 表情选择器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+
+        /* 分类导航 */
+        .category-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .category-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background-color: #f8f9fa;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .category-btn:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+        .category-btn.active {
+            background-color: #3498db;
+            color: #fff;
+            border-color: #3498db;
+        }
+
+        /* 表情容器 */
+        .emoji-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .emoji-category {
+            margin-bottom: 30px;
+        }
+
+        .emoji-category h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 15px;
+        }
+
+        .emoji-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .emoji-item:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+        .emoji {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .emoji-name {
+            font-size: 12px;
+            color: #6c757d;
+            text-align: center;
+            word-break: break-all;
+        }
+
+        /* 搜索框 */
+        .search-container {
+            margin-bottom: 30px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-box:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+        }
+
+        /* 复制提示 */
+        .copy-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .copy-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            .category-nav {
+                gap: 8px;
+                padding: 10px;
+            }
+
+            .category-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            .emoji-grid {
+                grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+                gap: 10px;
+            }
+
+            .emoji {
+                font-size: 20px;
+            }
+
+            .emoji-name {
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>😃 Emoji 表情选择器</h1>
+
+        <!-- 搜索框 -->
+        <div class="search-container">
+            <input type="text" class="search-box" id="searchBox" placeholder="搜索表情...">
+        </div>
+
+        <!-- 分类导航 -->
+        <div class="category-nav" id="categoryNav">
+            <!-- 分类按钮将通过 JavaScript 动态生成 -->
+        </div>
+
+        <!-- 表情容器 -->
+        <div class="emoji-container" id="emojiContainer">
+            <!-- 表情分类将通过 JavaScript 动态生成 -->
+        </div>
+    </div>
+
+    <!-- 复制提示 -->
+    <div class="copy-toast" id="copyToast">
+        已复制到剪贴板！
+    </div>
+
+    <script>
+        // Emoji 分类数据
+        const emojiData = [
+            {
+                category: '表情符号与人物',
+                key: 'faces',
+                emojis: [
+                    { emoji: '😀', name: '笑脸' },
+                    { emoji: '😃', name: '大笑' },
+                    { emoji: '😄', name: '露齿笑' },
+                    { emoji: '😁', name: '呲牙笑' },
+                    { emoji: '😆', name: '笑出眼泪' },
+                    { emoji: '😅', name: '汗笑' },
+                    { emoji: '🤣', name: '大笑' },
+                    { emoji: '😂', name: '笑哭' },
+                    { emoji: '🙂', name: '微笑' },
+                    { emoji: '🙃', name: '倒脸' },
+                    { emoji: '😉', name: '眨眼' },
+                    { emoji: '😊', name: '含笑' },
+                    { emoji: '😇', name: '天使' },
+                    { emoji: '🥰', name: '爱心眼' },
+                    { emoji: '😍', name: '花痴' },
+                    { emoji: '🤩', name: '崇拜' },
+                    { emoji: '😘', name: '飞吻' },
+                    { emoji: '😗', name: '亲吻' },
+                    { emoji: '😙', name: '亲亲' },
+                    { emoji: '😚', name: '飞吻' },
+                    { emoji: '😋', name: '美味' },
+                    { emoji: '😛', name: '调皮' },
+                    { emoji: '😝', name: '吐舌' },
+                    { emoji: '😜', name: '眨眼吐舌' },
+                    { emoji: '🤪', name: '搞怪' },
+                    { emoji: '🤨', name: '怀疑' },
+                    { emoji: '🧐', name: '思考' },
+                    { emoji: '🤓', name: '书呆子' },
+                    { emoji: '😎', name: '酷' },
+                    { emoji: '🤩', name: '闪光' },
+                    { emoji: '🥳', name: '庆祝' },
+                    { emoji: '😏', name: '得意' },
+                    { emoji: '😒', name: '无聊' },
+                    { emoji: '😞', name: '失望' },
+                    { emoji: '😔', name: '难过' },
+                    { emoji: '😟', name: '担心' },
+                    { emoji: '😕', name: '困惑' },
+                    { emoji: '🙁', name: '不高兴' },
+                    { emoji: '☹️', name: '悲伤' },
+                    { emoji: '😣', name: '痛苦' },
+                    { emoji: '😖', name: '烦躁' },
+                    { emoji: '😫', name: '疲惫' },
+                    { emoji: '😩', name: '无奈' },
+                    { emoji: '🥺', name: '恳求' },
+                    { emoji: '😢', name: '哭泣' },
+                    { emoji: '😭', name: '大哭' },
+                    { emoji: '😤', name: '生气' },
+                    { emoji: '😠', name: '愤怒' },
+                    { emoji: '😡', name: '暴怒' },
+                    { emoji: '🤬', name: '咒骂' },
+                    { emoji: '🤯', name: '爆炸' },
+                    { emoji: '😳', name: '震惊' },
+                    { emoji: '🥵', name: '热' },
+                    { emoji: '🥶', name: '冷' },
+                    { emoji: '😱', name: '惊恐' },
+                    { emoji: '😨', name: '害怕' },
+                    { emoji: '😰', name: '恐慌' },
+                    { emoji: '😥', name: '汗' },
+                    { emoji: '😓', name: '流汗' },
+                    { emoji: '🤗', name: '拥抱' },
+                    { emoji: '🤔', name: '思考' },
+                    { emoji: '🤭', name: '偷笑' },
+                    { emoji: '🤫', name: '安静' },
+                    { emoji: '🤥', name: '说谎' },
+                    { emoji: '😶', name: '无语' },
+                    { emoji: '😐', name: '中性' },
+                    { emoji: '😑', name: '无奈' },
+                    { emoji: '😬', name: '尴尬' },
+                    { emoji: '🙄', name: '翻白眼' },
+                    { emoji: '😯', name: '惊讶' },
+                    { emoji: '😦', name: '震惊' },
+                    { emoji: '😧', name: '惊慌' },
+                    { emoji: '😮', name: '惊讶' },
+                    { emoji: '😲', name: '震惊' },
+                    { emoji: '🥱', name: '打哈欠' },
+                    { emoji: '😴', name: '睡觉' },
+                    { emoji: '🤤', name: '流口水' },
+                    { emoji: '😪', name: '困' },
+                    { emoji: '😵', name: '晕眩' },
+                    { emoji: '🤐', name: '闭嘴' },
+                    { emoji: '🥴', name: '醉' },
+                    { emoji: '🤢', name: '恶心' },
+                    { emoji: '🤮', name: '呕吐' },
+                    { emoji: '🤧', name: '打喷嚏' },
+                    { emoji: '🥵', name: '发烧' },
+                    { emoji: '🤒', name: '生病' },
+                    { emoji: '🤕', name: '受伤' },
+                    { emoji: '😷', name: '口罩' },
+                    { emoji: '🤖', name: '机器人' },
+                    { emoji: '🤠', name: '牛仔' },
+                    { emoji: '🎅', name: '圣诞老人' },
+                    { emoji: '🤶', name: '圣诞奶奶' },
+                    { emoji: '👸', name: '公主' },
+                    { emoji: '🤴', name: '王子' },
+                    { emoji: '👳‍♂️', name: '包头巾' },
+                    { emoji: '👲', name: '中国风' },
+                    { emoji: '🧕', name: '头巾' },
+                    { emoji: '👮', name: '警察' },
+                    { emoji: '👷', name: '工人' },
+                    { emoji: '👩‍⚕️', name: '医生' },
+                    { emoji: '👨‍⚕️', name: '医生' },
+                    { emoji: '👩‍🍳', name: '厨师' },
+                    { emoji: '👨‍🍳', name: '厨师' },
+                    { emoji: '👩‍', name: '教师' },
+                    { emoji: '👨‍', name: '教师' },
+                    { emoji: '👩‍', name: '科学家' },
+                    { emoji: '👨‍', name: '科学家' },
+                    { emoji: '👩‍', name: '工程师' },
+                    { emoji: '👨‍', name: '工程师' },
+                    { emoji: '👩‍', name: '程序员' },
+                    { emoji: '👨‍', name: '程序员' },
+                    { emoji: '👩‍', name: '设计师' },
+                    { emoji: '👨‍', name: '设计师' },
+                    { emoji: '👩‍', name: '艺术家' },
+                    { emoji: '👨‍', name: '艺术家' },
+                    { emoji: '👩‍', name: '运动员' },
+                    { emoji: '👨‍', name: '运动员' }
+                ]
+            },
+            {
+                category: '动物与自然',
+                key: 'animals',
+                emojis: [
+                    { emoji: '🐶', name: '狗' },
+                    { emoji: '🐱', name: '猫' },
+                    { emoji: '🐭', name: '老鼠' },
+                    { emoji: '🐹', name: '仓鼠' },
+                    { emoji: '🐰', name: '兔子' },
+                    { emoji: '🦊', name: '狐狸' },
+                    { emoji: '🐻', name: '熊' },
+                    { emoji: '🐼', name: '熊猫' },
+                    { emoji: '🐨', name: '考拉' },
+                    { emoji: '🐯', name: '老虎' },
+                    { emoji: '🦁', name: '狮子' },
+                    { emoji: '🐮', name: '牛' },
+                    { emoji: '🐷', name: '猪' },
+                    { emoji: '🐸', name: '青蛙' },
+                    { emoji: '🐵', name: '猴子' },
+                    { emoji: '🐔', name: '鸡' },
+                    { emoji: '🐧', name: '企鹅' },
+                    { emoji: '🐦', name: '鸟' },
+                    { emoji: '🐤', name: '小鸡' },
+                    { emoji: '🐣', name: '破壳' },
+                    { emoji: '🐥', name: '小黄鸡' },
+                    { emoji: '🦆', name: '鸭子' },
+                    { emoji: '🦅', name: '鹰' },
+                    { emoji: '🦉', name: '猫头鹰' },
+                    { emoji: '🦇', name: '蝙蝠' },
+                    { emoji: '🐺', name: '狼' },
+                    { emoji: '🐗', name: '野猪' },
+                    { emoji: '🐴', name: '马' },
+                    { emoji: '🦄', name: '独角兽' },
+                    { emoji: '🐝', name: '蜜蜂' },
+                    { emoji: '🐛', name: '毛毛虫' },
+                    { emoji: '🦋', name: '蝴蝶' },
+                    { emoji: '🐌', name: '蜗牛' },
+                    { emoji: '🐞', name: '瓢虫' },
+                    { emoji: '🐜', name: '蚂蚁' },
+                    { emoji: '🕷️', name: '蜘蛛' },
+                    { emoji: '🦂', name: '蝎子' },
+                    { emoji: '🦟', name: '蚊子' },
+                    { emoji: '🦠', name: '细菌' },
+                    { emoji: '🐡', name: '河豚' },
+                    { emoji: '🐠', name: '鱼' },
+                    { emoji: '🐟', name: '鱼' },
+                    { emoji: '🐬', name: '海豚' },
+                    { emoji: '🐳', name: '鲸鱼' },
+                    { emoji: '🐋', name: '鲸鱼' },
+                    { emoji: '🐊', name: '鳄鱼' },
+                    { emoji: '🐅', name: '老虎' },
+                    { emoji: '🐆', name: '豹子' },
+                    { emoji: '🦓', name: '斑马' },
+                    { emoji: '🦌', name: '鹿' },
+                    { emoji: '🐃', name: '水牛' },
+                    { emoji: '🐂', name: '牛' },
+                    { emoji: '🐄', name: '奶牛' },
+                    { emoji: '🐎', name: '马' },
+                    { emoji: '🐖', name: '猪' },
+                    { emoji: '🐏', name: '羊' },
+                    { emoji: '🐑', name: '羊' },
+                    { emoji: '🐐', name: '山羊' },
+                    { emoji: '🐓', name: '公鸡' },
+                    { emoji: '🐔', name: '鸡' },
+                    { emoji: '🐣', name: '小鸡' },
+                    { emoji: '🐤', name: '小鸡' },
+                    { emoji: '🐥', name: '小鸡' },
+                    { emoji: '🐦', name: '鸟' },
+                    { emoji: '🐧', name: '企鹅' },
+                    { emoji: '🕊️', name: '鸽子' },
+                    { emoji: '🦅', name: '鹰' },
+                    { emoji: '🦉', name: '猫头鹰' },
+                    { emoji: '🦆', name: '鸭子' },
+                    { emoji: '🦢', name: '天鹅' },
+                    { emoji: '🦌', name: '鹿' },
+                    { emoji: '🐕', name: '狗' },
+                    { emoji: '🐩', name: '贵宾犬' },
+                    { emoji: '🐈', name: '猫' },
+                    { emoji: '🐈‍⬛', name: '黑猫' },
+                    { emoji: '🐻', name: '熊' },
+                    { emoji: '🐨', name: '考拉' },
+                    { emoji: '🐼', name: '熊猫' },
+                    { emoji: '🐵', name: '猴子' },
+                    { emoji: '🐔', name: '鸡' },
+                    { emoji: '🐧', name: '企鹅' },
+                    { emoji: '🐦', name: '鸟' },
+                    { emoji: '🐤', name: '小鸡' },
+                    { emoji: '🐣', name: '破壳' },
+                    { emoji: '🐥', name: '小黄鸡' },
+                    { emoji: '🦆', name: '鸭子' },
+                    { emoji: '🦅', name: '鹰' },
+                    { emoji: '🦉', name: '猫头鹰' },
+                    { emoji: '🦇', name: '蝙蝠' },
+                    { emoji: '🐺', name: '狼' },
+                    { emoji: '🐗', name: '野猪' },
+                    { emoji: '🐴', name: '马' },
+                    { emoji: '🦄', name: '独角兽' },
+                    { emoji: '🐝', name: '蜜蜂' },
+                    { emoji: '🐛', name: '毛毛虫' },
+                    { emoji: '🦋', name: '蝴蝶' },
+                    { emoji: '🐌', name: '蜗牛' },
+                    { emoji: '🐞', name: '瓢虫' },
+                    { emoji: '🐜', name: '蚂蚁' },
+                    { emoji: '🕷️', name: '蜘蛛' },
+                    { emoji: '🦂', name: '蝎子' },
+                    { emoji: '🦟', name: '蚊子' },
+                    { emoji: '🦠', name: '细菌' },
+                    { emoji: '🐡', name: '河豚' },
+                    { emoji: '🐠', name: '鱼' },
+                    { emoji: '🐟', name: '鱼' },
+                    { emoji: '🐬', name: '海豚' },
+                    { emoji: '🐳', name: '鲸鱼' },
+                    { emoji: '🐋', name: '鲸鱼' },
+                    { emoji: '🐊', name: '鳄鱼' },
+                    { emoji: '🐅', name: '老虎' },
+                    { emoji: '🐆', name: '豹子' },
+                    { emoji: '🦓', name: '斑马' },
+                    { emoji: '🦌', name: '鹿' },
+                    { emoji: '🐃', name: '水牛' },
+                    { emoji: '🐂', name: '牛' },
+                    { emoji: '🐄', name: '奶牛' },
+                    { emoji: '🐎', name: '马' },
+                    { emoji: '🐖', name: '猪' },
+                    { emoji: '🐏', name: '羊' },
+                    { emoji: '🐑', name: '羊' },
+                    { emoji: '🐐', name: '山羊' },
+                    { emoji: '🐓', name: '公鸡' },
+                    { emoji: '🐔', name: '鸡' },
+                    { emoji: '🐣', name: '小鸡' },
+                    { emoji: '🐤', name: '小鸡' },
+                    { emoji: '🐥', name: '小鸡' },
+                    { emoji: '🐦', name: '鸟' },
+                    { emoji: '🐧', name: '企鹅' },
+                    { emoji: '🕊️', name: '鸽子' },
+                    { emoji: '🦅', name: '鹰' },
+                    { emoji: '🦉', name: '猫头鹰' },
+                    { emoji: '🦆', name: '鸭子' },
+                    { emoji: '🦢', name: '天鹅' },
+                    { emoji: '🦌', name: '鹿' }
+                ]
+            },
+            {
+                category: '食物与饮料',
+                key: 'food',
+                emojis: [
+                    { emoji: '🍇', name: '葡萄' },
+                    { emoji: '🍈', name: '瓜' },
+                    { emoji: '🍉', name: '西瓜' },
+                    { emoji: '🍊', name: '橘子' },
+                    { emoji: '🍋', name: '柠檬' },
+                    { emoji: '🍌', name: '香蕉' },
+                    { emoji: '🍍', name: '菠萝' },
+                    { emoji: '🥭', name: '芒果' },
+                    { emoji: '🍎', name: '苹果' },
+                    { emoji: '🍏', name: '青苹果' },
+                    { emoji: '🍐', name: '梨' },
+                    { emoji: '🍑', name: '桃子' },
+                    { emoji: '🍒', name: '樱桃' },
+                    { emoji: '🍓', name: '草莓' },
+                    { emoji: '🥝', name: '猕猴桃' },
+                    { emoji: '🍅', name: '番茄' },
+                    { emoji: '🥥', name: '椰子' },
+                    { emoji: '🥑', name: '牛油果' },
+                    { emoji: '🌽', name: '玉米' },
+                    { emoji: '🥕', name: '胡萝卜' },
+                    { emoji: '🥒', name: '黄瓜' },
+                    { emoji: '🥦', name: '西兰花' },
+                    { emoji: '🥬', name: '生菜' },
+                    { emoji: '🥜', name: '花生' },
+                    { emoji: '🌰', name: '栗子' },
+                    { emoji: '🍞', name: '面包' },
+                    { emoji: '🥐', name: '可颂' },
+                    { emoji: '🥨', name: '椒盐卷饼' },
+                    { emoji: '🥯', name: '百吉饼' },
+                    { emoji: '🥞', name: '煎饼' },
+                    { emoji: '🧇', name: '华夫饼' },
+                    { emoji: '🧀', name: '奶酪' },
+                    { emoji: '🍖', name: '肉' },
+                    { emoji: '🍗', name: '炸鸡' },
+                    { emoji: '🥩', name: '牛排' },
+                    { emoji: '🥓', name: '培根' },
+                    { emoji: '🍔', name: '汉堡' },
+                    { emoji: '🍟', name: '薯条' },
+                    { emoji: '🍕', name: '披萨' },
+                    { emoji: '🌭', name: '热狗' },
+                    { emoji: '🥪', name: '三明治' },
+                    { emoji: '🌮', name: '塔可' },
+                    { emoji: '🌯', name: '卷饼' },
+                    { emoji: '🥙', name: '玉米卷' },
+                    { emoji: '🧆', name: '炸丸子' },
+                    { emoji: '🥘', name: '炖菜' },
+                    { emoji: '🍲', name: '汤' },
+                    { emoji: '🥣', name: '粥' },
+                    { emoji: '🥗', name: '沙拉' },
+                    { emoji: '🍿', name: '爆米花' },
+                    { emoji: '🧈', name: '黄油' },
+                    { emoji: '🧂', name: '盐' },
+                    { emoji: '🥫', name: '罐头' },
+                    { emoji: '🍱', name: '便当' },
+                    { emoji: '🍘', name: '米饼' },
+                    { emoji: '🍙', name: '饭团' },
+                    { emoji: '🍚', name: '米饭' },
+                    { emoji: '🍛', name: '咖喱' },
+                    { emoji: '🍜', name: '面条' },
+                    { emoji: '🍝', name: '意大利面' },
+                    { emoji: '🍠', name: '红薯' },
+                    { emoji: '🍢', name: '烤串' },
+                    { emoji: '🍣', name: '寿司' },
+                    { emoji: '🍤', name: '天妇罗' },
+                    { emoji: '🍥', name: '鱼板' },
+                    { emoji: '🥮', name: '月饼' },
+                    { emoji: '🍡', name: '团子' },
+                    { emoji: '🥟', name: '饺子' },
+                    { emoji: '🥠', name: '年糕' },
+                    { emoji: '🥡', name: '外卖' },
+                    { emoji: '🍦', name: '冰淇淋' },
+                    { emoji: '🍧', name: '刨冰' },
+                    { emoji: '🍨', name: '甜点' },
+                    { emoji: '🍩', name: '甜甜圈' },
+                    { emoji: '🍪', name: '饼干' },
+                    { emoji: '🎂', name: '蛋糕' },
+                    { emoji: '🍰', name: '蛋糕' },
+                    { emoji: '🧁', name: '纸杯蛋糕' },
+                    { emoji: '🥧', name: '派' },
+                    { emoji: '🍫', name: '巧克力' },
+                    { emoji: '🍬', name: '糖果' },
+                    { emoji: '🍭', name: '棒棒糖' },
+                    { emoji: '🍮', name: '布丁' },
+                    { emoji: '🍯', name: '蜂蜜' },
+                    { emoji: '🍼', name: '奶瓶' },
+                    { emoji: '🥛', name: '牛奶' },
+                    { emoji: '☕', name: '咖啡' },
+                    { emoji: '🍵', name: '茶' },
+                    { emoji: '🍶', name: '清酒' },
+                    { emoji: '🍾', name: '香槟' },
+                    { emoji: '🍷', name: '红酒' },
+                    { emoji: '🍸', name: '鸡尾酒' },
+                    { emoji: '🍹', name: '饮料' },
+                    { emoji: '🍺', name: '啤酒' },
+                    { emoji: '🍻', name: '碰杯' },
+                    { emoji: '🥂', name: '碰杯' },
+                    { emoji: '🥃', name: '威士忌' },
+                    { emoji: '🧉', name: '马黛茶' },
+                    { emoji: '🧃', name: '果汁' },
+                    { emoji: '🧋', name: '奶茶' },
+                    { emoji: '🧊', name: '冰块' }
+                ]
+            },
+            {
+                category: '旅行与地点',
+                key: 'travel',
+                emojis: [
+                    { emoji: '🚗', name: '汽车' },
+                    { emoji: '🚕', name: '出租车' },
+                    { emoji: '🚙', name: 'SUV' },
+                    { emoji: '🚌', name: '公交车' },
+                    { emoji: '🚎', name: '电车' },
+                    { emoji: '🏎️', name: '赛车' },
+                    { emoji: '🚓', name: '警车' },
+                    { emoji: '🚑', name: '救护车' },
+                    { emoji: '🚒', name: '消防车' },
+                    { emoji: '🚐', name: '面包车' },
+                    { emoji: '🚚', name: '卡车' },
+                    { emoji: '🚛', name: '大卡车' },
+                    { emoji: '🚜', name: '拖拉机' },
+                    { emoji: '🏍️', name: '摩托车' },
+                    { emoji: '🛵', name: '电动车' },
+                    { emoji: '🚲', name: '自行车' },
+                    { emoji: '🛴', name: '滑板车' },
+                    { emoji: '🛹', name: '滑板' },
+                    { emoji: '🚏', name: '车站' },
+                    { emoji: '🛣️', name: '公路' },
+                    { emoji: '🛤️', name: '铁路' },
+                    { emoji: '🚨', name: '警灯' },
+                    { emoji: '🚥', name: '交通灯' },
+                    { emoji: '🚦', name: '交通灯' },
+                    { emoji: '🛑', name: '停止' },
+                    { emoji: '⚠️', name: '警告' },
+                    { emoji: '🚧', name: '施工' },
+                    { emoji: '🚡', name: '缆车' },
+                    { emoji: '🚠', name: '索道' },
+                    { emoji: '🚟', name: '直升机平台' },
+                    { emoji: '🚃', name: '火车' },
+                    { emoji: '🚋', name: '电车' },
+                    { emoji: '🚄', name: '高铁' },
+                    { emoji: '🚅', name: '动车' },
+                    { emoji: '🚆', name: '火车' },
+                    { emoji: '🚇', name: '地铁' },
+                    { emoji: '🚈', name: '轻轨' },
+                    { emoji: '🚉', name: '车站' },
+                    { emoji: '🚊', name: '轻轨' },
+                    { emoji: '🚝', name: '通勤火车' },
+                    { emoji: '🚞', name: '老式火车' },
+                    { emoji: '🚂', name: '蒸汽火车' },
+                    { emoji: '🚋', name: '电车' },
+                    { emoji: '🚃', name: '火车' },
+                    { emoji: '🚎', name: '电车' },
+                    { emoji: '🚌', name: '公交车' },
+                    { emoji: '🚐', name: '面包车' },
+                    { emoji: '🚑', name: '救护车' },
+                    { emoji: '🚒', name: '消防车' },
+                    { emoji: '🚓', name: '警车' },
+                    { emoji: '🏎️', name: '赛车' },
+                    { emoji: '🏍️', name: '摩托车' },
+                    { emoji: '🛵', name: '电动车' },
+                    { emoji: '🚲', name: '自行车' },
+                    { emoji: '🛴', name: '滑板车' },
+                    { emoji: '🛹', name: '滑板' },
+                    { emoji: '🚏', name: '车站' },
+                    { emoji: '🛣️', name: '公路' },
+                    { emoji: '🛤️', name: '铁路' },
+                    { emoji: '🚨', name: '警灯' },
+                    { emoji: '🚥', name: '交通灯' },
+                    { emoji: '🚦', name: '交通灯' },
+                    { emoji: '🛑', name: '停止' },
+                    { emoji: '⚠️', name: '警告' },
+                    { emoji: '🚧', name: '施工' },
+                    { emoji: '🚡', name: '缆车' },
+                    { emoji: '🚠', name: '索道' },
+                    { emoji: '🚟', name: '直升机平台' }
+                ]
+            },
+            {
+                category: '物体与工具',
+                key: 'objects',
+                emojis: [
+                    { emoji: '💻', name: '电脑' },
+                    { emoji: '⌨️', name: '键盘' },
+                    { emoji: '🖱️', name: '鼠标' },
+                    { emoji: '🖨️', name: '打印机' },
+                    { emoji: '📱', name: '手机' },
+                    { emoji: '📲', name: '手机' },
+                    { emoji: '📞', name: '电话' },
+                    { emoji: '📟', name: '传呼机' },
+                    { emoji: '📠', name: '传真' },
+                    { emoji: '💽', name: '光盘' },
+                    { emoji: '💾', name: '软盘' },
+                    { emoji: '💿', name: 'CD' },
+                    { emoji: '📀', name: 'DVD' },
+                    { emoji: '📼', name: '录像带' },
+                    { emoji: '📷', name: '相机' },
+                    { emoji: '📸', name: '拍照' },
+                    { emoji: '📹', name: '摄像机' },
+                    { emoji: '🎥', name: '电影' },
+                    { emoji: '📺', name: '电视' },
+                    { emoji: '📻', name: '收音机' },
+                    { emoji: '📟', name: '传呼机' },
+                    { emoji: '📞', name: '电话' },
+                    { emoji: '☎️', name: '电话' },
+                    { emoji: '📱', name: '手机' },
+                    { emoji: '📲', name: '手机' },
+                    { emoji: '💻', name: '电脑' },
+                    { emoji: '⌨️', name: '键盘' },
+                    { emoji: '🖱️', name: '鼠标' },
+                    { emoji: '🖨️', name: '打印机' },
+                    { emoji: '🖥️', name: '显示器' },
+                    { emoji: '💽', name: '光盘' },
+                    { emoji: '💾', name: '软盘' },
+                    { emoji: '💿', name: 'CD' },
+                    { emoji: '📀', name: 'DVD' },
+                    { emoji: '📼', name: '录像带' },
+                    { emoji: '📷', name: '相机' },
+                    { emoji: '📸', name: '拍照' },
+                    { emoji: '📹', name: '摄像机' },
+                    { emoji: '🎥', name: '电影' },
+                    { emoji: '📺', name: '电视' },
+                    { emoji: '📻', name: '收音机' },
+                    { emoji: '📟', name: '传呼机' },
+                    { emoji: '📞', name: '电话' },
+                    { emoji: '☎️', name: '电话' },
+                    { emoji: '📱', name: '手机' },
+                    { emoji: '📲', name: '手机' },
+                    { emoji: '💻', name: '电脑' },
+                    { emoji: '⌨️', name: '键盘' },
+                    { emoji: '🖱️', name: '鼠标' },
+                    { emoji: '🖨️', name: '打印机' },
+                    { emoji: '🖥️', name: '显示器' },
+                    { emoji: '💽', name: '光盘' },
+                    { emoji: '💾', name: '软盘' },
+                    { emoji: '💿', name: 'CD' },
+                    { emoji: '📀', name: 'DVD' },
+                    { emoji: '📼', name: '录像带' },
+                    { emoji: '📷', name: '相机' },
+                    { emoji: '📸', name: '拍照' },
+                    { emoji: '📹', name: '摄像机' },
+                    { emoji: '🎥', name: '电影' },
+                    { emoji: '📺', name: '电视' },
+                    { emoji: '📻', name: '收音机' }
+                ]
+            },
+            {
+                category: '符号与标志',
+                key: 'symbols',
+                emojis: [
+                    { emoji: '❤️', name: '红心' },
+                    { emoji: '🧡', name: '橙心' },
+                    { emoji: '💛', name: '黄心' },
+                    { emoji: '💚', name: '绿心' },
+                    { emoji: '💙', name: '蓝心' },
+                    { emoji: '💜', name: '紫心' },
+                    { emoji: '🖤', name: '黑心' },
+                    { emoji: '🤍', name: '白心' },
+                    { emoji: '💔', name: '心碎' },
+                    { emoji: '💕', name: '双心' },
+                    { emoji: '💞', name: '心动' },
+                    { emoji: '💓', name: '心跳' },
+                    { emoji: '💗', name: '心跳' },
+                    { emoji: '💖', name: '闪烁' },
+                    { emoji: '💘', name: '爱箭' },
+                    { emoji: '💝', name: '礼物' },
+                    { emoji: '💟', name: '心圈' },
+                    { emoji: '💌', name: '情书' },
+                    { emoji: '💋', name: '吻' },
+                    { emoji: '💯', name: '满分' },
+                    { emoji: '💢', name: '生气' },
+                    { emoji: '💥', name: '爆炸' },
+                    { emoji: '💫', name: '星星' },
+                    { emoji: '💦', name: '汗水' },
+                    { emoji: '💨', name: '风' },
+                    { emoji: '🕳️', name: '洞' },
+                    { emoji: '💣', name: '炸弹' },
+                    { emoji: '💬', name: '对话' },
+                    { emoji: '💭', name: '思考' },
+                    { emoji: '💤', name: '睡觉' },
+                    { emoji: '💢', name: '生气' },
+                    { emoji: '💥', name: '爆炸' },
+                    { emoji: '💫', name: '星星' },
+                    { emoji: '💦', name: '汗水' },
+                    { emoji: '💨', name: '风' },
+                    { emoji: '🕳️', name: '洞' },
+                    { emoji: '💣', name: '炸弹' },
+                    { emoji: '💬', name: '对话' },
+                    { emoji: '💭', name: '思考' },
+                    { emoji: '💤', name: '睡觉' },
+                    { emoji: '❤️', name: '红心' },
+                    { emoji: '🧡', name: '橙心' },
+                    { emoji: '💛', name: '黄心' },
+                    { emoji: '💚', name: '绿心' },
+                    { emoji: '💙', name: '蓝心' },
+                    { emoji: '💜', name: '紫心' },
+                    { emoji: '🖤', name: '黑心' },
+                    { emoji: '🤍', name: '白心' },
+                    { emoji: '💔', name: '心碎' },
+                    { emoji: '💕', name: '双心' },
+                    { emoji: '💞', name: '心动' },
+                    { emoji: '💓', name: '心跳' },
+                    { emoji: '💗', name: '心跳' },
+                    { emoji: '💖', name: '闪烁' },
+                    { emoji: '💘', name: '爱箭' },
+                    { emoji: '💝', name: '礼物' },
+                    { emoji: '💟', name: '心圈' },
+                    { emoji: '💌', name: '情书' },
+                    { emoji: '💋', name: '吻' },
+                    { emoji: '💯', name: '满分' },
+                    { emoji: '💢', name: '生气' },
+                    { emoji: '💥', name: '爆炸' },
+                    { emoji: '💫', name: '星星' },
+                    { emoji: '💦', name: '汗水' },
+                    { emoji: '💨', name: '风' },
+                    { emoji: '🕳️', name: '洞' },
+                    { emoji: '💣', name: '炸弹' },
+                    { emoji: '💬', name: '对话' },
+                    { emoji: '💭', name: '思考' },
+                    { emoji: '💤', name: '睡觉' }
+                ]
+            },
+            {
+                category: '办公符号',
+                key: 'office',
+                emojis: [
+                    { emoji: '📄', name: '文件' },
+                    { emoji: '📃', name: '文件' },
+                    { emoji: '📑', name: '索引' },
+                    { emoji: '📊', name: '图表' },
+                    { emoji: '📈', name: '上升' },
+                    { emoji: '📉', name: '下降' },
+                    { emoji: '📋', name: '清单' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📍', name: '位置' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '✂️', name: '剪刀' },
+                    { emoji: '📁', name: '文件夹' },
+                    { emoji: '📂', name: '文件夹' },
+                    { emoji: '📅', name: '日历' },
+                    { emoji: '📆', name: '日历' },
+                    { emoji: '📇', name: '名片' },
+                    { emoji: '📈', name: '上升' },
+                    { emoji: '📉', name: '下降' },
+                    { emoji: '📊', name: '图表' },
+                    { emoji: '📋', name: '清单' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📍', name: '位置' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '✂️', name: '剪刀' },
+                    { emoji: '📁', name: '文件夹' },
+                    { emoji: '📂', name: '文件夹' },
+                    { emoji: '📅', name: '日历' },
+                    { emoji: '📆', name: '日历' },
+                    { emoji: '📇', name: '名片' },
+                    { emoji: '📈', name: '上升' },
+                    { emoji: '📉', name: '下降' },
+                    { emoji: '📊', name: '图表' },
+                    { emoji: '📋', name: '清单' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📍', name: '位置' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '✂️', name: '剪刀' },
+                    { emoji: '📁', name: '文件夹' },
+                    { emoji: '📂', name: '文件夹' },
+                    { emoji: '📅', name: '日历' },
+                    { emoji: '📆', name: '日历' },
+                    { emoji: '📇', name: '名片' },
+                    { emoji: '📈', name: '上升' },
+                    { emoji: '📉', name: '下降' },
+                    { emoji: '📊', name: '图表' },
+                    { emoji: '📋', name: '清单' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📍', name: '位置' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '✂️', name: '剪刀' },
+                    { emoji: '📁', name: '文件夹' },
+                    { emoji: '📂', name: '文件夹' },
+                    { emoji: '📅', name: '日历' },
+                    { emoji: '📆', name: '日历' },
+                    { emoji: '📇', name: '名片' },
+                    { emoji: '📈', name: '上升' },
+                    { emoji: '📉', name: '下降' },
+                    { emoji: '📊', name: '图表' },
+                    { emoji: '📋', name: '清单' },
+                    { emoji: '📌', name: '图钉' },
+                    { emoji: '📍', name: '位置' },
+                    { emoji: '📎', name: '回形针' },
+                    { emoji: '📏', name: '尺子' },
+                    { emoji: '📐', name: '三角尺' },
+                    { emoji: '✂️', name: '剪刀' },
+                    { emoji: '📁', name: '文件夹' },
+                    { emoji: '📂', name: '文件夹' },
+                    { emoji: '📅', name: '日历' },
+                    { emoji: '📆', name: '日历' },
+                    { emoji: '📇', name: '名片' }
+                ]
+            }
+        ];
+
+        // DOM 元素
+        const categoryNav = document.getElementById('categoryNav');
+        const emojiContainer = document.getElementById('emojiContainer');
+        const searchBox = document.getElementById('searchBox');
+        const copyToast = document.getElementById('copyToast');
+
+        // 初始化函数
+        function init() {
+            // 生成分类导航
+            generateCategoryNav();
+            
+            // 生成表情容器
+            generateEmojiContainer();
+            
+            // 添加搜索功能
+            addSearchFunctionality();
+        }
+
+        // 生成分类导航
+        function generateCategoryNav() {
+            emojiData.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'category-btn';
+                button.dataset.category = category.key;
+                button.textContent = category.category;
+                
+                button.addEventListener('click', function() {
+                    // 移除所有激活状态
+                    document.querySelectorAll('.category-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // 添加激活状态
+                    this.classList.add('active');
+                    
+                    // 滚动到对应分类
+                    const categoryElement = document.getElementById(`category-${category.key}`);
+                    if (categoryElement) {
+                        categoryElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+                
+                categoryNav.appendChild(button);
+            });
+            
+            // 默认激活第一个分类
+            const firstButton = categoryNav.querySelector('.category-btn');
+            if (firstButton) {
+                firstButton.classList.add('active');
+            }
+        }
+
+        // 生成表情容器
+        function generateEmojiContainer() {
+            emojiContainer.innerHTML = '';
+            
+            emojiData.forEach(category => {
+                const categoryElement = document.createElement('div');
+                categoryElement.className = 'emoji-category';
+                categoryElement.id = `category-${category.key}`;
+                
+                const categoryTitle = document.createElement('h2');
+                categoryTitle.textContent = category.category;
+                categoryElement.appendChild(categoryTitle);
+                
+                const emojiGrid = document.createElement('div');
+                emojiGrid.className = 'emoji-grid';
+                
+                category.emojis.forEach(emojiItem => {
+                    const emojiElement = document.createElement('div');
+                    emojiElement.className = 'emoji-item';
+                    emojiElement.dataset.emoji = emojiItem.emoji;
+                    emojiElement.dataset.name = emojiItem.name;
+                    
+                    const emojiSpan = document.createElement('span');
+                    emojiSpan.className = 'emoji';
+                    emojiSpan.textContent = emojiItem.emoji;
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'emoji-name';
+                    nameSpan.textContent = emojiItem.name;
+                    
+                    emojiElement.appendChild(emojiSpan);
+                    emojiElement.appendChild(nameSpan);
+                    
+                    // 添加点击复制功能
+                    emojiElement.addEventListener('click', function() {
+                        const emoji = this.dataset.emoji;
+                        copyToClipboard(emoji);
+                        showCopyToast();
+                    });
+                    
+                    emojiGrid.appendChild(emojiElement);
+                });
+                
+                categoryElement.appendChild(emojiGrid);
+                emojiContainer.appendChild(categoryElement);
+            });
+        }
+
+        // 添加搜索功能
+        function addSearchFunctionality() {
+            searchBox.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                
+                if (!searchTerm) {
+                    // 清空搜索时，恢复所有表情
+                    document.querySelectorAll('.emoji-item').forEach(item => {
+                        item.style.display = 'flex';
+                    });
+                    return;
+                }
+                
+                // 搜索表情
+                document.querySelectorAll('.emoji-item').forEach(item => {
+                    const emoji = item.dataset.emoji;
+                    const name = item.dataset.name.toLowerCase();
+                    
+                    if (emoji.includes(searchTerm) || name.includes(searchTerm)) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                // 使用现代 API
+                navigator.clipboard.writeText(text).catch(err => {
+                    console.error('无法复制到剪贴板:', err);
+                });
+            } else {
+                // 回退方案
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('无法复制到剪贴板:', err);
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // 显示复制提示
+        function showCopyToast() {
+            copyToast.classList.add('show');
+            
+            setTimeout(() => {
+                copyToast.classList.remove('show');
+            }, 2000);
+        }
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
