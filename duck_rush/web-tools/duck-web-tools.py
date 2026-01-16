@@ -5,19 +5,20 @@ Duck Web Tools Launcher
 支持 Windows、Linux 和 MacOS 三大系统
 
 Usage:
-    duck-web-tools.py        # 启动 HTTP 服务器并打开 Web 工具索引页面
+    duck-web-tools.py        # 使用文件协议打开 Web 工具索引页面（默认）
+    duck-web-tools.py --http  # 启动 HTTP 服务器并使用 HTTP 协议打开 Web 工具索引页面
     duck-web-tools.py --help  # 显示帮助信息
     duck-web-tools.py --version  # 显示版本信息
 
 Examples:
-    # 在 Windows 上
+    # 使用文件协议打开（默认）
     duck-web-tools.py
 
-    # 在 Linux 上
-    ./duck-web-tools.py
+    # 使用 HTTP 协议打开
+    duck-web-tools.py --http
 
-    # 在 MacOS 上
-    ./duck-web-tools.py
+    # 指定 HTTP 端口
+    duck-web-tools.py --http --port 3000
 """
 
 import os
@@ -104,30 +105,48 @@ def main():
     主函数
     """
     parser = argparse.ArgumentParser(
-        description='跨平台命令行工具，用于启动 HTTP 服务器并打开 Web 工具索引页面',
-        epilog='示例:\n  duck-web-tools.py  # 启动 HTTP 服务器并打开 Web 工具索引页面'
+        description='跨平台命令行工具，用于打开 Web 工具索引页面',
+        epilog='示例:\n  duck-web-tools.py  # 使用文件协议打开 Web 工具索引页面（默认）\n  duck-web-tools.py --http  # 启动 HTTP 服务器并使用 HTTP 协议打开\n  duck-web-tools.py --http --port 3000  # 指定 HTTP 端口'
     )
     
     # 添加可选参数
     parser.add_argument('--version', action='version', version='duck-web-tools 1.0')
     parser.add_argument('--verbose', '-v', action='store_true', help='启用详细输出模式')
+    parser.add_argument('--http', action='store_true', help='使用 HTTP 协议打开（需要启动服务器）')
     parser.add_argument('--port', '-p', type=int, default=8000, help='HTTP 服务器端口 (默认: 8000)')
     
     args = parser.parse_args()
     
-    # 启动 HTTP 服务器
-    server_process = start_http_server(args.port)
+    server_process = None
     
-    if not server_process:
-        return 1
-    
-    # 构建访问 URL
-    url = f"http://localhost:{args.port}/web-tools-index.html"
+    if args.http:
+        # 启动 HTTP 服务器
+        server_process = start_http_server(args.port)
+        
+        if not server_process:
+            return 1
+        
+        # 构建 HTTP URL
+        url = f"http://localhost:{args.port}/web-tools-index.html"
+    else:
+        # 使用文件协议打开
+        web_tools_dir = get_web_tools_dir()
+        index_file = os.path.join(web_tools_dir, "web-tools-index.html")
+        
+        # 构建文件协议 URL
+        if platform.system() == "Windows":
+            # Windows 路径格式: file:///C:/path/to/file.html
+            url = f"file:///{index_file.replace(os.sep, '/')}"
+        else:
+            # Unix/Linux/MacOS 路径格式: file:///path/to/file.html
+            url = f"file://{index_file}"
+        
+        print(f"使用文件协议打开: {url}")
     
     # 打开浏览器
     success = open_browser(url)
     
-    if success:
+    if success and args.http:
         print("\n提示: 服务器将在您关闭终端时停止")
         print("如果需要手动停止服务器，请按 Ctrl+C")
         
@@ -140,7 +159,7 @@ def main():
             server_process.terminate()
             server_process.wait()
             print("HTTP 服务器已停止")
-    else:
+    elif args.http:
         # 打开浏览器失败，停止服务器
         server_process.terminate()
         server_process.wait()
