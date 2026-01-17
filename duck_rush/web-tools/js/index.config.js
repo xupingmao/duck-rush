@@ -35,6 +35,12 @@ const menuConfig = [
                 url: 'pages/text/text-convert.html',
                 description: "用于将长文本转换为不同格式的工具，方便阅读和处理。"
             },
+            {
+                id: 'awesome-projects',
+                name: 'awesome项目',
+                url: 'pages/projects/awesome-projects.html',
+                description: "用于awsome项目导航"
+            }
         ]
     },
     {
