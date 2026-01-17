@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本分割工具 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 24px;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .options {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.85rem;
+        }
+
+        .custom-input {
+            margin-top: 6px;
+        }
+
+        .custom-input input {
+            padding: 4px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 180px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .button-group {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        .text-areas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .text-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-section label {
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .text-area-container {
+            flex: 1;
+            min-height: 300px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .output-section {
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 32px;
+            right: 8px;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #e9ecef;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            main {
+                padding: 16px;
+            }
+
+            .text-areas {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .text-area-container {
+                min-height: 200px;
+            }
+
+            .options {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">文本分割工具</h1>
+            <p class="header-subtitle">将文本按照指定分隔符分割，并使用新的分隔符重新组合</p>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <label>分割方法</label>
+                        <div class="options">
+                            <div class="option-item">
+                                <input type="radio" id="split-newline" name="splitMethod" value="newline" checked>
+                                <label for="split-newline">换行</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="split-comma" name="splitMethod" value="comma">
+                                <label for="split-comma">逗号</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="split-space" name="splitMethod" value="space">
+                                <label for="split-space">空格</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="split-custom" name="splitMethod" value="custom">
+                                <label for="split-custom">自定义</label>
+                            </div>
+                        </div>
+                        <div class="custom-input" id="customSplitInput">
+                            <input type="text" id="splitCustomValue" placeholder="输入自定义分隔符">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>结果分隔符</label>
+                        <div class="options">
+                            <div class="option-item">
+                                <input type="radio" id="join-comma" name="joinMethod" value="comma" checked>
+                                <label for="join-comma">逗号</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="join-newline" name="joinMethod" value="newline">
+                                <label for="join-newline">换行</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="join-space" name="joinMethod" value="space">
+                                <label for="join-space">空格</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="join-custom" name="joinMethod" value="custom">
+                                <label for="join-custom">自定义</label>
+                            </div>
+                        </div>
+                        <div class="custom-input" id="customJoinInput">
+                            <input type="text" id="joinCustomValue" placeholder="输入自定义分隔符">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>高级选项</label>
+                        <div class="options">
+                            <div class="option-item">
+                                <input type="checkbox" id="trimOption" checked>
+                                <label for="trimOption">去除空白字符</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="sortOption">
+                                <label for="sortOption">排序结果</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>引号处理</label>
+                        <div class="options">
+                            <div class="option-item">
+                                <input type="radio" id="quote-none" name="quoteMethod" value="none" checked>
+                                <label for="quote-none">无处理</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="quote-single" name="quoteMethod" value="single">
+                                <label for="quote-single">添加单引号</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="quote-double" name="quoteMethod" value="double">
+                                <label for="quote-double">添加双引号</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="radio" id="quote-remove" name="quoteMethod" value="remove">
+                                <label for="quote-remove">移除引号</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="splitBtn">分割文本</button>
+                    <button class="btn btn-secondary" id="clearBtn">清空</button>
+                </div>
+            </div>
+
+            <div class="text-areas">
+                <div class="text-section">
+                    <label for="inputText">输入文本</label>
+                    <div class="text-area-container">
+                        <textarea id="inputText" placeholder="请输入要分割的文本..."></textarea>
+                    </div>
+                </div>
+
+                <div class="text-section output-section">
+                    <label for="outputText">输出结果</label>
+                    <button class="copy-btn" id="copyBtn">复制结果</button>
+                    <div class="text-area-container">
+                        <textarea id="outputText" placeholder="分割结果将显示在这里..." readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM 元素
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const splitBtn = document.getElementById('splitBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const splitMethodRadios = document.querySelectorAll('input[name="splitMethod"]');
+        const joinMethodRadios = document.querySelectorAll('input[name="joinMethod"]');
+        const quoteMethodRadios = document.querySelectorAll('input[name="quoteMethod"]');
+        const customSplitInput = document.getElementById('customSplitInput');
+        const customJoinInput = document.getElementById('customJoinInput');
+        const splitCustomValue = document.getElementById('splitCustomValue');
+        const joinCustomValue = document.getElementById('joinCustomValue');
+        const trimOption = document.getElementById('trimOption');
+        const sortOption = document.getElementById('sortOption');
+
+        // 初始化
+        function init() {
+            // 隐藏自定义输入框
+            updateCustomInputs();
+
+            // 事件监听器
+            splitBtn.addEventListener('click', splitText);
+            clearBtn.addEventListener('click', clearText);
+            copyBtn.addEventListener('click', copyResult);
+
+            // 监听分割方法变化
+            splitMethodRadios.forEach(radio => {
+                radio.addEventListener('change', updateCustomInputs);
+            });
+
+            // 监听结果分隔符变化
+            joinMethodRadios.forEach(radio => {
+                radio.addEventListener('change', updateCustomInputs);
+            });
+        }
+
+        // 更新自定义输入框显示状态
+        function updateCustomInputs() {
+            const splitMethod = getSelectedValue('splitMethod');
+            const joinMethod = getSelectedValue('joinMethod');
+
+            customSplitInput.style.display = splitMethod === 'custom' ? 'block' : 'none';
+            customJoinInput.style.display = joinMethod === 'custom' ? 'block' : 'none';
+        }
+
+        // 获取选中的单选按钮值
+        function getSelectedValue(name) {
+            const radio = document.querySelector(`input[name="${name}"]:checked`);
+            return radio ? radio.value : '';
+        }
+
+        // 分割文本
+        function splitText() {
+            const text = inputText.value;
+            if (!text.trim()) {
+                alert('请输入要分割的文本');
+                return;
+            }
+
+            // 获取分割方法
+            const splitMethod = getSelectedValue('splitMethod');
+            let separator;
+
+            switch (splitMethod) {
+                case 'comma':
+                    separator = ',';
+                    break;
+                case 'newline':
+                    separator = '\n';
+                    break;
+                case 'space':
+                    separator = ' ';
+                    break;
+                case 'custom':
+                    separator = splitCustomValue.value;
+                    if (!separator) {
+                        alert('请输入自定义分隔符');
+                        return;
+                    }
+                    break;
+            }
+
+            // 分割文本
+            let parts = text.split(separator);
+
+            // 过滤空字符串
+            parts = parts.filter(part => part.trim() !== '');
+
+            // 处理trim选项
+            if (trimOption.checked) {
+                parts = parts.map(part => part.trim());
+            }
+
+            // 获取引号处理方法
+            const quoteMethod = getSelectedValue('quoteMethod');
+
+            // 处理引号移除
+            if (quoteMethod === 'remove') {
+                parts = parts.map(part => {
+                    // 移除首尾的单引号或双引号
+                    return part.replace(/^['"]|['"]$/g, '');
+                });
+            }
+
+            // 处理排序选项
+            if (sortOption.checked) {
+                parts.sort();
+            }
+
+            // 处理添加引号
+            if (quoteMethod === 'single') {
+                parts = parts.map(part => `'${part}'`);
+            } else if (quoteMethod === 'double') {
+                parts = parts.map(part => `"${part}"`);
+            }
+
+            // 获取结果分隔符
+            const joinMethod = getSelectedValue('joinMethod');
+            let joinSeparator;
+
+            switch (joinMethod) {
+                case 'newline':
+                    joinSeparator = '\n';
+                    break;
+                case 'comma':
+                    joinSeparator = ',';
+                    break;
+                case 'space':
+                    joinSeparator = ' ';
+                    break;
+                case 'custom':
+                    joinSeparator = joinCustomValue.value;
+                    if (!joinSeparator) {
+                        alert('请输入自定义分隔符');
+                        return;
+                    }
+                    break;
+            }
+
+            // 重新组合文本
+            const result = parts.join(joinSeparator);
+
+            // 显示结果
+            outputText.value = result;
+        }
+
+        // 清空文本
+        function clearText() {
+            inputText.value = '';
+            outputText.value = '';
+        }
+
+        // 复制结果
+        function copyResult() {
+            if (!outputText.value.trim()) {
+                alert('没有可复制的内容');
+                return;
+            }
+
+            outputText.select();
+            document.execCommand('copy');
+
+            // 显示复制成功提示
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '已复制!';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 1000);
+        }
+
+        // 初始化
+        init();
+    </script>
+</body>
+
+</html>

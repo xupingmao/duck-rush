@@ -11,7 +11,6 @@ const menuConfig = [
         name: '开发工具',
         icon: '💻',
         children: [
-
             {
                 id: 'tool-hub',
                 name: '工具中心',
@@ -29,7 +28,13 @@ const menuConfig = [
                 name: '本地存储管理',
                 url: 'pages/localstorage-manager.html',
                 description: "用于管理浏览器LocalStorage数据的工具，支持添加、编辑、删除、清空和导入/导出操作。"
-            }
+            },
+            {
+                id: 'text-split',
+                name: '文本转换工具',
+                url: 'pages/text/text-convert.html',
+                description: "用于将长文本转换为不同格式的工具，方便阅读和处理。"
+            },
         ]
     },
     {
