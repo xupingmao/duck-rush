@@ -88,7 +88,7 @@
 </head>
 <body>
     <h1>用户脚本安装工具</h1>
-    <p>本工具用于安装 <code>gm-scripts</code> 目录下的用户脚本，支持油猴和暴力猴扩展。</p>
+    <p>本工具用于安装 <code>user-scripts</code> 目录下的用户脚本，支持油猴和暴力猴扩展。</p>
     
     <div class="extension-note">
         <strong>使用说明：</strong>
@@ -115,14 +115,18 @@
             }
         ];
 
-        function generateInstallUrl(filename, extension) {
+        function generateInstallUrl(filename) {
             // 获取当前页面的协议和主机，用于构建完整的localhost URL
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
+            const path = window.location.pathname;
             const port = window.location.port || 8000; // 默认端口8000
+            const target = "/web-tools/";
+            const prefixEnd = path.indexOf(target) + target.length;
+            const pathPrefix = path.substring(0, prefixEnd);
             
             // 构建完整的脚本URL
-            return `${protocol}//${hostname}:${port}/gm-scripts/${filename}`;
+            return `${protocol}//${hostname}:${port}${pathPrefix}user-scripts/${filename}`;
         }
 
         function renderScripts() {
@@ -138,11 +142,8 @@
                     <div class="script-header">
                         <div class="script-name">${script.name}</div>
                         <div class="install-buttons">
-                            <a href="${generateInstallUrl(script.filename, 'tampermonkey')}" class="install-btn" target="_blank">
-                                油猴安装
-                            </a>
-                            <a href="${generateInstallUrl(script.filename, 'violentmonkey')}" class="install-btn violentmonkey" target="_blank">
-                                暴力猴安装
+                            <a href="${generateInstallUrl(script.filename)}" class="install-btn" target="_blank">
+                                安装脚本
                             </a>
                         </div>
                     </div>

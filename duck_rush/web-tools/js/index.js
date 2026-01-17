@@ -1,19 +1,29 @@
-
 // DOM 元素
 const navMenu = document.getElementById('navMenu');
 const pageTitle = document.getElementById('pageTitle');
 const contentFrame = document.getElementById('contentFrame');
+const openNewWindowBtn = document.getElementById('openNewWindowBtn');
 
 // 初始化函数
 function init() {
     // 生成导航菜单
     generateNavMenu();
     
-    // 加载默认页面
-    loadPage(menuConfig[0].url, menuConfig[0].name);
-    
-    // 添加点击事件监听器
+    // 添加导航事件监听器
     addNavEventListeners();
+    
+    // 加载默认页面
+    loadCurrentPage();
+    
+    // 添加新Tab页打开功能
+    if (openNewWindowBtn) {
+        openNewWindowBtn.addEventListener('click', function() {
+            const currentUrl = contentFrame.src;
+            if (currentUrl) {
+                window.open(currentUrl, '_blank');
+            }
+        });
+    }
 }
 
 // 生成导航菜单
@@ -103,6 +113,25 @@ function addNavEventListeners() {
             updateActiveNavItem(this);
         });
     });
+}
+
+function loadCurrentPage() {
+    // 获取当前URL参数
+    const params = new URLSearchParams(window.location.search);
+    const currentUrl = params.get('page');
+    
+    if (currentUrl) {
+        // 找到对应的导航项并激活
+        document.querySelectorAll('.nav-item a').forEach(item => {
+            if (item.dataset.url === currentUrl) {
+                updateActiveNavItem(item);
+                loadPage(currentUrl, item.dataset.title);
+            }
+        });
+    } else {
+        // 如果没有指定页面，加载默认页面
+        loadPage(menuConfig[0].url, menuConfig[0].name);
+    }
 }
 
 // 加载页面

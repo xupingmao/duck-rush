@@ -26,7 +26,7 @@
 
         /* 左侧导航栏 */
         .sidebar {
-            width: 280px;
+            width: 250px;
             background-color: #2c3e50;
             color: #ecf0f1;
             overflow-y: auto;
@@ -125,6 +125,9 @@
             background-color: #fff;
             border-bottom: 1px solid #ddd;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .content-header h2 {
@@ -132,6 +135,35 @@
             font-weight: 600;
             margin: 0;
             color: #2c3e50;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .open-new-window {
+            padding: 6px 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .open-new-window:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+        .open-new-window:active {
+            background-color: #dee2e6;
+            border-color: #adb5bd;
         }
 
         .iframe-container {
@@ -182,6 +214,11 @@
         <div class="content">
             <div class="content-header">
                 <h2 id="pageTitle">欢迎使用 Duck Rush 工具中心</h2>
+                <div class="header-actions">
+                    <button class="open-new-window" id="openNewWindowBtn" title="在新Tab页中打开当前页面">
+                        <span>新Tab页打开</span>
+                    </button>
+                </div>
             </div>
             <div class="iframe-container">
                 <iframe id="contentFrame" src=""></iframe>
