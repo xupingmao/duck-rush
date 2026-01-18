@@ -127,11 +127,11 @@ def main():
             return 1
         
         # 构建 HTTP URL
-        url = f"http://localhost:{args.port}/web-tools-index.html"
+        url = f"http://localhost:{args.port}/index.html"
     else:
         # 使用文件协议打开
         web_tools_dir = get_web_tools_dir()
-        index_file = os.path.join(web_tools_dir, "web-tools-index.html")
+        index_file = os.path.join(web_tools_dir, "index.html")
         
         # 构建文件协议 URL
         if platform.system() == "Windows":

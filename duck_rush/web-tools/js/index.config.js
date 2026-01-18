@@ -36,6 +36,12 @@ const menuConfig = [
                 description: "用于将长文本转换为不同格式的工具，方便阅读和处理。"
             },
             {
+                id: 'json-formatter',
+                name: 'JSON 格式化工具',
+                url: 'pages/json.html',
+                description: "用于格式化和验证 JSON 数据的工具，方便阅读和处理。"
+            },
+            {
                 id: 'awesome-projects',
                 name: 'awesome项目',
                 url: 'pages/projects/awesome-projects.html',

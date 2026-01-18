@@ -128,6 +128,20 @@ const awesomeProjectsConfig = {
                     stars: '40k+'
                 }
             ]
+        },
+        {
+            id: 'game-dev',
+            name: '🎮 游戏开发',
+            projects: [
+                {
+                    id: 'awesome-gamedev',
+                    name: 'awesome-gamedev',
+                    url: 'https://github.com/Calinou/awesome-gamedev',
+                    description: '游戏开发相关的优质资源集合，包括引擎、工具、库等。',
+                    topics: ['游戏开发', '引擎', '资源'],
+                    stars: '2k+'
+                }
+            ]
         }
     ]
 };
