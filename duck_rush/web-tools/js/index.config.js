@@ -13,7 +13,7 @@ const menuConfig = [
         children: [
             {
                 id: 'tool-hub',
-                name: '工具中心',
+                name: '网址导航',
                 url: 'pages/tool-hub.html',
                 description: "集成了各种 Web 工具的综合管理界面，支持分类浏览和快速访问。"
             },
@@ -51,14 +51,19 @@ const menuConfig = [
     },
     {
         id: 'finance',
-        name: '财务工具',
-        icon: '💰',
+        name: '计算器',
+        icon: '⌨️',
         children: [
             {
                 id: 'investment-calculator',
                 name: '投资计算器',
                 url: 'pages/investment-calculator.html',
                 description: "基于长期投资和储蓄的财务规划工具，帮助您预测未来财务状况。"
+            },{
+                id: 'calorie-calculator',
+                name: '卡路里计算器',
+                url: 'pages/calculator/calorie-calculator.html',
+                description: "用于计算食物热量的工具，帮助您管理和控制饮食。"
             }
         ]
     },
@@ -72,6 +77,19 @@ const menuConfig = [
                 name: 'Web 工具面板',
                 url: 'pages/web-tool-panel.html',
                 description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。"
+            }
+        ]
+    },
+    {
+        id: "design-tools",
+        name: "设计工具",
+        icon: "🎨",
+        children: [
+            {
+                id: "emoji",
+                name: "Emoji 选择器",
+                url: "pages/emoji.html",
+                description: "用于选择和复制 Emoji 字符的工具，方便在设计中使用。"
             }
         ]
     }

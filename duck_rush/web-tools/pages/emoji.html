@@ -923,6 +923,28 @@
 
         // 生成分类导航
         function generateCategoryNav() {
+            // 添加全部分类按钮
+            const allButton = document.createElement('button');
+            allButton.className = 'category-btn active';
+            allButton.dataset.category = 'all';
+            allButton.textContent = '全部';
+            
+            allButton.addEventListener('click', function() {
+                // 移除所有激活状态
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // 添加激活状态
+                this.classList.add('active');
+                
+                // 显示所有表情
+                generateEmojiContainer();
+            });
+            
+            categoryNav.appendChild(allButton);
+            
+            // 添加各个分类按钮
             emojiData.forEach(category => {
                 const button = document.createElement('button');
                 button.className = 'category-btn';
@@ -938,28 +960,19 @@
                     // 添加激活状态
                     this.classList.add('active');
                     
-                    // 滚动到对应分类
-                    const categoryElement = document.getElementById(`category-${category.key}`);
-                    if (categoryElement) {
-                        categoryElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    // 筛选并显示对应分类的表情
+                    filterEmojisByCategory(category.key);
                 });
                 
                 categoryNav.appendChild(button);
             });
-            
-            // 默认激活第一个分类
-            const firstButton = categoryNav.querySelector('.category-btn');
-            if (firstButton) {
-                firstButton.classList.add('active');
-            }
         }
 
         // 生成表情容器
-        function generateEmojiContainer() {
+        function generateEmojiContainer(filteredData = emojiData) {
             emojiContainer.innerHTML = '';
             
-            emojiData.forEach(category => {
+            filteredData.forEach(category => {
                 const categoryElement = document.createElement('div');
                 categoryElement.className = 'emoji-category';
                 categoryElement.id = `category-${category.key}`;
@@ -1001,6 +1014,12 @@
                 categoryElement.appendChild(emojiGrid);
                 emojiContainer.appendChild(categoryElement);
             });
+        }
+
+        // 根据分类筛选表情
+        function filterEmojisByCategory(categoryKey) {
+            const filteredData = emojiData.filter(category => category.key === categoryKey);
+            generateEmojiContainer(filteredData);
         }
 
         // 添加搜索功能

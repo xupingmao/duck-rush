@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>热量计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+
+        h2 {
+            color: #4a5568;
+            margin: 20px 0 15px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e6ffed;
+            border: 1px solid #a3d9b1;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .food-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .food-table th, .food-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .food-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .food-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .add-food-btn {
+            width: auto;
+            padding: 8px 16px;
+            margin: 10px 0;
+        }
+
+        .total-calories {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .food-list {
+            margin: 15px 0;
+        }
+
+        .food-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .remove-food {
+            background: #e53e3e;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        .remove-food:hover {
+            background: #c53030;
+        }
+
+        /* Tab导航样式 */
+        .tab-container {
+            margin: 20px 0;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: #f1f5f9;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            padding: 10px 20px;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tab-content h3 {
+            color: #4a5568;
+            margin: 20px 0 15px;
+            font-size: 1.2rem;
+        }
+
+        /* 食物卡片样式 */
+        .food-section {
+            margin-bottom: 30px;
+        }
+
+        .food-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .food-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .food-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .food-card .food-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            color: #2d3748;
+        }
+
+        .food-card .food-calories {
+            font-size: 0.85rem;
+            color: #4a5568;
+            margin-bottom: 12px;
+        }
+
+        .food-card .add-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .food-card .add-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .food-layout {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .calculator-section {
+            flex: 1;
+            min-width: 300px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .food-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        @media (max-width: 768px) {
+            .food-layout {
+                flex-direction: column;
+            }
+        }
+
+        /* 转换类型tab样式 */
+        .conversion-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .conversion-tab {
+            flex: 1;
+            background: #f1f5f9;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .conversion-tab:hover {
+            background: #e2e8f0;
+        }
+
+        .conversion-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .tab-btn {
+                width: 100%;
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>热量计算器</h1>
+
+        <!-- Tab导航 -->
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('conversion')">热量转换</button>
+                <button class="tab-btn" onclick="switchTab('bmr')">基础代谢</button>
+                <button class="tab-btn" onclick="switchTab('food')">食物热量</button>
+            </div>
+
+            <!-- Tab内容 -->
+            <div class="tab-content active" id="conversion">
+                <div class="grid">
+                    <div class="card">
+                        <div class="conversion-tabs">
+                            <button class="conversion-tab active" data-type="kcal-to-kj">卡路里 → 千焦耳</button>
+                            <button class="conversion-tab" data-type="kj-to-kcal">千焦耳 → 卡路里</button>
+                        </div>
+                        <div class="form-group">
+                            <label id="inputLabel">卡路里 (kcal)</label>
+                            <input type="number" id="conversionInput" placeholder="输入数值">
+                        </div>
+                        <button onclick="convertCalories()">转换</button>
+                        <div class="result" id="conversionResult">
+                            结果将显示在这里
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="bmr">
+                <div class="grid">
+                    <div class="card">
+                        <div class="form-group">
+                            <label for="gender">性别</label>
+                            <select id="gender">
+                                <option value="male">男</option>
+                                <option value="female">女</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="age">年龄</label>
+                            <input type="number" id="age" placeholder="输入年龄">
+                        </div>
+                        <div class="form-group">
+                            <label for="height">身高 (cm)</label>
+                            <input type="number" id="height" placeholder="输入身高">
+                        </div>
+                        <div class="form-group">
+                            <label for="weight">体重 (kg)</label>
+                            <input type="number" id="weight" placeholder="输入体重">
+                        </div>
+                        <button onclick="calculateBMR()">计算基础代谢</button>
+                        <div class="result" id="bmrResult">
+                            结果将显示在这里
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="food">
+                <div class="food-layout">
+                    <!-- 左侧：计算器部分 -->
+                    <div class="calculator-section">
+                        <h3>添加食物计算总热量</h3>
+                        <div class="grid">
+                            <div class="card">
+                                <div class="form-group">
+                                    <label for="foodName">食物名称</label>
+                                    <select id="foodName">
+                                        <!-- 食物选项将通过JavaScript动态添加 -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="foodAmount">重量 (g)</label>
+                                    <input type="number" id="foodAmount" placeholder="输入重量" value="100">
+                                </div>
+                                <button onclick="addFood()">添加食物</button>
+                            </div>
+                        </div>
+
+                        <!-- 已添加的食物列表 -->
+                        <div class="food-list" id="foodList">
+                            <!-- 已添加的食物将显示在这里 -->
+                        </div>
+
+                        <!-- 总热量 -->
+                        <div class="total-calories" id="totalCalories">
+                            总热量: 0 kcal
+                        </div>
+                    </div>
+
+                    <!-- 右侧：常见食物热量表 -->
+                    <div class="food-section">
+                        <h3>常见食物热量表</h3>
+                        <div class="food-grid" id="foodGrid">
+                            <!-- 食物卡片将通过JavaScript动态添加 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 常见食物热量数据 (kcal/100g)
+        const foodData = [
+            { name: '米饭', calories: 116 },
+            { name: '面条', calories: 137 },
+            { name: '馒头', calories: 223 },
+            { name: '面包', calories: 265 },
+            { name: '鸡蛋', calories: 155 },
+            { name: '牛奶', calories: 42 },
+            { name: '鸡肉', calories: 165 },
+            { name: '牛肉', calories: 250 },
+            { name: '猪肉', calories: 337 },
+            { name: '鱼肉', calories: 124 },
+            { name: '苹果', calories: 52 },
+            { name: '香蕉', calories: 89 },
+            { name: '橙子', calories: 47 },
+            { name: '西瓜', calories: 30 },
+            { name: '蔬菜', calories: 25 },
+            { name: '豆腐', calories: 76 },
+            { name: '酸奶', calories: 59 },
+            { name: '坚果', calories: 570 },
+            { name: '巧克力', calories: 546 },
+            { name: '可乐', calories: 42 }
+        ];
+
+        // 已添加的食物
+        let addedFoods = [];
+
+        // 初始化页面
+        function init() {
+            populateFoodGrid();
+            populateFoodSelect();
+        }
+
+        // 填充食物卡片
+        function populateFoodGrid() {
+            const foodGrid = document.getElementById('foodGrid');
+            foodGrid.innerHTML = '';
+            
+            foodData.forEach(food => {
+                const foodCard = document.createElement('div');
+                foodCard.className = 'food-card';
+                foodCard.innerHTML = `
+                    <div class="food-name">${food.name}</div>
+                    <div class="food-calories">${food.calories} kcal/100g</div>
+                    <button class="add-btn" onclick="addFoodByName('${food.name}')">添加</button>
+                `;
+                foodGrid.appendChild(foodCard);
+            });
+        }
+
+        // 填充食物选择框
+        function populateFoodSelect() {
+            const select = document.getElementById('foodName');
+            select.innerHTML = '';
+            
+            foodData.forEach(food => {
+                const option = document.createElement('option');
+                option.value = food.name;
+                option.textContent = food.name;
+                select.appendChild(option);
+            });
+        }
+
+        // 热量转换
+        function convertCalories() {
+            const conversionType = document.querySelector('.conversion-tab.active').dataset.type;
+            const inputValue = parseFloat(document.getElementById('conversionInput').value);
+            
+            if (isNaN(inputValue)) {
+                document.getElementById('conversionResult').innerHTML = '请输入有效的数值';
+                return;
+            }
+            
+            let result;
+            if (conversionType === 'kcal-to-kj') {
+                const joules = inputValue * 4.184;
+                const kJoules = joules / 1000;
+                result = `
+                    ${inputValue} kcal = ${joules.toFixed(2)} 焦耳 (J)<br>
+                    ${inputValue} kcal = ${kJoules.toFixed(2)} 千焦耳 (kJ)
+                `;
+            } else {
+                const calories = inputValue / 4.184;
+                const joules = inputValue * 1000;
+                result = `
+                    ${inputValue} kJ = ${joules.toFixed(2)} 焦耳 (J)<br>
+                    ${inputValue} kJ = ${calories.toFixed(2)} 卡路里 (kcal)
+                `;
+            }
+            
+            document.getElementById('conversionResult').innerHTML = result;
+        }
+
+        // 动态更新输入标签
+        function updateInputLabel() {
+            const conversionType = document.querySelector('.conversion-tab.active').dataset.type;
+            const inputLabel = document.getElementById('inputLabel');
+            
+            if (conversionType === 'kcal-to-kj') {
+                inputLabel.textContent = '卡路里 (kcal)';
+                document.getElementById('conversionInput').placeholder = '输入卡路里';
+            } else {
+                inputLabel.textContent = '千焦耳 (kJ)';
+                document.getElementById('conversionInput').placeholder = '输入千焦耳';
+            }
+        }
+
+        // 处理转换类型tab点击
+        function handleConversionTabClick(event) {
+            // 移除所有tab的active类
+            document.querySelectorAll('.conversion-tab').forEach(tab => tab.classList.remove('active'));
+            // 给当前点击的tab添加active类
+            event.target.classList.add('active');
+            // 更新输入标签
+            updateInputLabel();
+        }
+
+        // 计算基础代谢 (使用Harris-Benedict公式)
+        function calculateBMR() {
+            const gender = document.getElementById('gender').value;
+            const age = parseInt(document.getElementById('age').value);
+            const height = parseInt(document.getElementById('height').value);
+            const weight = parseInt(document.getElementById('weight').value);
+            
+            if (isNaN(age) || isNaN(height) || isNaN(weight)) {
+                document.getElementById('bmrResult').innerHTML = '请输入有效的数值';
+                return;
+            }
+            
+            let bmr;
+            if (gender === 'male') {
+                bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+            } else {
+                bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+            }
+            
+            document.getElementById('bmrResult').innerHTML = `
+                基础代谢率: ${bmr.toFixed(2)} kcal/天<br>
+                这是您在静息状态下每天消耗的热量
+            `;
+        }
+
+        // 根据食物名称添加食物
+        function addFoodByName(foodName) {
+            const food = foodData.find(f => f.name === foodName);
+            if (food) {
+                addFoodItem(food.name, 100, food.calories);
+            }
+        }
+
+        // 添加食物
+        function addFood() {
+            const foodName = document.getElementById('foodName').value;
+            const amount = parseInt(document.getElementById('foodAmount').value);
+            
+            if (isNaN(amount) || amount <= 0) {
+                alert('请输入有效的重量');
+                return;
+            }
+            
+            const food = foodData.find(f => f.name === foodName);
+            if (food) {
+                addFoodItem(food.name, amount, food.calories);
+            }
+        }
+
+        // 添加食物项目
+        function addFoodItem(name, amount, caloriesPer100g) {
+            const totalCalories = (caloriesPer100g * amount) / 100;
+            
+            addedFoods.push({
+                name,
+                amount,
+                calories: totalCalories
+            });
+            
+            updateFoodList();
+            updateTotalCalories();
+        }
+
+        // 更新食物列表
+        function updateFoodList() {
+            const foodList = document.getElementById('foodList');
+            foodList.innerHTML = '';
+            
+            addedFoods.forEach((food, index) => {
+                const foodItem = document.createElement('div');
+                foodItem.className = 'food-item';
+                foodItem.innerHTML = `
+                    <div>
+                        <strong>${food.name}</strong>: ${food.amount}g (${food.calories.toFixed(1)} kcal)
+                    </div>
+                    <button class="remove-food" onclick="removeFood(${index})">移除</button>
+                `;
+                foodList.appendChild(foodItem);
+            });
+        }
+
+        // 移除食物
+        function removeFood(index) {
+            addedFoods.splice(index, 1);
+            updateFoodList();
+            updateTotalCalories();
+        }
+
+        // 更新总热量
+        function updateTotalCalories() {
+            const total = addedFoods.reduce((sum, food) => sum + food.calories, 0);
+            document.getElementById('totalCalories').textContent = `总热量: ${total.toFixed(1)} kcal`;
+        }
+
+        // 切换Tab
+        function switchTab(tabId) {
+            // 移除所有tab按钮的active类
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => btn.classList.remove('active'));
+            
+            // 给当前点击的tab按钮添加active类
+            event.target.classList.add('active');
+            
+            // 隐藏所有tab内容
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // 显示对应的tab内容
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // 初始化
+        init();
+
+        // 添加转换类型tab点击事件监听器
+        document.querySelectorAll('.conversion-tab').forEach(tab => {
+            tab.addEventListener('click', handleConversionTabClick);
+        });
+    </script>
+</body>
+</html>
