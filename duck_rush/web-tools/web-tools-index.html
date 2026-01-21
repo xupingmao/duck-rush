@@ -200,43 +200,37 @@
             <p class="header-subtitle">Duck Rush 项目的 Web 工具集合</p>
         </header>
 
-        <script src="js/index.config.js"></script>
-
         <main>
             <section>
                 <h2 class="section-title">🔧 可用工具</h2>
+                
+                <!-- 搜索框 -->
+                <div style="margin-bottom: 20px;">
+                    <input 
+                        type="text" 
+                        id="searchBox" 
+                        placeholder="搜索工具..." 
+                        style="
+                            width: 100%;
+                            padding: 10px 14px;
+                            border: 1px solid #ddd;
+                            border-radius: 6px;
+                            font-size: 0.9rem;
+                            transition: border-color 0.3s ease;
+                        "
+                    >
+                    <style>
+                        #searchBox:focus {
+                            outline: none;
+                            border-color: #667eea;
+                            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+                        }
+                    </style>
+                </div>
+                
                 <div class="tools-grid" id="toolsGrid">
                     <!-- 工具卡片将通过 JavaScript 动态生成 -->
                 </div>
-                
-                <script>
-                    // 动态生成工具卡片
-                    function generateToolCards() {
-                        const toolsGrid = document.getElementById('toolsGrid');
-                        toolsGrid.innerHTML = '';
-                        
-                        // 遍历 menuConfig，提取所有子菜单项（工具）
-                        menuConfig.forEach(category => {
-                            if (category.children && category.children.length > 0) {
-                                category.children.forEach(tool => {
-                                    const toolCard = document.createElement('div');
-                                    toolCard.className = 'tool-card';
-                                    
-                                    toolCard.innerHTML = `
-                                        <h3 class="tool-title">${category.icon || ''} ${tool.name}</h3>
-                                        <p class="tool-description">${tool.description || ''}</p>
-                                        <a href="${tool.url}" class="tool-link">打开工具</a>
-                                    `;
-                                    
-                                    toolsGrid.appendChild(toolCard);
-                                });
-                            }
-                        });
-                    }
-                    
-                    // 页面加载完成后生成工具卡片
-                    window.addEventListener('DOMContentLoaded', generateToolCards);
-                </script>
             </section>
 
             <section class="info-section">
@@ -257,5 +251,93 @@
             <p class="footer-text">© 2026 Duck Rush 项目 | Web 工具索引</p>
         </footer>
     </div>
+
+    <!-- 先加载配置文件，再加载脚本 -->
+    <script src="js/index.config.js"></script>
+    <script>
+        // 动态生成工具卡片
+        function generateToolCards(tools = null) {
+            const toolsGrid = document.getElementById('toolsGrid');
+            toolsGrid.innerHTML = '';
+            
+            // 如果没有传入筛选后的工具，则使用所有工具
+            if (!tools) {
+                tools = [];
+                menuConfig.forEach(category => {
+                    if (category.children && category.children.length > 0) {
+                        category.children.forEach(tool => {
+                            tools.push({ ...tool, category });
+                        });
+                    }
+                });
+            }
+            
+            // 遍历工具列表，生成卡片
+            tools.forEach(item => {
+                const tool = item;
+                const category = item.category;
+                
+                const toolCard = document.createElement('div');
+                toolCard.className = 'tool-card';
+                
+                toolCard.innerHTML = `
+                    <h3 class="tool-title">${category.icon || ''} ${tool.name}</h3>
+                    <p class="tool-description">${tool.description || ''}</p>
+                    <a href="${tool.url}" class="tool-link">打开工具</a>
+                `;
+                
+                toolsGrid.appendChild(toolCard);
+            });
+        }
+        
+        // 搜索功能
+        function addSearchFunctionality() {
+            const searchBox = document.getElementById('searchBox');
+            
+            searchBox.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                
+                if (!searchTerm) {
+                    // 清空搜索时，显示所有工具
+                    generateToolCards();
+                    return;
+                }
+                
+                // 筛选工具
+                const filteredTools = [];
+                menuConfig.forEach(category => {
+                    if (category.children && category.children.length > 0) {
+                        category.children.forEach(tool => {
+                            const toolId = (tool.id || '').toLowerCase();
+                            const toolName = (tool.name || '').toLowerCase();
+                            const toolUrl = (tool.url || '').toLowerCase();
+                            const toolDescription = (tool.description || '').toLowerCase();
+                            const categoryName = (category.name || '').toLowerCase();
+                            
+                            // 搜索工具id、名称、URL、描述和分类名称
+                            if (
+                                toolId.includes(searchTerm) ||
+                                toolName.includes(searchTerm) ||
+                                toolUrl.includes(searchTerm) ||
+                                toolDescription.includes(searchTerm) ||
+                                categoryName.includes(searchTerm)
+                            ) {
+                                filteredTools.push({ ...tool, category });
+                            }
+                        });
+                    }
+                });
+                
+                // 生成筛选后的工具卡片
+                generateToolCards(filteredTools);
+            });
+        }
+        
+        // 页面加载完成后生成工具卡片和添加搜索功能
+        window.addEventListener('DOMContentLoaded', function() {
+            generateToolCards();
+            addSearchFunctionality();
+        });
+    </script>
 </body>
 </html>
