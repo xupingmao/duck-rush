@@ -379,8 +379,8 @@
                 <div class="grid">
                     <div class="card">
                         <div class="conversion-tabs">
-                            <button class="conversion-tab active" data-type="kcal-to-kj">卡路里 → 千焦耳</button>
-                            <button class="conversion-tab" data-type="kj-to-kcal">千焦耳 → 卡路里</button>
+                            <button class="conversion-tab active" data-type="kj-to-kcal">千焦耳 → 卡路里</button>
+                            <button class="conversion-tab" data-type="kcal-to-kj">卡路里 → 千焦耳</button>
                         </div>
                         <div class="form-group">
                             <label id="inputLabel">卡路里 (kcal)</label>
@@ -498,6 +498,7 @@
 
         // 初始化页面
         function init() {
+            updateInputLabel();
             populateFoodGrid();
             populateFoodSelect();
         }
