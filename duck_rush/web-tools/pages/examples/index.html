@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>组件使用说明 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.2rem;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            line-height: 1.4;
+        }
+
+        .component-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 28px;
+            margin-bottom: 30px;
+        }
+
+        .component-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .component-icon {
+            font-size: 1.8rem;
+        }
+
+        .component-description {
+            color: #666;
+            font-size: 1rem;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            margin-bottom: 24px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .feature-icon {
+            color: #667eea;
+            font-size: 1.2rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .feature-content {
+            flex: 1;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 4px;
+        }
+
+        .feature-text {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .usage-section {
+            margin-bottom: 24px;
+        }
+
+        .usage-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .code-block pre {
+            margin: 0;
+        }
+
+        .example-section {
+            margin-bottom: 24px;
+        }
+
+        .example-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .example-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .note-section {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .note-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+
+        .note-content {
+            color: #856404;
+            line-height: 1.5;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .component-section {
+                padding: 20px;
+            }
+
+            .component-title {
+                font-size: 1.3rem;
+            }
+
+            .code-block {
+                font-size: 0.85rem;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>组件使用说明</h1>
+            <p class="subtitle">详细介绍 Duck Rush 项目中实现的各种组件的使用方法和功能特点，帮助开发者快速上手和集成。</p>
+        </header>
+
+        <!-- Tab组件说明 -->
+        <div class="component-section">
+            <h2 class="component-title">
+                <span class="component-icon">📑</span>
+                Tab组件
+            </h2>
+            <p class="component-description">Tab组件是一个功能强大的标签页管理组件，支持通过HTML结构和JavaScript API两种方式创建和管理tab，适用于各种需要标签页切换的场景。</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">多种创建方式</div>
+                        <div class="feature-text">支持通过HTML结构自动初始化，也可以通过JavaScript API动态创建和管理。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">平滑动画效果</div>
+                        <div class="feature-text">支持tab切换时的平滑过渡动画，提升用户体验。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">丰富的API</div>
+                        <div class="feature-text">提供完整的API接口，支持动态添加、删除、激活tab等操作。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">事件监听</div>
+                        <div class="feature-text">支持change、add、remove等事件的监听，方便进行自定义处理。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">自定义样式</div>
+                        <div class="feature-text">支持自定义激活状态、tab样式等，适应不同的设计需求。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">使用方法</h3>
+                
+                <h4>方法一：通过HTML结构创建</h4>
+                <div class="code-block">
+                    <pre>&lt;div id="tabContainer"&gt;
+    &lt;div class="tab-item"&gt;Tab 1&lt;/div&gt;
+    &lt;div class="tab-item"&gt;Tab 2&lt;/div&gt;
+    &lt;div class="tab-content"&gt;Content 1&lt;/div&gt;
+    &lt;div class="tab-content"&gt;Content 2&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+    const tab = new Tab('#tabContainer');
+&lt;/script&gt;</pre>
+                </div>
+
+                <h4>方法二：通过JavaScript API创建</h4>
+                <div class="code-block">
+                    <pre>&lt;div id="tabContainer"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+    const tab = new Tab('#tabContainer');
+    tab.addTab('Tab 1', 'Content 1');
+    tab.addTab('Tab 2', 'Content 2');
+&lt;/script&gt;</pre>
+                </div>
+
+                <h4>方法三：自动初始化</h4>
+                <div class="code-block">
+                    <pre>&lt;div data-tab data-tab-options='{"defaultIndex": 1}'&gt;
+    &lt;div class="tab-item"&gt;Tab 1&lt;/div&gt;
+    &lt;div class="tab-item"&gt;Tab 2&lt;/div&gt;
+    &lt;div class="tab-content"&gt;Content 1&lt;/div&gt;
+    &lt;div class="tab-content"&gt;Content 2&lt;/div&gt;
+&lt;/div&gt;</pre>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">配置选项</h3>
+                <div class="code-block">
+                    <pre>const tab = new Tab('#tabContainer', {
+    activeClass: 'active',        // 激活状态的类名
+    tabClass: 'tab-item',         // tab项的类名
+    contentClass: 'tab-content',   // 内容项的类名
+    animate: true,                // 是否启用动画
+    defaultIndex: 0                // 默认激活的tab索引
+});</pre>
+                </div>
+            </div>
+
+            <div class="example-section">
+                <h3 class="example-title">示例代码</h3>
+                <div class="example-content">
+                    <h4>基本用法</h4>
+                    <p>创建一个简单的Tab组件，包含三个标签页。</p>
+                    <div class="code-block">
+                        <pre>const tab = new Tab('#demo');
+
+// 监听tab切换事件
+tab.on('change', function(event) {
+    console.log('Tab changed:', event.index);
+});
+
+// 添加新tab
+const index = tab.addTab('New Tab', 'New content');
+
+// 激活指定tab
+tab.activate(index);</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note-section">
+                <div class="note-title">注意事项</div>
+                <div class="note-content">
+                    <ul>
+                        <li>Tab组件依赖于HTML结构中的tab-item和tab-content元素，确保它们的数量一致。</li>
+                        <li>使用JavaScript API添加tab时，内容可以是HTML字符串或DOM元素。</li>
+                        <li>为了获得最佳性能，建议在不需要时调用destroy()方法销毁组件。</li>
+                        <li>动画效果在某些老旧浏览器中可能不支持，会自动降级为无动画模式。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page-tabs组件说明 -->
+        <div class="component-section">
+            <h2 class="component-title">
+                <span class="component-icon">📋</span>
+                Page-tabs组件
+            </h2>
+            <p class="component-description">Page-tabs组件是一个页面级的标签页管理组件，集成在Web工具中心的顶部，用于展示和切换当前页面的多个标签内容。</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">自动配置</div>
+                        <div class="feature-text">从menuConfig的tabs属性自动读取配置，无需手动设置。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">智能URL处理</div>
+                        <div class="feature-text">当菜单项未配置url时，自动使用第一个tab的url作为默认地址。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">历史记录支持</div>
+                        <div class="feature-text">支持浏览器历史记录导航，保持tab状态的一致性。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">无缝集成</div>
+                        <div class="feature-text">与Web工具中心的整体设计完美融合，提供统一的用户体验。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">配置方式</h3>
+                <p>在menuConfig中为菜单项添加tabs属性，即可自动启用page-tabs功能：</p>
+                <div class="code-block">
+                    <pre>{
+    id: 'examples',
+    name: '组件示例',
+    url: 'pages/runscripts/index.html',
+    description: "包含常用脚本示例的工具，帮助您快速上手。",
+    tabs: [
+        {
+            id: 'info',
+            name: 'tab组件',
+            url: 'pages/examples/tab.html',
+            description: "包含常用脚本示例的工具，帮助您快速上手。"
+        }
+    ]
+}</pre>
+                </div>
+            </div>
+
+            <div class="note-section">
+                <div class="note-title">注意事项</div>
+                <div class="note-content">
+                    <ul>
+                        <li>每个tab配置必须包含id、name和url属性。</li>
+                        <li>当菜单项同时配置了url和tabs时，点击菜单项会先加载自身的url，然后显示tabs。</li>
+                        <li>如果菜单项没有配置url，则会直接使用第一个tab的url作为默认地址。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- JavaScript运行工具说明 -->
+        <div class="component-section">
+            <h2 class="component-title">
+                <span class="component-icon">💻</span>
+                JavaScript运行工具
+            </h2>
+            <p class="component-description">JavaScript运行工具是一个功能强大的在线代码执行环境，支持运行JavaScript代码并查看执行结果，适用于快速测试和调试代码。</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">代码执行</div>
+                        <div class="feature-text">支持运行任意JavaScript代码，包括ES6+语法。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">输入参数</div>
+                        <div class="feature-text">支持通过输入框传递参数给代码，使用input变量获取。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">脚本保存</div>
+                        <div class="feature-text">支持将代码保存到IndexedDB，最多保存10个脚本。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">实时输出</div>
+                        <div class="feature-text">实时显示代码执行结果，包括console.log输出和返回值。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">错误处理</div>
+                        <div class="feature-text">详细的错误信息显示，帮助快速定位和修复问题。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">使用方法</h3>
+                <ol>
+                    <li>在左侧编辑器中输入JavaScript代码</li>
+                    <li>在右侧输入区输入参数（可选）</li>
+                    <li>点击「运行」按钮或按Ctrl+Enter执行代码</li>
+                    <li>在右侧输出区查看执行结果</li>
+                    <li>点击「保存脚本」按钮保存代码</li>
+                    <li>点击「加载脚本」按钮查看和加载已保存的脚本</li>
+                </ol>
+            </div>
+
+            <div class="example-section">
+                <h3 class="example-title">示例代码</h3>
+                <div class="example-content">
+                    <h4>基本用法</h4>
+                    <div class="code-block">
+                        <pre>// 输出Hello World
+console.log('Hello World!');
+
+// 使用input变量获取输入值
+if (input) {
+    console.log('输入值:', input);
+}
+
+// 返回结果
+return '执行完成';</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note-section">
+                <div class="note-title">注意事项</div>
+                <div class="note-content">
+                    <ul>
+                        <li>代码执行环境有限制，某些浏览器API可能不可用。</li>
+                        <li>为了安全起见，不建议执行来历不明的代码。</li>
+                        <li>脚本保存使用IndexedDB，存储在浏览器本地，清除浏览器数据会丢失。</li>
+                        <li>最多保存10个脚本，超过限制会自动删除最早的脚本。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文本转换工具说明 -->
+        <div class="component-section">
+            <h2 class="component-title">
+                <span class="component-icon">📝</span>
+                文本转换工具
+            </h2>
+            <p class="component-description">文本转换工具是一个功能强大的文本处理工具，支持按不同分隔符分割文本并重新组合，适用于各种文本处理场景。</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">多种分割方式</div>
+                        <div class="feature-text">支持按换行、逗号、空格或自定义分隔符分割文本。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">灵活的重新组合</div>
+                        <div class="feature-text">支持使用不同的分隔符重新组合文本。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">高级选项</div>
+                        <div class="feature-text">支持去除空白字符、排序结果、去除重复项等高级功能。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">引号处理</div>
+                        <div class="feature-text">支持添加或移除引号，方便生成代码或配置文件。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">使用方法</h3>
+                <ol>
+                    <li>在左侧输入框中输入要处理的文本</li>
+                    <li>选择分割方法（换行、逗号、空格或自定义）</li>
+                    <li>选择结果分隔符</li>
+                    <li>设置高级选项（如去除空白字符、排序等）</li>
+                    <li>点击「分割文本」按钮执行处理</li>
+                    <li>在右侧输出框查看处理结果</li>
+                    <li>点击「复制结果」按钮复制处理后的文本</li>
+                </ol>
+            </div>
+
+            <div class="note-section">
+                <div class="note-title">注意事项</div>
+                <div class="note-content">
+                    <ul>
+                        <li>处理大量文本时可能会影响性能，建议分批处理。</li>
+                        <li>自定义分隔符支持正则表达式语法。</li>
+                        <li>排序功能会按字母顺序对结果进行排序。</li>
+                        <li>去重功能会移除完全相同的文本项。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数学计算器说明 -->
+        <div class="component-section">
+            <h2 class="component-title">
+                <span class="component-icon">🧮</span>
+                数学计算器
+            </h2>
+            <p class="component-description">数学计算器是一个功能强大的在线计算工具，支持复杂的数学表达式计算，适用于各种数学计算场景。</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">表达式输入</div>
+                        <div class="feature-text">支持通过文本框输入完整的数学表达式，无需点击数字按钮。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">移动端符号输入</div>
+                        <div class="feature-text">提供常用数学符号和函数按钮，方便移动端输入。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">历史记录</div>
+                        <div class="feature-text">自动记录最近10次计算结果，存储到localStorage。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">变量引用</div>
+                        <div class="feature-text">支持使用$1-$10变量引用历史计算结果。</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✨</span>
+                    <div class="feature-content">
+                        <div class="feature-title">数学函数支持</div>
+                        <div class="feature-text">支持三角函数、对数函数、指数函数等多种数学函数。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <h3 class="usage-title">使用方法</h3>
+                <ol>
+                    <li>在左侧编辑器中输入数学表达式</li>
+                    <li>（可选）点击右侧符号按钮插入数学符号</li>
+                    <li>点击「运行」按钮执行计算</li>
+                    <li>在右侧查看计算结果</li>
+                    <li>在历史记录中查看最近的计算结果</li>
+                    <li>在表达式中使用$1-$10引用历史结果</li>
+                </ol>
+            </div>
+
+            <div class="example-section">
+                <h3 class="example-title">示例表达式</h3>
+                <div class="example-content">
+                    <ul>
+                        <li><strong>基本运算</strong>：2 + 3 * 4</li>
+                        <li><strong>三角函数</strong>：sin(pi/2)</li>
+                        <li><strong>对数函数</strong>：log(100)</li>
+                        <li><strong>引用历史结果</strong>：$1 + 5</li>
+                        <li><strong>复合表达式</strong>：max(2, 3) + sqrt(16)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="note-section">
+                <div class="note-title">注意事项</div>
+                <div class="note-content">
+                    <ul>
+                        <li>计算结果存储在localStorage中，清除浏览器数据会丢失历史记录。</li>
+                        <li>最多保存10个历史结果，超过限制会自动删除最早的结果。</li>
+                        <li>使用eval()函数执行表达式，请勿输入恶意代码。</li>
+                        <li>某些复杂表达式可能会导致计算时间较长。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部信息 -->
+        <div class="footer">
+            <p>© 2026 Duck Rush 项目 | 组件使用说明文档</p>
+            <p style="margin-top: 8px; font-size: 0.85rem;">如有任何问题或建议，请联系项目维护者</p>
+        </div>
+    </div>
+</body>
+
+</html>

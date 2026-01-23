@@ -1,9 +1,9 @@
 /**
- * Tab组件
+ * Tabs组件
  * 支持通过HTML结构和JavaScript API两种方式创建和管理tab
  * 支持动画效果、事件监听、自定义样式等功能
  */
-class Tab {
+class Tabs {
     /**
      * 构造函数
      * @param {string|HTMLElement} container - tab容器元素或选择器
@@ -12,7 +12,7 @@ class Tab {
     constructor(container, options = {}) {
         this.container = typeof container === 'string' ? document.querySelector(container) : container;
         if (!this.container) {
-            throw new Error('Tab container not found');
+            throw new Error('Tabs container not found');
         }
 
         // 默认配置
@@ -35,7 +35,7 @@ class Tab {
     }
 
     /**
-     * 初始化tab组件
+     * 初始化tabs组件
      */
     init() {
         // 从HTML结构中解析tab
@@ -420,29 +420,29 @@ class Tab {
 }
 
 /**
- * 静态方法：创建tab实例
+ * 静态方法：创建tabs实例
  * @param {string|HTMLElement} container - tab容器元素或选择器
  * @param {Object} options - 配置选项
- * @returns {Tab} - tab实例
+ * @returns {Tabs} - tabs实例
  */
-Tab.create = function(container, options = {}) {
-    return new Tab(container, options);
+Tabs.create = function(container, options = {}) {
+    return new Tabs(container, options);
 };
 
 /**
  * 静态方法：初始化所有带有data-tab属性的元素
  */
-Tab.initAll = function() {
+Tabs.initAll = function() {
     const containers = document.querySelectorAll('[data-tab]');
     const instances = [];
 
     containers.forEach(container => {
         const options = JSON.parse(container.dataset.tabOptions || '{}');
-        const instance = new Tab(container, options);
+        const instance = new Tabs(container, options);
         instances.push(instance);
         
         // 存储实例到容器元素
-        container._tabInstance = instance;
+        container._tabsInstance = instance;
     });
 
     return instances;
@@ -450,14 +450,14 @@ Tab.initAll = function() {
 
 // 导出组件
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Tab;
+    module.exports = Tabs;
 } else if (typeof window !== 'undefined') {
-    window.Tab = Tab;
+    window.Tabs = Tabs;
 }
 
 // 自动初始化
 if (typeof window !== 'undefined' && document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', Tab.initAll);
+    document.addEventListener('DOMContentLoaded', Tabs.initAll);
 } else if (typeof window !== 'undefined' && document.readyState === 'interactive') {
-    Tab.initAll();
+    Tabs.initAll();
 }

@@ -193,6 +193,37 @@
             color: #2c3e50;
         }
 
+        .page-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .page-tab {
+            padding: 4px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background-color: #f8f9fa;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            white-space: nowrap;
+            float: left;
+        }
+
+        .page-tab:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+        .page-tab.active {
+            background-color: #3498db;
+            color: #fff;
+            border-color: #3498db;
+            font-weight: normal;
+        }
+
         .header-actions {
             display: flex;
             align-items: center;
@@ -231,6 +262,10 @@
             width: 100%;
             height: 100%;
             border: none;
+        }
+
+        .hide {
+            display: none;
         }
 
         /* 响应式设计 */
@@ -276,6 +311,7 @@
         <div class="content">
             <div class="content-header">
                 <h2 id="pageTitle">欢迎使用 Duck Rush 工具中心</h2>
+                <div class="page-tabs"></div>
                 <div class="header-actions">
                     <button class="open-new-window" id="openNewWindowBtn" title="在新Tab页中打开当前页面">
                         <span>新Tab页打开</span>

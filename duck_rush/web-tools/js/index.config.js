@@ -65,6 +65,26 @@ const menuConfig = [
                 name: '运行JS脚本',
                 url: 'pages/runscripts/runjs.html',
                 description: "用于运行自定义 JavaScript 脚本的工具，方便扩展浏览器功能。"
+            },
+            {
+                id: 'examples',
+                name: '组件示例',
+                url: 'pages/examples/index.html',
+                description: "包含常用脚本示例的工具，帮助您快速上手。",
+                tabs: [
+                    {
+                        id: 'examples-index',
+                        name: '介绍',
+                        url: 'pages/examples/index.html',
+                        description: "包含常用脚本示例的工具，帮助您快速上手。"
+                    },
+                    {
+                        id: 'example-tabs',
+                        name: 'tab组件',
+                        url: 'pages/examples/tabs.html',
+                        description: "包含常用脚本示例的工具，帮助您快速上手。"
+                    }
+                ]
             }
         ]
     },

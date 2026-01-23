@@ -5,6 +5,11 @@ const contentFrame = document.getElementById('contentFrame');
 const openNewWindowBtn = document.getElementById('openNewWindowBtn');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const sidebar = document.querySelector('.sidebar');
+const pageTabs = document.querySelector('.page-tabs');
+
+// 当前选中的菜单项和tab
+let currentMenuItem = null;
+let currentTabIndex = 0;
 
 // 初始化函数
 function init() {
@@ -77,6 +82,15 @@ function generateExpandedNavMenu() {
                 childA.dataset.title = child.name;
                 childA.textContent = child.name;
 
+                // 添加点击事件
+                childA.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const url = this.dataset.url;
+                    const title = this.dataset.title;
+                    loadPage(url, title, child);
+                    updateActiveNavItem(this);
+                });
+
                 childLi.appendChild(childA);
                 subMenu.appendChild(childLi);
             });
@@ -94,7 +108,7 @@ function generateExpandedNavMenu() {
                 e.preventDefault();
                 const url = this.dataset.url;
                 const title = this.dataset.title;
-                loadPage(url, title);
+                loadPage(url, title, item);
                 updateActiveNavItem(this);
             });
         }
@@ -176,17 +190,7 @@ function generateNavMenu() {
 
 // 添加导航事件监听器
 function addNavEventListeners() {
-    // 为所有子菜单项添加点击事件
-    const subMenuItems = document.querySelectorAll('.sub-menu .nav-item a');
-    subMenuItems.forEach(item => {
-        item.addEventListener('click', function (e) {
-            e.preventDefault();
-            const url = this.dataset.url;
-            const title = this.dataset.title;
-            loadPage(url, title);
-            updateActiveNavItem(this);
-        });
-    });
+    // 事件监听器已在生成导航菜单时添加
 }
 
 // 加载默认页面
@@ -197,20 +201,86 @@ function loadInitPage() {
 
     if (currentUrl) {
         // 找到对应的导航项并激活
-        document.querySelectorAll('.nav-item a').forEach(item => {
-            if (item.dataset.url === currentUrl) {
-                updateActiveNavItem(item);
-                loadPage(currentUrl, item.dataset.title);
+        let found = false;
+        
+        // 查找顶级菜单项
+        for (const item of menuConfig) {
+            if (item.url === currentUrl) {
+                loadPage(currentUrl, item.name, item);
+                const navItem = document.querySelector(`#nav-${item.id}`);
+                if (navItem) {
+                    updateActiveNavItem(navItem);
+                }
+                found = true;
+                break;
             }
-        });
+            
+            // 查找子菜单项
+            if (item.children) {
+                for (const child of item.children) {
+                    if (child.url === currentUrl) {
+                        loadPage(currentUrl, child.name, child);
+                        const navItem = document.querySelector(`#${child.id} a`);
+                        if (navItem) {
+                            updateActiveNavItem(navItem);
+                        }
+                        found = true;
+                        break;
+                    }
+                    
+                    // 查找tab项
+                    if (child.tabs) {
+                        for (const tab of child.tabs) {
+                            if (tab.url === currentUrl) {
+                                loadPage(currentUrl, tab.name, child);
+                                const navItem = document.querySelector(`#${child.id} a`);
+                                if (navItem) {
+                                    updateActiveNavItem(navItem);
+                                }
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (found) break;
+            }
+        }
+        
+        if (!found) {
+            // 如果没有找到对应的导航项，加载默认页面
+            loadPage(menuConfig[0].url, menuConfig[0].name, menuConfig[0]);
+        }
     } else {
         // 如果没有指定页面，加载默认页面
-        loadPage(menuConfig[0].url, menuConfig[0].name);
+        loadPage(menuConfig[0].url, menuConfig[0].name, menuConfig[0]);
     }
 }
 
 // 加载页面
-function loadPage(url, title) {
+function loadPage(url, title, menuItem = null) {
+    // 保存当前菜单项
+    currentMenuItem = menuItem;
+    currentTabIndex = 0;
+
+    // 检查菜单项是否有tabs配置
+    if (menuItem && menuItem.tabs && menuItem.tabs.length > 0) {
+        pageTabs.classList.remove('hide');
+        title = "";
+        // 如果菜单项没有配置url，使用第一个tab的url
+        if (!url && menuItem.tabs[0]) {
+            url = menuItem.tabs[0].url;
+        }
+        // 更新页面tabs
+        updatePageTabs(menuItem);
+    } else {
+        // 清空tabs
+        if (pageTabs) {
+            pageTabs.innerHTML = '';
+        }
+        pageTabs.classList.add('hide');
+    }
+
     // 更新页面标题
     pageTitle.textContent = title;
 
@@ -218,7 +288,59 @@ function loadPage(url, title) {
     contentFrame.src = url;
 
     // 更新浏览器历史记录
-    history.pushState({ url, title }, title, `?page=${encodeURIComponent(url)}`);
+    history.pushState({ url, title, menuItemId: menuItem?.id, tabIndex: currentTabIndex }, title, `?page=${encodeURIComponent(url)}`);
+}
+
+// 更新页面Tabs
+function updatePageTabs(menuItem) {
+    if (!pageTabs || !menuItem || !menuItem.tabs || menuItem.tabs.length === 0) {
+        if (pageTabs) {
+            pageTabs.innerHTML = '';
+        }
+        return;
+    }
+
+    // 清空现有tabs
+    pageTabs.innerHTML = '';
+
+    // 生成新的tabs
+    menuItem.tabs.forEach((tab, index) => {
+        const tabElement = document.createElement('div');
+        tabElement.className = `page-tab ${index === currentTabIndex ? 'active' : ''}`;
+        tabElement.textContent = tab.name;
+        tabElement.dataset.index = index;
+        tabElement.dataset.url = tab.url;
+        tabElement.dataset.title = tab.name;
+
+        // 添加点击事件
+        tabElement.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            const url = this.dataset.url;
+            const title = this.dataset.title;
+            
+            // 更新当前tab索引
+            currentTabIndex = index;
+            
+            // 更新tab激活状态
+            document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 加载页面
+            contentFrame.src = url;
+            // tab组件已经有样式, 不需要展示标题
+            pageTitle.textContent = "";
+            
+            // 更新浏览器历史记录
+            history.pushState({ 
+                url, 
+                title, 
+                menuItemId: menuItem.id, 
+                tabIndex: currentTabIndex 
+            }, title, `?page=${encodeURIComponent(url)}`);
+        });
+
+        pageTabs.appendChild(tabElement);
+    });
 }
 
 // 更新激活的导航项
