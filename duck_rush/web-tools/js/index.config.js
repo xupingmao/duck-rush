@@ -46,6 +46,12 @@ const menuConfig = [
                 name: 'awesome项目',
                 url: 'pages/projects/awesome-projects.html',
                 description: "用于awsome项目导航"
+            },
+            {
+                id: 'run-js',
+                name: '运行JS脚本',
+                url: 'pages/runscripts/runjs.html',
+                description: "用于运行自定义 JavaScript 脚本的工具，方便扩展浏览器功能。"
             }
         ]
     },
@@ -73,8 +79,8 @@ const menuConfig = [
         ]
     },
     {
-        id: 'web-tools',
-        name: 'Web 工具',
+        id: 'nav-tools',
+        name: '导航工具',
         icon: '🌐',
         children: [
             {

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab组件演示 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .demo-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .demo-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .demo-description {
+            color: #666;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        /* Tab样式 */
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 16px;
+        }
+
+        .tab-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            margin-right: 4px;
+        }
+
+        .tab-item:hover {
+            color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .tab-item.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .tab-content {
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            min-height: 120px;
+        }
+
+        /* 第二个演示的样式 */
+        #demo2 .tab-header {
+            background: #f8f9fa;
+            padding: 4px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: none;
+        }
+
+        #demo2 .tab-item {
+            border-radius: 6px 6px 0 0;
+            border-bottom: none;
+        }
+
+        #demo2 .tab-item.active {
+            background: white;
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #demo2 .tab-content {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+        }
+
+        /* 第三个演示的样式 */
+        #demo3 .tab-header {
+            flex-wrap: wrap;
+            gap: 8px;
+            border-bottom: none;
+        }
+
+        #demo3 .tab-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        #demo3 .tab-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        #demo3 .tab-content {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #667eea;
+            border: 1px solid #667eea;
+        }
+
+        .btn-outline:hover {
+            background: #f0f4ff;
+        }
+
+        /* 事件日志 */
+        .event-log {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 16px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+        }
+
+        .event-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .event-item:last-child {
+            border-bottom: none;
+        }
+
+        .event-time {
+            color: #999;
+            font-size: 0.75rem;
+            margin-right: 8px;
+        }
+
+        .event-type {
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .event-data {
+            color: #666;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .demo-section {
+                padding: 16px;
+            }
+
+            .tab-header {
+                flex-wrap: wrap;
+            }
+
+            .tab-item {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Tab组件演示</h1>
+            <p class="subtitle">展示Tab组件的各种功能和用法</p>
+        </header>
+
+        <!-- 演示1：基本用法 -->
+        <div class="demo-section">
+            <h2 class="demo-title">演示1：基本用法</h2>
+            <p class="demo-description">通过HTML结构创建Tab，自动初始化，支持基本的切换功能。</p>
+            
+            <div class="tab-container" id="demo1">
+                <div class="tab-header">
+                    <div class="tab-item">Tab 1</div>
+                    <div class="tab-item">Tab 2</div>
+                    <div class="tab-item">Tab 3</div>
+                </div>
+                <div class="tab-content">
+                    <h3>内容 1</h3>
+                    <p>这是第一个Tab的内容，包含一些示例文本。</p>
+                    <p>Tab组件会自动处理内容的显示和隐藏。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>内容 2</h3>
+                    <p>这是第二个Tab的内容，展示了不同的信息。</p>
+                    <p>切换时会有平滑的过渡动画效果。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>内容 3</h3>
+                    <p>这是第三个Tab的内容，提供了更多的示例。</p>
+                    <p>可以根据需要添加任意数量的Tab。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 演示2：通过JavaScript API操作 -->
+        <div class="demo-section">
+            <h2 class="demo-title">演示2：通过JavaScript API操作</h2>
+            <p class="demo-description">使用JavaScript API动态添加、删除和管理Tab。</p>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="addTab()">添加Tab</button>
+                <button class="btn btn-secondary" onclick="removeTab()">删除当前Tab</button>
+                <button class="btn btn-outline" onclick="activateTab(0)">激活Tab 1</button>
+                <button class="btn btn-outline" onclick="activateTab(1)">激活Tab 2</button>
+                <button class="btn btn-outline" onclick="clearTabs()">清空所有Tab</button>
+            </div>
+            
+            <div class="tab-container" id="demo2"></div>
+            
+            <div class="event-log" id="eventLog">
+                <div class="event-item">
+                    <span class="event-time">[初始化]</span>
+                    <span class="event-type">系统</span>
+                    <span class="event-data">Tab组件已初始化</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 演示3：自定义样式和事件 -->
+        <div class="demo-section">
+            <h2 class="demo-title">演示3：自定义样式和事件</h2>
+            <p class="demo-description">展示如何自定义Tab样式，以及事件监听功能。</p>
+            
+            <div class="tab-container" id="demo3">
+                <div class="tab-header">
+                    <div class="tab-item">首页</div>
+                    <div class="tab-item">产品</div>
+                    <div class="tab-item">服务</div>
+                    <div class="tab-item">关于我们</div>
+                    <div class="tab-item">联系我们</div>
+                </div>
+                <div class="tab-content">
+                    <h3>欢迎来到首页</h3>
+                    <p>这是网站的首页内容，展示了主要信息。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>我们的产品</h3>
+                    <p>展示公司的主要产品和服务。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>服务项目</h3>
+                    <p>详细介绍我们提供的各种服务。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>关于我们</h3>
+                    <p>公司简介和发展历程。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>联系我们</h3>
+                    <p>联系方式和地址信息。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 演示4：自动初始化 -->
+        <div class="demo-section">
+            <h2 class="demo-title">演示4：自动初始化</h2>
+            <p class="demo-description">使用data-tab属性自动初始化Tab组件，无需手动创建实例。</p>
+            
+            <div class="tab-container" data-tab data-tab-options='{"defaultIndex": 1, "animate": true}'>
+                <div class="tab-header">
+                    <div class="tab-item">选项A</div>
+                    <div class="tab-item">选项B</div>
+                    <div class="tab-item">选项C</div>
+                </div>
+                <div class="tab-content">
+                    <h3>选项A内容</h3>
+                    <p>这是通过数据属性自动初始化的Tab组件。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>选项B内容</h3>
+                    <p>默认激活的是第二个Tab（索引为1）。</p>
+                </div>
+                <div class="tab-content">
+                    <h3>选项C内容</h3>
+                    <p>支持通过data-tab-options设置配置项。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入Tab组件 -->
+    <script src="../../js/components/tab.js"></script>
+    
+    <script>
+        // 全局变量
+        let demo2Tab;
+        let tabCount = 2;
+
+        // 初始化演示2
+        function initDemo2() {
+            demo2Tab = new Tab('#demo2', {
+                defaultIndex: 0
+            });
+
+            // 添加初始Tab
+            demo2Tab.addTab('Tab 1', '<h3>Tab 1 内容</h3><p>这是第一个Tab，通过API添加。</p>');
+            demo2Tab.addTab('Tab 2', '<h3>Tab 2 内容</h3><p>这是第二个Tab，通过API添加。</p>');
+
+            // 监听事件
+            demo2Tab.on('change', function(event) {
+                addEventLog('change', `切换到Tab ${event.index + 1}`);
+            });
+
+            demo2Tab.on('add', function(event) {
+                addEventLog('add', `添加了Tab ${event.index + 1}: ${event.tab.textContent}`);
+            });
+
+            demo2Tab.on('remove', function(event) {
+                addEventLog('remove', `删除了Tab ${event.index + 1}`);
+            });
+
+            demo2Tab.on('clear', function(event) {
+                addEventLog('clear', '清空了所有Tab');
+            });
+        }
+
+        // 初始化演示3
+        function initDemo3() {
+            const demo3Tab = new Tab('#demo3', {
+                defaultIndex: 0
+            });
+
+            // 监听事件
+            demo3Tab.on('change', function(event) {
+                console.log('Tab changed:', event);
+            });
+        }
+
+        // 添加Tab
+        function addTab() {
+            tabCount++;
+            const index = demo2Tab.addTab(
+                `Tab ${tabCount}`,
+                `<h3>Tab ${tabCount} 内容</h3><p>这是新添加的Tab，通过API动态创建。</p>`
+            );
+        }
+
+        // 删除当前Tab
+        function removeTab() {
+            const activeIndex = demo2Tab.getActiveIndex();
+            if (activeIndex >= 0) {
+                demo2Tab.removeTab(activeIndex);
+            }
+        }
+
+        // 激活指定Tab
+        function activateTab(index) {
+            demo2Tab.activate(index);
+        }
+
+        // 清空所有Tab
+        function clearTabs() {
+            demo2Tab.clear();
+        }
+
+        // 添加事件日志
+        function addEventLog(type, message) {
+            const eventLog = document.getElementById('eventLog');
+            const now = new Date();
+            const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                              now.getMinutes().toString().padStart(2, '0') + ':' + 
+                              now.getSeconds().toString().padStart(2, '0');
+            
+            const eventItem = document.createElement('div');
+            eventItem.className = 'event-item';
+            eventItem.innerHTML = `
+                <span class="event-time">[${timeString}]</span>
+                <span class="event-type">${type}</span>
+                <span class="event-data">${message}</span>
+            `;
+            
+            eventLog.appendChild(eventItem);
+            eventLog.scrollTop = eventLog.scrollHeight;
+
+            // 限制日志数量
+            if (eventLog.children.length > 20) {
+                eventLog.removeChild(eventLog.firstChild);
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化演示1（自动初始化）
+            
+            // 初始化演示2
+            initDemo2();
+            
+            // 初始化演示3
+            initDemo3();
+            
+            // 演示4会自动初始化
+        });
+    </script>
+</body>
+
+</html>
