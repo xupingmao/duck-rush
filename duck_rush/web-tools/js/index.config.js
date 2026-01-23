@@ -7,9 +7,9 @@ const menuConfig = [
         icon: '🏠'
     },
     {
-        id: 'development',
-        name: '开发工具',
-        icon: '💻',
+        id: 'nav-tools',
+        name: '导航工具',
+        icon: '🌐',
         children: [
             {
                 id: 'tool-hub',
@@ -18,11 +18,24 @@ const menuConfig = [
                 description: "集成了各种 Web 工具的综合管理界面，支持分类浏览和快速访问。"
             },
             {
+                id: 'web-tool-panel',
+                name: '工具面板',
+                url: 'pages/web-tool-panel.html',
+                description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。"
+            }
+        ]
+    },
+    {
+        id: 'development',
+        name: '开发工具',
+        icon: '💻',
+        children: [
+            {
                 id: 'install-user-scripts',
                 name: '安装油猴脚本',
                 url: 'pages/install-user-scripts.html',
                 description: "帮助您安装和管理用户脚本，提升浏览器功能。"
-            }, 
+            },
             {
                 id: 'localstorage-manager',
                 name: '本地存储管理',
@@ -65,29 +78,16 @@ const menuConfig = [
                 name: "数学计算器",
                 url: "pages/calculator/math-calculator.html",
                 description: "用于进行基本数学计算的工具，支持加、减、乘、除等操作。"
-            },{
+            }, {
                 id: 'investment-calculator',
                 name: '投资计算器',
                 url: 'pages/calculator/investment-calculator.html',
                 description: "基于长期投资和储蓄的财务规划工具，帮助您预测未来财务状况。"
-            },{
+            }, {
                 id: 'calorie-calculator',
                 name: '卡路里计算器',
                 url: 'pages/calculator/calorie-calculator.html',
                 description: "用于计算食物热量的工具，帮助您管理和控制饮食。"
-            }
-        ]
-    },
-    {
-        id: 'nav-tools',
-        name: '导航工具',
-        icon: '🌐',
-        children: [
-            {
-                id: 'web-tool-panel',
-                name: 'Web 工具面板',
-                url: 'pages/web-tool-panel.html',
-                description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。"
             }
         ]
     },
