@@ -62,6 +62,9 @@
 
         .control-group {
             margin-bottom: 12px;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
         }
 
         .control-group label {
@@ -310,6 +313,10 @@
                                 <input type="checkbox" id="sortOption">
                                 <label for="sortOption">排序结果</label>
                             </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="uniqueOption">
+                                <label for="uniqueOption">去除重复项</label>
+                            </div>
                         </div>
                     </div>
 
@@ -377,6 +384,7 @@
         const joinCustomValue = document.getElementById('joinCustomValue');
         const trimOption = document.getElementById('trimOption');
         const sortOption = document.getElementById('sortOption');
+        const uniqueOption = document.getElementById('uniqueOption');
 
         // 初始化
         function init() {
@@ -454,6 +462,11 @@
             // 处理trim选项
             if (trimOption.checked) {
                 parts = parts.map(part => part.trim());
+            }
+
+            // 处理去重选项
+            if (uniqueOption.checked) {
+                parts = [...new Set(parts)];
             }
 
             // 获取引号处理方法
