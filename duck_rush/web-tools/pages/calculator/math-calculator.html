@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学计算器 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        #calculationInput {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        #calculationInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .buttons-section {
+            margin-bottom: 20px;
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .symbol-btn {
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #f8f9fa;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .symbol-btn:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .result-section {
+            margin-bottom: 20px;
+        }
+
+        .result-container {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 16px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        #resultDisplay {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .history-section {
+            margin-bottom: 20px;
+        }
+
+        .history-container {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .history-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .history-list {
+            list-style: none;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-expression {
+            font-size: 0.9rem;
+            color: #666;
+            flex: 1;
+        }
+
+        .history-result {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-left: 12px;
+        }
+
+        .variables-section {
+            margin-bottom: 20px;
+        }
+
+        .variables-container {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .variables-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .variables-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .variable-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+        }
+
+        .variable-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .variable-value {
+            color: #666;
+            margin-left: 4px;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .footer-text {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            .container {
+                border-radius: 8px;
+            }
+
+            header {
+                padding: 16px;
+            }
+
+            .header-title {
+                font-size: 1.2rem;
+            }
+
+            main {
+                padding: 16px;
+            }
+
+            #calculationInput {
+                min-height: 60px;
+            }
+
+            .buttons-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+
+            .variables-list {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .buttons-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .variables-list {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            }
+
+            .history-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .history-result {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">数学计算器</h1>
+            <p class="header-subtitle">输入计算公式，使用 $1-$10 引用历史结果</p>
+        </header>
+
+        <main>
+            <!-- 输入区域 -->
+            <section class="input-section">
+                <label for="calculationInput" class="input-label">计算公式</label>
+                <div class="input-container">
+                    <textarea id="calculationInput" placeholder="输入计算公式，例如：2 + 3 * 4 或 $1 + 5"></textarea>
+                </div>
+            </section>
+
+            <!-- 预设符号按钮 -->
+            <section class="buttons-section">
+                <div class="buttons-grid">
+                    <button class="symbol-btn" data-symbol="+">+</button>
+                    <button class="symbol-btn" data-symbol="-">-</button>
+                    <button class="symbol-btn" data-symbol="*">×</button>
+                    <button class="symbol-btn" data-symbol="/">÷</button>
+                    <button class="symbol-btn" data-symbol="(">(</button>
+                    <button class="symbol-btn" data-symbol=")">)</button>
+                    <button class="symbol-btn" data-symbol="^">^</button>
+                    <button class="symbol-btn" data-symbol="%">%</button>
+                    <button class="symbol-btn" data-symbol="pi">π</button>
+                    <button class="symbol-btn" data-symbol="e">e</button>
+                    <button class="symbol-btn" data-symbol="sqrt(">√</button>
+                    <button class="symbol-btn" data-symbol="abs(">|x|</button>
+                    <button class="symbol-btn" data-symbol="sin(">sin</button>
+                    <button class="symbol-btn" data-symbol="cos(">cos</button>
+                    <button class="symbol-btn" data-symbol="tan(">tan</button>
+                    <button class="symbol-btn" data-symbol="log(">log</button>
+                    <button class="symbol-btn" data-symbol="ln(">ln</button>
+                    <button class="symbol-btn" data-symbol="max(">max</button>
+                    <button class="symbol-btn" data-symbol="min(">min</button>
+                    <button class="symbol-btn" data-symbol="round(">round</button>
+                    <button class="symbol-btn" data-symbol="floor(">floor</button>
+                    <button class="symbol-btn" data-symbol="ceil(">ceil</button>
+                </div>
+                <button id="calculateBtn" class="calculate-btn">计算</button>
+            </section>
+
+            <!-- 结果显示 -->
+            <section class="result-section">
+                <div class="result-container">
+                    <div class="result-label">计算结果</div>
+                    <div id="resultDisplay">0</div>
+                </div>
+            </section>
+
+            <!-- 变量引用 -->
+            <section class="variables-section">
+                <div class="variables-container">
+                    <div class="variables-title">变量引用</div>
+                    <div class="variables-list" id="variablesList">
+                        <!-- 变量将通过 JavaScript 动态生成 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 历史记录 -->
+            <section class="history-section">
+                <div class="history-container">
+                    <div class="history-title">最近计算</div>
+                    <ul class="history-list" id="historyList">
+                        <!-- 历史记录将通过 JavaScript 动态生成 -->
+                    </ul>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p class="footer-text">© 2026 Duck Rush 项目 | 数学计算器</p>
+        </footer>
+    </div>
+
+    <script>
+        // 全局变量
+        let history = [];
+        const MAX_HISTORY_ITEMS = 10;
+
+        // DOM 元素
+        const calculationInput = document.getElementById('calculationInput');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const resultDisplay = document.getElementById('resultDisplay');
+        const historyList = document.getElementById('historyList');
+        const variablesList = document.getElementById('variablesList');
+        const symbolBtns = document.querySelectorAll('.symbol-btn');
+
+        // 初始化
+        function init() {
+            // 加载历史记录
+            loadHistory();
+            
+            // 更新变量列表
+            updateVariablesList();
+            
+            // 更新历史记录显示
+            updateHistoryDisplay();
+            
+            // 绑定事件
+            bindEvents();
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 计算按钮点击事件
+            calculateBtn.addEventListener('click', calculate);
+            
+            // 回车键计算
+            calculationInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    calculate();
+                }
+            });
+            
+            // 符号按钮点击事件
+            symbolBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const symbol = this.dataset.symbol;
+                    insertSymbol(symbol);
+                });
+            });
+        }
+
+        // 插入符号
+        function insertSymbol(symbol) {
+            const start = calculationInput.selectionStart;
+            const end = calculationInput.selectionEnd;
+            const text = calculationInput.value;
+            const newText = text.substring(0, start) + symbol + text.substring(end);
+            calculationInput.value = newText;
+            calculationInput.focus();
+            calculationInput.selectionStart = calculationInput.selectionEnd = start + symbol.length;
+        }
+
+        // 计算
+        function calculate() {
+            const expression = calculationInput.value.trim();
+            if (!expression) {
+                alert('请输入计算公式');
+                return;
+            }
+
+            try {
+                // 替换变量引用
+                let processedExpression = replaceVariables(expression);
+                
+                // 替换数学常量和函数
+                processedExpression = replaceMathConstants(processedExpression);
+                
+                // 计算结果
+                const result = eval(processedExpression);
+                
+                // 显示结果
+                resultDisplay.textContent = result;
+                
+                // 添加到历史记录
+                addToHistory(expression, result);
+                
+                // 更新变量列表
+                updateVariablesList();
+                
+                // 更新历史记录显示
+                updateHistoryDisplay();
+                
+                // 保存历史记录
+                saveHistory();
+            } catch (error) {
+                resultDisplay.textContent = '错误: ' + error.message;
+            }
+        }
+
+        // 替换变量引用
+        function replaceVariables(expression) {
+            return expression.replace(/\$(\d+)/g, function(match, num) {
+                const index = parseInt(num) - 1;
+                if (index >= 0 && index < history.length) {
+                    return history[index].result;
+                }
+                return match;
+            });
+        }
+
+        // 替换数学常量和函数
+        function replaceMathConstants(expression) {
+            return expression
+                .replace(/\bpi\b/gi, 'Math.PI')
+                .replace(/\be\b/gi, 'Math.E')
+                .replace(/\bsqrt\(/gi, 'Math.sqrt(')
+                .replace(/\babs\(/gi, 'Math.abs(')
+                .replace(/\bsin\(/gi, 'Math.sin(')
+                .replace(/\bcos\(/gi, 'Math.cos(')
+                .replace(/\btan\(/gi, 'Math.tan(')
+                .replace(/\blog\(/gi, 'Math.log10(')
+                .replace(/\bln\(/gi, 'Math.log(')
+                .replace(/\bmax\(/gi, 'Math.max(')
+                .replace(/\bmin\(/gi, 'Math.min(')
+                .replace(/\bround\(/gi, 'Math.round(')
+                .replace(/\bfloor\(/gi, 'Math.floor(')
+                .replace(/\bceil\(/gi, 'Math.ceil(')
+                .replace(/\b\^(\d+)\b/g, 'Math.pow($1)')
+                .replace(/\b(\d+)\^(\d+)\b/g, 'Math.pow($1, $2)');
+        }
+
+        // 添加到历史记录
+        function addToHistory(expression, result) {
+            // 添加到历史记录开头
+            history.unshift({ expression, result });
+            
+            // 限制历史记录数量
+            if (history.length > MAX_HISTORY_ITEMS) {
+                history = history.slice(0, MAX_HISTORY_ITEMS);
+            }
+        }
+
+        // 更新变量列表
+        function updateVariablesList() {
+            variablesList.innerHTML = '';
+            
+            for (let i = 0; i < MAX_HISTORY_ITEMS; i++) {
+                const variableItem = document.createElement('div');
+                variableItem.className = 'variable-item';
+                
+                if (i < history.length) {
+                    variableItem.innerHTML = `<span class="variable-name">$${i + 1}</span>: <span class="variable-value">${history[i].result}</span>`;
+                } else {
+                    variableItem.innerHTML = `<span class="variable-name">$${i + 1}</span>: <span class="variable-value">-</span>`;
+                }
+                
+                variablesList.appendChild(variableItem);
+            }
+        }
+
+        // 更新历史记录显示
+        function updateHistoryDisplay() {
+            historyList.innerHTML = '';
+            
+            history.forEach((item, index) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'history-item';
+                listItem.innerHTML = `
+                    <span class="history-expression">$${index + 1}: ${item.expression}</span>
+                    <span class="history-result">${item.result}</span>
+                `;
+                historyList.appendChild(listItem);
+            });
+        }
+
+        // 保存历史记录到 localStorage
+        function saveHistory() {
+            try {
+                localStorage.setItem('mathCalculatorHistory', JSON.stringify(history));
+            } catch (error) {
+                console.error('保存历史记录失败:', error);
+            }
+        }
+
+        // 从 localStorage 加载历史记录
+        function loadHistory() {
+            try {
+                const savedHistory = localStorage.getItem('mathCalculatorHistory');
+                if (savedHistory) {
+                    history = JSON.parse(savedHistory);
+                    // 确保历史记录数量不超过限制
+                    if (history.length > MAX_HISTORY_ITEMS) {
+                        history = history.slice(0, MAX_HISTORY_ITEMS);
+                    }
+                }
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                history = [];
+            }
+        }
+
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>

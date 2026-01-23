@@ -55,6 +55,11 @@ const menuConfig = [
         icon: '⌨️',
         children: [
             {
+                id: "math-calculator",
+                name: "数学计算器",
+                url: "pages/calculator/math-calculator.html",
+                description: "用于进行基本数学计算的工具，支持加、减、乘、除等操作。"
+            },{
                 id: 'investment-calculator',
                 name: '投资计算器',
                 url: 'pages/calculator/investment-calculator.html',
