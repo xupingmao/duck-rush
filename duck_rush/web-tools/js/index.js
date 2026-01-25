@@ -46,13 +46,16 @@ function init() {
  * @param {Event} e - 窗口大小变化事件对象
  */
 function handleResizeEvent(e) {
-        // 重新生成导航菜单，确保在宽度变化时使用正确的菜单样式
-        generateNavMenu(true);
-        // 重新添加导航事件监听器
-        addNavEventListeners();
+    // 重新生成导航菜单，确保在宽度变化时使用正确的菜单样式
+    generateNavMenu(true);
+    // 重新添加导航事件监听器
+    addNavEventListeners();
 }
 
-// 处理导航切换点击事件
+/**
+ * 处理导航切换点击事件
+ * @param {Event} e - 点击事件对象
+ */
 function handleNavToggleClick(e) {
     sidebar.classList.toggle('collapsed');
     // 重新生成导航菜单
@@ -102,9 +105,7 @@ function generateExpandedNavMenu() {
                 // 添加点击事件
                 childA.addEventListener('click', function (e) {
                     e.preventDefault();
-                    const url = this.dataset.url;
-                    const title = this.dataset.title;
-                    loadPage(url, title, child);
+                    loadPage(child);
                     updateActiveNavItem(this);
                 });
 
@@ -123,9 +124,7 @@ function generateExpandedNavMenu() {
             // 没有子菜单的菜单项，直接加载页面
             a.addEventListener('click', function (e) {
                 e.preventDefault();
-                const url = this.dataset.url;
-                const title = this.dataset.title;
-                loadPage(url, title, item);
+                loadPage(item);
                 updateActiveNavItem(this);
             });
         }
@@ -185,9 +184,7 @@ function generateCollapsedNavMenu() {
             // 没有子菜单的菜单项，直接加载页面
             a.addEventListener('click', function (e) {
                 e.preventDefault();
-                const url = this.dataset.url;
-                const title = this.dataset.title;
-                loadPage(url, title);
+                loadPage(item);
                 updateActiveNavItem(this);
             });
         }
@@ -204,12 +201,12 @@ function generateNavMenu(isInitOrResize) {
     if (isInitOrResize) {
         // 检查是否是移动端
         const isMobile = window.innerWidth <= 768;
-    
+
         if (isMobile) {
             sidebar.classList.add('collapsed');
         }
     }
-    
+
     if (sidebar && sidebar.classList.contains('collapsed')) {
         generateCollapsedNavMenu();
     } else {
@@ -231,11 +228,11 @@ function loadInitPage() {
     if (currentUrl) {
         // 找到对应的导航项并激活
         let found = false;
-        
+
         // 查找顶级菜单项
         for (const item of menuConfig) {
             if (item.url === currentUrl) {
-                loadPage(currentUrl, item.name, item);
+                loadPage(item);
                 const navItem = document.querySelector(`#nav-${item.id}`);
                 if (navItem) {
                     updateActiveNavItem(navItem);
@@ -243,12 +240,12 @@ function loadInitPage() {
                 found = true;
                 break;
             }
-            
+
             // 查找子菜单项
             if (item.children) {
                 for (const child of item.children) {
                     if (child.url === currentUrl) {
-                        loadPage(currentUrl, child.name, child);
+                        loadPage(child);
                         const navItem = document.querySelector(`#${child.id} a`);
                         if (navItem) {
                             updateActiveNavItem(navItem);
@@ -256,12 +253,12 @@ function loadInitPage() {
                         found = true;
                         break;
                     }
-                    
+
                     // 查找tab项
                     if (child.tabs) {
                         for (const tab of child.tabs) {
                             if (tab.url === currentUrl) {
-                                loadPage(currentUrl, tab.name, child);
+                                loadPage(child);
                                 const navItem = document.querySelector(`#${child.id} a`);
                                 if (navItem) {
                                     updateActiveNavItem(navItem);
@@ -275,22 +272,27 @@ function loadInitPage() {
                 if (found) break;
             }
         }
-        
+
         if (!found) {
             // 如果没有找到对应的导航项，加载默认页面
-            loadPage(menuConfig[0].url, menuConfig[0].name, menuConfig[0]);
+            loadPage(menuConfig[0]);
         }
     } else {
         // 如果没有指定页面，加载默认页面
-        loadPage(menuConfig[0].url, menuConfig[0].name, menuConfig[0]);
+        loadPage(menuConfig[0]);
     }
 }
 
 // 加载页面
-function loadPage(url, title, menuItem = null) {
+function loadPage(menuItem) {
     // 保存当前菜单项
     currentMenuItem = menuItem;
     currentTabIndex = 0;
+
+    // 从menuItem获取url和title
+    let url = menuItem.url;
+    let title = menuItem.name;
+    const target = menuItem.target;
 
     // 检查菜单项是否有tabs配置
     if (menuItem && menuItem.tabs && menuItem.tabs.length > 0) {
@@ -313,8 +315,12 @@ function loadPage(url, title, menuItem = null) {
     // 更新页面标题
     pageTitle.textContent = title;
 
-    // 加载 iframe
-    contentFrame.src = url;
+    if (target) {
+        window.open(url, target);
+    } else {
+        // 加载 iframe
+        contentFrame.src = url;
+    }
 
     // 更新浏览器历史记录
     history.pushState({ url, title, menuItemId: menuItem?.id, tabIndex: currentTabIndex }, title, `?page=${encodeURIComponent(url)}`);
@@ -342,29 +348,29 @@ function updatePageTabs(menuItem) {
         tabElement.dataset.title = tab.name;
 
         // 添加点击事件
-        tabElement.addEventListener('click', function() {
+        tabElement.addEventListener('click', function () {
             const index = parseInt(this.dataset.index);
             const url = this.dataset.url;
             const title = this.dataset.title;
-            
+
             // 更新当前tab索引
             currentTabIndex = index;
-            
+
             // 更新tab激活状态
             document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
             this.classList.add('active');
-            
+
             // 加载页面
             contentFrame.src = url;
             // tab组件已经有样式, 不需要展示标题
             pageTitle.textContent = "";
-            
+
             // 更新浏览器历史记录
-            history.pushState({ 
-                url, 
-                title, 
-                menuItemId: menuItem.id, 
-                tabIndex: currentTabIndex 
+            history.pushState({
+                url,
+                title,
+                menuItemId: menuItem.id,
+                tabIndex: currentTabIndex
             }, title, `?page=${encodeURIComponent(url)}`);
         });
 

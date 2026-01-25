@@ -21,7 +21,8 @@ const menuConfig = [
                 id: 'web-tool-panel',
                 name: '工具面板',
                 url: 'pages/web-tool-panel.html',
-                description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。"
+                description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。",
+                target: "_blank"
             }
         ]
     },
