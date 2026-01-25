@@ -197,19 +197,69 @@
 
         /* 右侧工具栏 */
         .toolbar {
-            width: 300px;
+            width: 60px;
             background: #f8f9fa;
             border-left: 1px solid #ddd;
             padding: 10px;
             display: flex;
             flex-direction: column;
+            transition: width 0.3s ease;
+        }
+
+        .toolbar.expanded {
+            width: 300px;
+        }
+
+        .toolbar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #ddd;
         }
 
         .toolbar-title {
             font-weight: bold;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toolbar.expanded .toolbar-title {
+            opacity: 1;
+        }
+
+        .toolbar-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toolbar-toggle:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .toolbar-content {
+            flex: 1;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toolbar.expanded .toolbar-content {
+            opacity: 1;
+            overflow-y: auto;
         }
 
         .clipboard-history {
@@ -718,9 +768,18 @@
         </div>
 
         <!-- 右侧工具栏（仅保留剪贴板历史） -->
-        <div class="toolbar">
-            <div class="toolbar-title">剪贴板历史</div>
-            <div class="clipboard-history" id="clipboard-history"></div>
+        <div class="toolbar" id="toolbar">
+            <div class="toolbar-header">
+                <div class="toolbar-title">剪贴板历史</div>
+                <button class="toolbar-toggle" id="toolbar-toggle" onclick="toggleToolbar()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="toolbar-content">
+                <div class="clipboard-history" id="clipboard-history"></div>
+            </div>
         </div>
     </div>
 
@@ -849,6 +908,12 @@
     </div>
 
     <script>
+        // 工具栏折叠/展开功能
+        function toggleToolbar() {
+            const toolbar = document.getElementById('toolbar');
+            toolbar.classList.toggle('expanded');
+        }
+
         // ========== 核心优化：基于文件名生成唯一存储前缀 ==========
         // 获取当前页面文件名（去除后缀）作为唯一标识
         function getUniqueStoragePrefix() {

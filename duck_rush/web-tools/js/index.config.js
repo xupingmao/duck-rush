@@ -14,13 +14,13 @@ const menuConfig = [
             {
                 id: 'tool-hub',
                 name: '网址导航',
-                url: 'pages/tool-hub.html',
+                url: 'pages/nav/tool-hub.html',
                 description: "集成了各种 Web 工具的综合管理界面，支持分类浏览和快速访问。"
             },
             {
                 id: 'web-tool-panel',
                 name: '工具面板',
-                url: 'pages/web-tool-panel.html',
+                url: 'pages/nav/web-tool-panel.html',
                 description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。",
                 target: "_blank"
             }
