@@ -14,7 +14,7 @@ let currentTabIndex = 0;
 // 初始化函数
 function init() {
     // 生成导航菜单
-    generateNavMenu();
+    generateNavMenu(true);
 
     // 添加导航事件监听器
     addNavEventListeners();
@@ -34,14 +34,31 @@ function init() {
 
     // 添加切换侧边栏功能
     if (toggleSidebarBtn && sidebar) {
-        toggleSidebarBtn.addEventListener('click', function () {
-            sidebar.classList.toggle('collapsed');
-            // 重新生成导航菜单
-            generateNavMenu();
-            // 重新添加导航事件监听器
-            addNavEventListeners();
-        });
+        toggleSidebarBtn.addEventListener('click', handleNavToggleClick);
     }
+
+    // 添加窗口大小变化事件监听器
+    window.addEventListener('resize', handleResizeEvent);
+}
+
+/**
+ * 处理窗口大小变化事件
+ * @param {Event} e - 窗口大小变化事件对象
+ */
+function handleResizeEvent(e) {
+        // 重新生成导航菜单，确保在宽度变化时使用正确的菜单样式
+        generateNavMenu(true);
+        // 重新添加导航事件监听器
+        addNavEventListeners();
+}
+
+// 处理导航切换点击事件
+function handleNavToggleClick(e) {
+    sidebar.classList.toggle('collapsed');
+    // 重新生成导航菜单
+    generateNavMenu();
+    // 重新添加导航事件监听器
+    addNavEventListeners();
 }
 
 // 生成展开状态的导航菜单
@@ -179,8 +196,20 @@ function generateCollapsedNavMenu() {
     });
 }
 
-// 生成导航菜单
-function generateNavMenu() {
+/**
+ * 生成导航菜单
+ * @param {boolean} isInitOrResize - 是否是初始化调用或窗口大小变化调用
+ */
+function generateNavMenu(isInitOrResize) {
+    if (isInitOrResize) {
+        // 检查是否是移动端
+        const isMobile = window.innerWidth <= 768;
+    
+        if (isMobile) {
+            sidebar.classList.add('collapsed');
+        }
+    }
+    
     if (sidebar && sidebar.classList.contains('collapsed')) {
         generateCollapsedNavMenu();
     } else {
