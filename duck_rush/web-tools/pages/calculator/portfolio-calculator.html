@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>投资组合计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+
+        .section h2 {
+            margin-bottom: 20px;
+            color: #34495e;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .product-list {
+            margin-top: 20px;
+        }
+
+        .product-item {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #fff;
+        }
+
+        .product-item input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .product-item .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #fff;
+        }
+
+        .result-item .product-info {
+            flex: 2;
+        }
+
+        .result-item .calculations {
+            flex: 3;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .result-item .adjustment {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .adjustment.positive {
+            color: #27ae60;
+        }
+
+        .adjustment.negative {
+            color: #e74c3c;
+        }
+
+        .adjustment.zero {
+            color: #95a5a6;
+        }
+
+        .config-section {
+            margin-top: 30px;
+        }
+
+        .config-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .config-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .config-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .config-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-color: #3498db;
+        }
+
+        .config-item h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .config-item p {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+
+        .config-item .btn-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .config-item .btn {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .total-amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-top: 10px;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            color: #27ae60;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .product-item {
+                flex-direction: column;
+            }
+
+            .result-item {
+                flex-direction: column;
+            }
+
+            .result-item .calculations {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+
+            .config-buttons {
+                flex-direction: column;
+            }
+
+            .config-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>投资组合计算器</h1>
+
+        <!-- 总金额设置 -->
+        <div class="section">
+            <h2>1. 总金额设置</h2>
+            <div class="form-group">
+                <label for="total-amount">总投资金额 (元):</label>
+                <input type="number" id="total-amount" placeholder="请输入总投资金额" value="100000">
+            </div>
+        </div>
+
+        <!-- 投资产品设置 -->
+        <div class="section">
+            <h2>2. 投资产品设置</h2>
+            <!-- 产品列表 -->
+            <div class="product-list" id="product-list">
+                <!-- 产品项将通过JavaScript动态添加 -->
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="product-name">产品名称:</label>
+                    <input type="text" id="product-name" placeholder="请输入产品名称">
+                </div>
+                <div class="form-group">
+                    <label for="product-ratio">投资比例 (%):</label>
+                    <input type="number" id="product-ratio" placeholder="请输入投资比例" min="0" max="100" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="product-unit-price">单位价格 (元):</label>
+                    <input type="number" id="product-unit-price" placeholder="请输入单位价格" min="0.01" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="product-current-shares">当前份额:</label>
+                    <input type="number" id="product-current-shares" placeholder="请输入当前份额" min="0" step="1" integer>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn btn-primary" onclick="addProduct()">添加产品</button>
+                </div>
+            </div>
+
+
+            <!-- 计算按钮 -->
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="calculatePortfolio()">计算投资组合</button>
+                <button class="btn btn-secondary" onclick="clearProducts()">清空产品</button>
+            </div>
+        </div>
+
+        <!-- 计算结果 -->
+        <div class="section results" id="results">
+            <h2>3. 计算结果</h2>
+            <div id="result-content">
+                <!-- 计算结果将通过JavaScript动态添加 -->
+            </div>
+        </div>
+
+        <!-- 配置管理 -->
+        <div class="section config-section">
+            <h2>4. 配置管理</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="config-name">配置名称:</label>
+                    <input type="text" id="config-name" placeholder="请输入配置名称">
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end; gap: 10px;">
+                    <button class="btn btn-success" onclick="saveConfig()">保存配置</button>
+                    <button class="btn btn-secondary" onclick="loadConfigs()">加载配置</button>
+                </div>
+            </div>
+
+            <!-- 配置列表 -->
+            <div class="config-list" id="config-list">
+                <!-- 配置项将通过JavaScript动态添加 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let products = [];
+        const MAX_CONFIGS = 10;
+
+        // 添加投资产品
+        function addProduct() {
+            const name = document.getElementById('product-name').value.trim();
+            const ratio = parseFloat(document.getElementById('product-ratio').value);
+            const unitPrice = parseFloat(document.getElementById('product-unit-price').value);
+            const currentShares = parseFloat(document.getElementById('product-current-shares').value);
+
+            if (!name || isNaN(ratio) || isNaN(unitPrice) || isNaN(currentShares)) {
+                alert('请填写完整的产品信息');
+                return;
+            }
+
+            if (ratio < 0 || ratio > 100) {
+                alert('投资比例必须在0-100之间');
+                return;
+            }
+
+            if (unitPrice <= 0) {
+                alert('单位价格必须大于0');
+                return;
+            }
+
+            // 检查是否已存在同名产品
+            const existingProductIndex = products.findIndex(p => p.name === name);
+            if (existingProductIndex >= 0) {
+                // 更新现有产品
+                products[existingProductIndex] = { name, ratio, unitPrice, currentShares };
+            } else {
+                // 添加新产品
+                products.push({ name, ratio, unitPrice, currentShares });
+            }
+
+            // 清空输入框
+            document.getElementById('product-name').value = '';
+            document.getElementById('product-ratio').value = '';
+            document.getElementById('product-unit-price').value = '';
+            document.getElementById('product-current-shares').value = '';
+
+            // 更新产品列表显示
+            updateProductList();
+        }
+
+        // 更新产品列表显示
+        function updateProductList() {
+            const productList = document.getElementById('product-list');
+            productList.innerHTML = '';
+
+            products.forEach((product, index) => {
+                const productItem = document.createElement('div');
+                productItem.className = 'product-item';
+                productItem.innerHTML = `
+                    <input type="text" value="${product.name}" onchange="updateProduct(${index}, 'name', this.value)">
+                    <input type="number" value="${product.ratio}" min="0" max="100" step="0.1" onchange="updateProduct(${index}, 'ratio', parseFloat(this.value))">
+                    <input type="number" value="${product.unitPrice}" min="0.01" step="0.01" onchange="updateProduct(${index}, 'unitPrice', parseFloat(this.value))">
+                    <input type="number" value="${product.currentShares}" min="0" step="1" onchange="updateProduct(${index}, 'currentShares', parseInt(this.value))">
+                    <button class="btn btn-danger" onclick="removeProduct(${index})">&times;</button>
+                `;
+                productList.appendChild(productItem);
+            });
+        }
+
+        // 更新产品信息
+        function updateProduct(index, field, value) {
+            if (index >= 0 && index < products.length) {
+                products[index][field] = value;
+            }
+        }
+
+        // 移除产品
+        function removeProduct(index) {
+            if (index >= 0 && index < products.length) {
+                products.splice(index, 1);
+                updateProductList();
+            }
+        }
+
+        // 清空产品
+        function clearProducts() {
+            products = [];
+            updateProductList();
+            document.getElementById('result-content').innerHTML = '';
+        }
+
+        // 计算投资组合
+        function calculatePortfolio() {
+            const totalAmount = parseFloat(document.getElementById('total-amount').value);
+
+            if (isNaN(totalAmount) || totalAmount <= 0) {
+                alert('请输入有效的总投资金额');
+                return;
+            }
+
+            if (products.length === 0) {
+                alert('请至少添加一个投资产品');
+                return;
+            }
+
+            // 检查比例总和是否为100%
+            const totalRatio = products.reduce((sum, product) => sum + product.ratio, 0);
+            if (Math.abs(totalRatio - 100) > 0.1) {
+                alert(`投资比例总和应为100%，当前为${totalRatio.toFixed(1)}%`);
+                return;
+            }
+
+            // 计算每个产品的目标金额和份额（整数）
+            const results = products.map(product => {
+                const targetAmount = totalAmount * (product.ratio / 100);
+                const targetShares = Math.floor(targetAmount / product.unitPrice); // 向下取整为整数
+                const actualAmount = product.currentShares * product.unitPrice;
+                const adjustment = targetShares - product.currentShares;
+
+                return {
+                    ...product,
+                    targetAmount,
+                    actualAmount,
+                    targetShares,
+                    adjustment
+                };
+            });
+
+            // 计算总实际使用金额和剩余资金
+            const totalActualAmount = results.reduce((sum, result) => sum + result.actualAmount, 0);
+            const remainingFunds = totalAmount - totalActualAmount;
+
+            // 显示计算结果
+            displayResults(results, remainingFunds);
+        }
+
+        // 显示计算结果
+        function displayResults(results, remainingFunds) {
+            const resultContent = document.getElementById('result-content');
+            resultContent.innerHTML = '';
+
+            results.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+
+                const adjustmentClass = result.adjustment > 0 ? 'positive' :
+                    result.adjustment < 0 ? 'negative' : 'zero';
+                const adjustmentText = result.adjustment > 0 ? `+${result.adjustment}` :
+                    result.adjustment < 0 ? result.adjustment : '0';
+
+                resultItem.innerHTML = `
+                    <div class="product-info">
+                        <h4>${result.name}</h4>
+                        <p>投资比例: ${result.ratio}%</p>
+                    </div>
+                    <div class="calculations">
+                        <div>
+                            <strong>目标金额:</strong> ${result.targetAmount.toFixed(2)} 元
+                        </div>
+                        <div>
+                            <strong>实际金额:</strong> ${result.actualAmount.toFixed(2)} 元
+                        </div>
+                        <div>
+                            <strong>单位价格:</strong> ${result.unitPrice.toFixed(2)} 元
+                        </div>
+                        <div>
+                            <strong>当前份额:</strong> ${result.currentShares}
+                        </div>
+                        <div>
+                            <strong>目标份额:</strong> ${result.targetShares}
+                        </div>
+                    </div>
+                    <div class="adjustment ${adjustmentClass}">
+                        <strong>调整份额: ${adjustmentText}</strong>
+                    </div>
+                `;
+
+                resultContent.appendChild(resultItem);
+            });
+
+            // 添加剩余资金显示
+            const remainingFundsItem = document.createElement('div');
+            remainingFundsItem.className = 'result-item';
+            remainingFundsItem.innerHTML = `
+                <div class="product-info">
+                    <h4>剩余资金</h4>
+                    <p>无法按整数份额分配的资金</p>
+                </div>
+                <div class="calculations">
+                    <div style="grid-column: 1 / -1; font-size: 18px; font-weight: bold;">
+                        ${remainingFunds.toFixed(2)} 元
+                    </div>
+                </div>
+                <div class="adjustment zero">
+                    - 
+                </div>
+            `;
+            resultContent.appendChild(remainingFundsItem);
+        }
+
+        // 保存配置
+        function saveConfig() {
+            const configName = document.getElementById('config-name').value.trim();
+            const totalAmount = parseFloat(document.getElementById('total-amount').value);
+
+            if (!configName) {
+                alert('请输入配置名称');
+                return;
+            }
+
+            if (isNaN(totalAmount) || totalAmount <= 0) {
+                alert('请输入有效的总投资金额');
+                return;
+            }
+
+            if (products.length === 0) {
+                alert('请至少添加一个投资产品');
+                return;
+            }
+
+            // 检查比例总和是否为100%
+            const totalRatio = products.reduce((sum, product) => sum + product.ratio, 0);
+            if (Math.abs(totalRatio - 100) > 0.1) {
+                alert(`投资比例总和应为100%，当前为${totalRatio.toFixed(1)}%`);
+                return;
+            }
+
+            // 创建配置对象
+            const config = {
+                id: Date.now(),
+                name: configName,
+                totalAmount: totalAmount,
+                products: [...products],
+                createdAt: new Date().toISOString()
+            };
+
+            // 从localStorage加载现有配置
+            let savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+
+            // 检查配置数量是否超过限制
+            if (savedConfigs.length >= MAX_CONFIGS) {
+                // 删除最早的配置
+                savedConfigs.pop()
+            }
+
+            // 添加新配置
+            savedConfigs.unshift(config);
+
+            // 保存到localStorage
+            localStorage.setItem('portfolioCalculatorConfigs', JSON.stringify(savedConfigs));
+
+            // 显示保存成功消息
+            alert('配置保存成功');
+
+            // 清空配置名称输入框
+            document.getElementById('config-name').value = '';
+
+            // 重新加载配置列表
+            loadConfigs();
+        }
+
+        // 加载配置
+        function loadConfigs() {
+            const configList = document.getElementById('config-list');
+            configList.innerHTML = '';
+
+            // 从localStorage加载配置
+            const savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+
+            if (savedConfigs.length === 0) {
+                configList.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #95a5a6;">暂无保存的配置</p>';
+                return;
+            }
+
+            // 显示配置列表
+            savedConfigs.forEach(config => {
+                const configItem = document.createElement('div');
+                configItem.className = 'config-item';
+                configItem.innerHTML = `
+                    <h4>${config.name}</h4>
+                    <p>总金额: ${config.totalAmount.toFixed(2)} 元</p>
+                    <p>产品数量: ${config.products.length} 个</p>
+                    <p>保存时间: ${new Date(config.createdAt).toLocaleString()}</p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="loadConfig(${config.id})">加载</button>
+                        <button class="btn btn-danger" onclick="deleteConfig(${config.id})">删除</button>
+                    </div>
+                `;
+                configList.appendChild(configItem);
+            });
+        }
+
+        // 加载指定配置
+        function loadConfig(configId) {
+            // 从localStorage加载配置
+            const savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+            const config = savedConfigs.find(c => c.id === configId);
+
+            if (config) {
+                // 设置配置名称
+                document.getElementById('config-name').value = config.name;
+
+                // 设置总金额
+                document.getElementById('total-amount').value = config.totalAmount;
+
+                // 设置产品
+                products = [...config.products];
+                updateProductList();
+
+                // 清空结果
+                document.getElementById('result-content').innerHTML = '';
+
+                alert('配置加载成功');
+            }
+        }
+
+        // 删除配置
+        function deleteConfig(configId) {
+            if (confirm('确定要删除这个配置吗？')) {
+                // 从localStorage加载配置
+                let savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+
+                // 过滤掉要删除的配置
+                savedConfigs = savedConfigs.filter(c => c.id !== configId);
+
+                // 保存到localStorage
+                localStorage.setItem('portfolioCalculatorConfigs', JSON.stringify(savedConfigs));
+
+                // 重新加载配置列表
+                loadConfigs();
+            }
+        }
+
+        // 初始化
+        function init() {
+            // 加载配置列表
+            loadConfigs();
+
+            // 添加默认产品（如果需要）
+            if (products.length === 0) {
+                products = [
+                    { name: '股票', ratio: 40, unitPrice: 100, currentShares: 400 },
+                    { name: '债券', ratio: 30, unitPrice: 100, currentShares: 300 },
+                    { name: '基金', ratio: 20, unitPrice: 10, currentShares: 2000 },
+                    { name: '现金', ratio: 10, unitPrice: 1, currentShares: 10000 }
+                ];
+                updateProductList();
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.onload = init;
+    </script>
+</body>
+
+</html>

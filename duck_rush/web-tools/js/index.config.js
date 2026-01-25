@@ -102,8 +102,20 @@ const menuConfig = [
             }, {
                 id: 'investment-calculator',
                 name: '投资计算器',
-                url: 'pages/calculator/investment-calculator.html',
-                description: "基于长期投资和储蓄的财务规划工具，帮助您预测未来财务状况。"
+                tabs: [
+                    {
+                        id: 'investment-calculator',
+                        name: '投资计算器',
+                        url: 'pages/calculator/investment-calculator.html',
+                        description: "基于长期投资和储蓄的财务规划工具，帮助您预测未来财务状况。"
+                    },
+                    {
+                        id: 'portfolio-calculator',
+                        name: '组合计算器',
+                        url: 'pages/calculator/portfolio-calculator.html',
+                        description: "基于组合资产和利率的财务规划工具，帮助您预测未来财务状况。"
+                    }
+                ]
             }, {
                 id: 'calorie-calculator',
                 name: '卡路里计算器',
