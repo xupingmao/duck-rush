@@ -256,9 +256,10 @@ function loadInitPage() {
 
                     // 查找tab项
                     if (child.tabs) {
-                        for (const tab of child.tabs) {
+                        for (const [index, tab] of child.tabs.entries()) {
+                            tab.index = index;
                             if (tab.url === currentUrl) {
-                                loadPage(child);
+                                loadPage(child, tab);
                                 const navItem = document.querySelector(`#${child.id} a`);
                                 if (navItem) {
                                     updateActiveNavItem(navItem);
@@ -284,7 +285,7 @@ function loadInitPage() {
 }
 
 // 加载页面
-function loadPage(menuItem) {
+function loadPage(menuItem, tabInfo) {
     // 保存当前菜单项
     currentMenuItem = menuItem;
     currentTabIndex = 0;
@@ -299,8 +300,12 @@ function loadPage(menuItem) {
         pageTabs.classList.remove('hide');
         title = "";
         // 如果菜单项没有配置url，使用第一个tab的url
-        if (!url && menuItem.tabs[0]) {
+        if (tabInfo) {
+            url = tabInfo.url;
+            currentTabIndex = tabInfo.index;
+        } else if (!url && menuItem.tabs[0]) {
             url = menuItem.tabs[0].url;
+            currentTabIndex = 0;
         }
         // 更新页面tabs
         updatePageTabs(menuItem);
@@ -362,7 +367,7 @@ function updatePageTabs(menuItem) {
 
             // 加载页面
             contentFrame.src = url;
-            // tab组件已经有样式, 不需要展示标题
+            // tab组件不需要展示标题
             pageTitle.textContent = "";
 
             // 更新浏览器历史记录
