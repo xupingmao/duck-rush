@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>投资组合计算器</title>
+    <link rel="stylesheet" href="../../lib/layui/2.13.3/css/layui.css">
     <style>
         * {
             margin: 0;
@@ -17,11 +18,12 @@
             line-height: 1.6;
             color: #333;
             background-color: #f5f5f5;
+            padding: 20px 0;
         }
 
         .container {
             max-width: 1200px;
-            margin: 20px auto;
+            margin: 0 auto;
             padding: 20px;
             background-color: #fff;
             border-radius: 8px;
@@ -126,6 +128,24 @@
             background-color: #229954;
         }
 
+        .btn-info {
+            background-color: #17a2b8;
+            color: #fff;
+        }
+
+        .btn-info:hover {
+            background-color: #138496;
+        }
+
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+
         .product-list {
             margin-top: 20px;
         }
@@ -198,20 +218,35 @@
             color: #95a5a6;
         }
 
+        .remaining-funds {
+            padding: 15px;
+            margin-top: 20px;
+            border: 2px solid #3498db;
+            border-radius: 6px;
+            background-color: #fff;
+            text-align: center;
+        }
+
+        .remaining-funds h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .remaining-funds .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
         .config-section {
             margin-top: 30px;
         }
 
-        .config-buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
         .config-list {
+            margin-top: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
         }
 
         .config-item {
@@ -219,13 +254,6 @@
             border: 1px solid #e0e0e0;
             border-radius: 6px;
             background-color: #fff;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .config-item:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            border-color: #3498db;
         }
 
         .config-item h4 {
@@ -234,68 +262,192 @@
         }
 
         .config-item p {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            color: #555;
         }
 
         .config-item .btn-group {
+            margin-top: 10px;
             display: flex;
-            gap: 5px;
+            gap: 8px;
         }
 
-        .config-item .btn {
-            padding: 5px 10px;
-            font-size: 12px;
+        .config-item .btn-group .btn {
+            padding: 6px 14px;
+            font-size: 13px;
         }
 
-        .total-amount {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-top: 10px;
-        }
-
-        .error-message {
-            color: #e74c3c;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
-        .success-message {
-            color: #27ae60;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
+        /* 移动端优化 */
         @media (max-width: 768px) {
+            body {
+                padding: 10px 0;
+                font-size: 14px;
+            }
+
             .container {
+                max-width: 100%;
+                margin: 0 auto;
                 padding: 10px;
+                border-radius: 4px;
+            }
+
+            h1 {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            .section {
+                margin-bottom: 20px;
+                padding: 15px;
+                border-radius: 4px;
+            }
+
+            .section h2 {
+                font-size: 16px;
+                margin-bottom: 15px;
             }
 
             .form-row {
                 flex-direction: column;
+                gap: 10px;
+                padding: 8px;
+                margin-bottom: 10px;
+            }
+
+            .form-group {
+                margin-bottom: 10px;
+            }
+
+            .form-group label {
+                font-size: 13px;
+                margin-bottom: 4px;
+            }
+
+            .form-group input {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+
+            .btn {
+                padding: 8px 16px;
+                font-size: 13px;
             }
 
             .product-item {
                 flex-direction: column;
+                gap: 8px;
+                padding: 12px;
+                margin-bottom: 8px;
+            }
+
+            .product-item input {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+
+            .product-item .btn {
+                align-self: flex-start;
             }
 
             .result-item {
                 flex-direction: column;
+                gap: 10px;
+                padding: 12px;
+                margin-bottom: 8px;
+            }
+
+            .result-item .product-info {
+                margin-bottom: 10px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
             }
 
             .result-item .calculations {
                 grid-template-columns: 1fr;
-                gap: 5px;
+                gap: 8px;
             }
 
-            .config-buttons {
-                flex-direction: column;
+            .result-item .adjustment {
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f5f5f5;
+            }
+
+            .remaining-funds {
+                padding: 12px;
+                margin-top: 15px;
+            }
+
+            .remaining-funds h4 {
+                font-size: 16px;
+                margin-bottom: 8px;
+            }
+
+            .remaining-funds .amount {
+                font-size: 20px;
             }
 
             .config-list {
                 grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .config-item {
+                padding: 12px;
+            }
+
+            .config-item h4 {
+                font-size: 15px;
+                margin-bottom: 8px;
+            }
+
+            .config-item p {
+                font-size: 13px;
+                margin-bottom: 4px;
+            }
+
+            .config-item .btn-group {
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .config-item .btn-group .btn {
+                width: 100%;
+                padding: 5px 12px;
+                font-size: 12px;
+            }
+        }
+
+        /* 小屏幕手机优化 */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+
+            .section {
+                padding: 12px;
+            }
+
+            .section h2 {
+                font-size: 15px;
+            }
+
+            .btn {
+                padding: 7px 14px;
+                font-size: 12px;
+            }
+
+            .product-item {
+                padding: 10px;
+            }
+
+            .result-item {
+                padding: 10px;
+            }
+
+            .remaining-funds .amount {
+                font-size: 18px;
             }
         }
     </style>
@@ -371,8 +523,13 @@
                 <div class="form-group" style="display: flex; align-items: flex-end; gap: 10px;">
                     <button class="btn btn-success" onclick="saveConfig()">保存配置</button>
                     <button class="btn btn-secondary" onclick="loadConfigs()">加载配置</button>
+                    <button class="btn btn-info" onclick="exportConfigs()">导出配置</button>
+                    <button class="btn btn-warning" onclick="document.getElementById('import-file').click()">导入配置</button>
                 </div>
             </div>
+
+            <!-- 导入文件输入 -->
+            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importConfigs(this)">
 
             <!-- 配置列表 -->
             <div class="config-list" id="config-list">
@@ -381,7 +538,12 @@
         </div>
     </div>
 
+    <script src="../../lib/layui/2.13.3/layui.js"></script>
     <script>
+        
+        let alert = layer.msg;
+        let confirm = layer.confirm;
+    
         // 全局变量
         let products = [];
         const MAX_CONFIGS = 10;
@@ -496,10 +658,12 @@
                 const targetShares = Math.floor(targetAmount / product.unitPrice); // 向下取整为整数
                 const actualAmount = product.currentShares * product.unitPrice;
                 const adjustment = targetShares - product.currentShares;
+                const targetAmountFloor = targetShares * product.unitPrice;
 
                 return {
                     ...product,
                     targetAmount,
+                    targetAmountFloor,
                     actualAmount,
                     targetShares,
                     adjustment
@@ -507,7 +671,7 @@
             });
 
             // 计算总实际使用金额和剩余资金
-            const totalActualAmount = results.reduce((sum, result) => sum + result.actualAmount, 0);
+            const totalActualAmount = results.reduce((sum, result) => sum + result.targetAmountFloor, 0);
             const remainingFunds = totalAmount - totalActualAmount;
 
             // 显示计算结果
@@ -639,6 +803,111 @@
             loadConfigs();
         }
 
+        // 导出所有配置
+        function exportConfigs() {
+            // 从localStorage获取所有配置
+            const savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+
+            if (savedConfigs.length === 0) {
+                alert('没有可导出的配置');
+                return;
+            }
+
+            // 创建导出数据
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                configs: savedConfigs
+            };
+
+            // 将数据转换为JSON字符串并格式化
+            const jsonString = JSON.stringify(exportData, null, 2);
+
+            // 创建下载链接
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `portfolio-configs-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+
+            // 触发下载
+            a.click();
+
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+
+            alert('配置导出成功');
+        }
+
+        // 导入配置
+        function importConfigs(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    // 解析JSON文件
+                    const importData = JSON.parse(e.target.result);
+
+                    // 验证数据格式
+                    if (!importData.configs || !Array.isArray(importData.configs)) {
+                        throw new Error('配置文件格式不正确');
+                    }
+
+                    // 检查版本兼容性
+                    if (importData.version !== '1.0') {
+                        alert(`警告：配置版本 ${importData.version} 可能不兼容，建议使用版本 1.0`);
+                    }
+
+                    // 从localStorage加载现有配置
+                    let savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
+
+                    // 合并新配置
+                    const newConfigs = importData.configs.map(config => ({
+                        ...config,
+                        id: Date.now() + Math.random(), // 生成新的唯一ID
+                        importedAt: new Date().toISOString()
+                    }));
+
+                    // 检查配置数量是否超过限制
+                    const totalConfigs = savedConfigs.length + newConfigs.length;
+                    if (totalConfigs > MAX_CONFIGS) {
+                        const overLimit = totalConfigs - MAX_CONFIGS;
+                        alert(`警告：将导入 ${newConfigs.length} 个配置，将删除 ${overLimit} 个最旧的配置`);
+                        
+                        // 删除最旧的配置
+                        savedConfigs = savedConfigs.slice(0, MAX_CONFIGS - newConfigs.length);
+                    }
+
+                    // 添加新配置
+                    savedConfigs = [...newConfigs, ...savedConfigs];
+
+                    // 保存到localStorage
+                    localStorage.setItem('portfolioCalculatorConfigs', JSON.stringify(savedConfigs));
+
+                    // 显示导入成功消息
+                    alert(`成功导入 ${newConfigs.length} 个配置`);
+
+                    // 重新加载配置列表
+                    loadConfigs();
+
+                } catch (error) {
+                    console.error('导入配置失败:', error);
+                    alert('配置文件格式错误或文件损坏');
+                }
+
+                // 重置文件输入，允许重新选择同一文件
+                input.value = '';
+            };
+
+            reader.readAsText(file);
+        }
+
         // 加载配置
         function loadConfigs() {
             const configList = document.getElementById('config-list');
@@ -696,7 +965,9 @@
 
         // 删除配置
         function deleteConfig(configId) {
-            if (confirm('确定要删除这个配置吗？')) {
+            layer.confirm('确定要删除这个配置吗？', {
+                btn: ['确定', '取消'], // 按钮
+            }, function (index) {
                 // 从localStorage加载配置
                 let savedConfigs = JSON.parse(localStorage.getItem('portfolioCalculatorConfigs') || '[]');
 
@@ -708,7 +979,9 @@
 
                 // 重新加载配置列表
                 loadConfigs();
-            }
+
+                layer.close(index);
+            });
         }
 
         // 初始化
