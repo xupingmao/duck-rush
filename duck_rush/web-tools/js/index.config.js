@@ -23,6 +23,18 @@ const menuConfig = [
                 url: 'pages/nav/web-tool-panel.html',
                 description: "提供标签页管理功能的 Web 工具面板，方便在多个工具之间快速切换。",
                 target: "_blank"
+            },
+            {
+                id: 'awesome-projects',
+                name: 'awesome项目',
+                url: 'pages/projects/awesome-projects.html',
+                description: "用于awsome项目导航"
+            },
+            {
+                id: 'awesometop',
+                name: 'Awesome Top',
+                url: 'https://awesometop.cn/',
+                description: " Awesome Top 中文社区，精选了 GitHub 上优秀的开源项目，致力于帮助开发者了解当前热门项目和趋势，当访问GitHub受限时，为您提供第二通道。 "
             }
         ]
     },
@@ -56,16 +68,16 @@ const menuConfig = [
                 description: "用于格式化和验证 JSON 数据的工具，方便阅读和处理。"
             },
             {
-                id: 'awesome-projects',
-                name: 'awesome项目',
-                url: 'pages/projects/awesome-projects.html',
-                description: "用于awsome项目导航"
-            },
-            {
                 id: 'run-js',
                 name: '运行JS脚本',
                 url: 'pages/runscripts/runjs.html',
                 description: "用于运行自定义 JavaScript 脚本的工具，方便扩展浏览器功能。"
+            },
+            {
+                id: 'timestamp-tool',
+                name: '时间戳工具',
+                url: 'pages/timestamp.html',
+                description: "用于转换和操作时间戳的工具，方便时间计算和显示。"
             },
             {
                 id: 'examples',
