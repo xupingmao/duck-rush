@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON提取工具 - Duck Rush Web Tools</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .layout {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section {
+            padding: 20px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            width: 100px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .form-control {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 300px;
+            font-family: monospace;
+            width: 100%;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .footer {
+            margin-top: 20px;
+            padding: 20px;
+            border-top: 1px solid #e8e8e8;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .footer-info {
+            margin-bottom: 15px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .footer-info span {
+            margin-right: 20px;
+        }
+
+        .footer-section {
+            margin-bottom: 15px;
+        }
+
+        .footer-section h3 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .footer-section ul li {
+            padding: 5px 0;
+            color: #666;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .footer-section ul li:before {
+            content: "•";
+            color: #3498db;
+            margin-right: 8px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #27ae60;
+            color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.error {
+            background: #e74c3c;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            .layout {
+                flex-direction: column;
+            }
+
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .form-label {
+                width: auto;
+            }
+
+            textarea.form-control {
+                min-height: 200px;
+            }
+
+            .footer-info span {
+                display: block;
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JSON提取工具</h1>
+
+        <div class="layout">
+            <div class="left-panel">
+                <div class="section">
+                    <h2>输入</h2>
+                    <div class="form-row">
+                        <label class="form-label">JSON字符串：</label>
+                    </div>
+                    <textarea id="json-input" class="form-control" placeholder="请输入JSON字符串，例如：{&quot;data&quot;: {&quot;user&quot;: {&quot;name&quot;: &quot;张三&quot;}}}"></textarea>
+                    <div class="form-row" style="margin-top: 15px;">
+                        <label class="form-label">字段路径：</label>
+                        <input type="text" id="field-path" class="form-control" placeholder="请输入字段路径，例如：data.user.name">
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="extractField()">提取</button>
+                        <button class="btn btn-secondary" onclick="clearInput()">清空</button>
+                        <button class="btn btn-success" onclick="formatJson()">格式化</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="section">
+                    <h2>输出结果</h2>
+                    <textarea id="result-output" class="form-control" placeholder="提取结果将显示在这里" readonly></textarea>
+                    <div class="form-row" style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="copyResult()">复制</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-info">
+                <span>版本：v1.0.0</span>
+                <span>更新日期：2024-01-15</span>
+            </div>
+            <div class="footer-section">
+                <h3>使用说明</h3>
+                <ul>
+                    <li>在左侧输入框中粘贴JSON字符串</li>
+                    <li>在字段路径输入框中输入要提取的字段路径</li>
+                    <li>点击"提取"按钮获取结果</li>
+                    <li>支持嵌套字段，如：data.user.name</li>
+                    <li>支持数组索引，如：data.users[0].name</li>
+                    <li>支持通配符*，如：data.*.name</li>
+                    <li>支持正则表达式，如：data.*.name:/^[A-Z]/</li>
+                    <li>点击"格式化"按钮可以美化JSON格式</li>
+                    <li>点击"复制"按钮可以将结果复制到剪贴板</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>注意事项</h3>
+                <ul>
+                    <li>确保输入的JSON字符串格式正确</li>
+                    <li>字段路径区分大小写</li>
+                    <li>数组索引从0开始</li>
+                    <li>通配符*会匹配所有字段或数组元素</li>
+                    <li>正则表达式需要使用JavaScript语法</li>
+                    <li>如果字段不存在，会提示"未找到指定字段"</li>
+                    <li>本工具在浏览器本地运行，数据不会上传到服务器</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function extractField() {
+            var jsonInput = document.getElementById('json-input').value.trim();
+            var fieldPath = document.getElementById('field-path').value.trim();
+
+            if (!jsonInput) {
+                showToast('请输入JSON字符串', 'error');
+                return;
+            }
+
+            if (!fieldPath) {
+                showToast('请输入字段路径', 'error');
+                return;
+            }
+
+            try {
+                var jsonObj = JSON.parse(jsonInput);
+                var result = extractByPath(jsonObj, fieldPath);
+
+                displayResult(result);
+                showToast('提取成功');
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    showToast('JSON格式错误：' + error.message, 'error');
+                } else {
+                    showToast('提取失败：' + error.message, 'error');
+                }
+            }
+        }
+
+        function extractByPath(obj, path) {
+            var parts = path.split('.');
+            var current = obj;
+            var results = [];
+
+            function traverse(currentPath, currentObj) {
+                var part = currentPath[0];
+
+                if (currentPath.length === 1) {
+                    if (part === '*') {
+                        if (Array.isArray(currentObj)) {
+                            for (var i = 0; i < currentObj.length; i++) {
+                                results.push(currentObj[i]);
+                            }
+                        } else if (typeof currentObj === 'object' && currentObj !== null) {
+                            var keys = Object.keys(currentObj);
+                            for (var i = 0; i < keys.length; i++) {
+                                results.push(currentObj[keys[i]]);
+                            }
+                        }
+                    } else if (part.indexOf(':') !== -1) {
+                        var parts2 = part.split(':');
+                        var key = parts2[0];
+                        var regexStr = parts2[1];
+                        var regex = new RegExp(regexStr);
+                        
+                        if (key === '*') {
+                            if (Array.isArray(currentObj)) {
+                                for (var i = 0; i < currentObj.length; i++) {
+                                    if (regex.test(String(currentObj[i]))) {
+                                        results.push(currentObj[i]);
+                                    }
+                                }
+                            } else if (typeof currentObj === 'object' && currentObj !== null) {
+                                var keys = Object.keys(currentObj);
+                                for (var i = 0; i < keys.length; i++) {
+                                    if (regex.test(String(currentObj[keys[i]]))) {
+                                        results.push(currentObj[keys[i]]);
+                                    }
+                                }
+                            }
+                        } else {
+                            var value = currentObj[key];
+                            if (value !== undefined && regex.test(String(value))) {
+                                results.push(value);
+                            }
+                        }
+                    } else if (Array.isArray(currentObj)) {
+                        var arrayMatch = part.match(/^(\d+)$/);
+                        if (arrayMatch) {
+                            var index = parseInt(arrayMatch[1], 10);
+                            if (index < currentObj.length) {
+                                results.push(currentObj[index]);
+                            }
+                        }
+                    } else if (currentObj !== null && currentObj.hasOwnProperty(part)) {
+                        results.push(currentObj[part]);
+                    }
+                } else {
+                    if (part === '*') {
+                        if (Array.isArray(currentObj)) {
+                            for (var i = 0; i < currentObj.length; i++) {
+                                traverse(currentPath.slice(1), currentObj[i]);
+                            }
+                        } else if (typeof currentObj === 'object' && currentObj !== null) {
+                            var keys = Object.keys(currentObj);
+                            for (var i = 0; i < keys.length; i++) {
+                                traverse(currentPath.slice(1), currentObj[keys[i]]);
+                            }
+                        }
+                    } else if (Array.isArray(currentObj)) {
+                        var arrayMatch = part.match(/^(\d+)$/);
+                        if (arrayMatch) {
+                            var index = parseInt(arrayMatch[1], 10);
+                            if (index < currentObj.length) {
+                                traverse(currentPath.slice(1), currentObj[index]);
+                            }
+                        }
+                    } else if (currentObj !== null && currentObj.hasOwnProperty(part)) {
+                        traverse(currentPath.slice(1), currentObj[part]);
+                    }
+                }
+            }
+
+            traverse(parts, current);
+
+            if (results.length === 1) {
+                return results[0];
+            } else if (results.length > 1) {
+                return results;
+            } else {
+                throw new Error('未找到指定字段');
+            }
+        }
+
+        function displayResult(result) {
+            var resultOutput = document.getElementById('result-output');
+
+            if (typeof result === 'object') {
+                resultOutput.value = JSON.stringify(result, null, 2);
+            } else {
+                resultOutput.value = String(result);
+            }
+        }
+
+        function formatJson() {
+            var jsonInput = document.getElementById('json-input').value.trim();
+
+            if (!jsonInput) {
+                showToast('请输入JSON字符串', 'error');
+                return;
+            }
+
+            try {
+                var jsonObj = JSON.parse(jsonInput);
+                document.getElementById('json-input').value = JSON.stringify(jsonObj, null, 2);
+                showToast('格式化成功');
+            } catch (error) {
+                showToast('JSON格式错误：' + error.message, 'error');
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('json-input').value = '';
+            document.getElementById('field-path').value = '';
+            document.getElementById('result-output').value = '';
+        }
+
+        function copyResult() {
+            var resultOutput = document.getElementById('result-output').value;
+
+            if (!resultOutput) {
+                showToast('没有可复制的内容', 'error');
+                return;
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(resultOutput).then(function() {
+                    showToast('复制成功');
+                }).catch(function(err) {
+                    fallbackCopy(resultOutput);
+                });
+            } else {
+                fallbackCopy(resultOutput);
+            }
+        }
+
+        function fallbackCopy(text) {
+            var textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                var successful = document.execCommand('copy');
+                if (successful) {
+                    showToast('复制成功');
+                } else {
+                    showToast('复制失败', 'error');
+                }
+            } catch (err) {
+                showToast('复制失败', 'error');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function showToast(message, type) {
+            type = type || 'success';
+            var toast = document.createElement('div');
+            toast.className = 'toast' + (type === 'error' ? ' error' : '');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(function() {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(function() {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

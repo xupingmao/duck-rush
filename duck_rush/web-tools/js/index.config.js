@@ -63,8 +63,21 @@ const menuConfig = [
             },
             {
                 id: 'json-formatter',
-                name: 'JSON 格式化工具',
-                url: 'pages/json.html',
+                name: 'JSON工具',
+                tabs: [
+                    {
+                        id: 'json-formatter',
+                        name: '格式化',
+                        url: 'pages/json.html',
+                        description: "用于格式化 JSON 数据的工具，方便阅读和处理。"
+                    },
+                    {
+                        id: 'json-extract',
+                        name: '提取',
+                        url: 'pages/json/json-extract.html',
+                        description: "用于从 JSON 数据中提取指定字段的工具，方便数据处理。"
+                    }
+                ],
                 description: "用于格式化和验证 JSON 数据的工具，方便阅读和处理。"
             },
             {
