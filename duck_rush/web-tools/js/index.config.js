@@ -34,6 +34,7 @@ const menuConfig = [
                 id: 'awesometop',
                 name: 'Awesome Top',
                 url: 'https://awesometop.cn/',
+                target: "_blank",
                 description: " Awesome Top 中文社区，精选了 GitHub 上优秀的开源项目，致力于帮助开发者了解当前热门项目和趋势，当访问GitHub受限时，为您提供第二通道。 "
             }
         ]

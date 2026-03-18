@@ -506,7 +506,10 @@
 
         <!-- 计算结果 -->
         <div class="section results" id="results">
-            <h2>3. 计算结果</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>3. 计算结果</h2>
+                <button class="btn btn-info" onclick="copyResultsAsMarkdown()">复制 Markdown</button>
+            </div>
             <div id="result-content">
                 <!-- 计算结果将通过JavaScript动态添加 -->
             </div>
@@ -546,6 +549,7 @@
     
         // 全局变量
         let products = [];
+        let markdownContent = '';
         const MAX_CONFIGS = 10;
 
         // 添加投资产品
@@ -674,6 +678,9 @@
             const totalActualAmount = results.reduce((sum, result) => sum + result.targetAmountFloor, 0);
             const remainingFunds = totalAmount - totalActualAmount;
 
+            // 生成 Markdown 文本
+            markdownContent = generateMarkdownFromData(results, remainingFunds, totalAmount);
+
             // 显示计算结果
             displayResults(results, remainingFunds);
         }
@@ -740,6 +747,50 @@
                 </div>
             `;
             resultContent.appendChild(remainingFundsItem);
+        }
+
+        // 生成 Markdown 文本（从结构化数据）
+        function generateMarkdownFromData(results, remainingFunds, totalAmount) {
+            let markdown = '# 投资组合计算结果\n\n';
+            markdown += `**总投资金额:** ${totalAmount.toFixed(2)} 元\n\n`;
+            
+            results.forEach((result, index) => {
+                markdown += `## ${index + 1}. ${result.name}\n`;
+                markdown += `投资比例: ${result.ratio}%\n\n`;
+                markdown += '| 项目 | 金额 |\n';
+                markdown += '|------|------|\n';
+                markdown += `| 目标金额 | ${result.targetAmount.toFixed(2)} 元 |\n`;
+                markdown += `| 实际金额 | ${result.actualAmount.toFixed(2)} 元 |\n`;
+                markdown += `| 单位价格 | ${result.unitPrice.toFixed(2)} 元 |\n`;
+                markdown += `| 当前份额 | ${result.currentShares} |\n`;
+                markdown += `| 目标份额 | ${result.targetShares} |\n`;
+                
+                const adjustmentText = result.adjustment > 0 ? `+${result.adjustment}` : result.adjustment;
+                markdown += `| 调整份额 | ${adjustmentText} |\n\n`;
+            });
+            
+            markdown += `## 剩余资金\n`;
+            markdown += `无法按整数份额分配的资金\n\n`;
+            markdown += `| 项目 | 金额 |\n`;
+            markdown += '|------|------|\n';
+            markdown += `| 剩余资金 | ${remainingFunds.toFixed(2)} 元 |\n`;
+            
+            return markdown;
+        }
+
+        // 复制结果为 Markdown
+        function copyResultsAsMarkdown() {
+            if (!markdownContent) {
+                alert('请先进行计算');
+                return;
+            }
+            
+            navigator.clipboard.writeText(markdownContent).then(() => {
+                alert('已复制到剪切板');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            });
         }
 
         // 保存配置
