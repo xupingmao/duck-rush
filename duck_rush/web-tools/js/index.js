@@ -73,6 +73,10 @@ function generateExpandedNavMenu() {
         li.className = 'nav-item';
         li.id = item.id;
 
+        if (item.icon === undefined) {
+            item.icon = '⚙️';
+        }
+
         const a = document.createElement('a');
         a.id = `nav-${item.id}`;
         a.href = '#';
