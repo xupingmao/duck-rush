@@ -5,11 +5,12 @@ import argparse
 import ctypes
 import os
 import platform
+from typing import Optional
 from datetime import datetime, timedelta
 
+DEFAULT_DURATION = 60 * 24 * 100 # minutes
 
-
-def prevent_sleep_windows(duration=None):
+def prevent_sleep_windows(duration: Optional[float]=None):
     """
     防止 Windows 系统进入睡眠状态或锁定屏幕
     
@@ -17,6 +18,9 @@ def prevent_sleep_windows(duration=None):
         duration: 防止睡眠的持续时间（分钟），如果为 None 则无限期防止
     """
     try:
+        
+        if duration is None:
+            duration = DEFAULT_DURATION
                 
         # 导入 Windows API 常量和函数
         ES_CONTINUOUS = 0x80000000
@@ -31,26 +35,22 @@ def prevent_sleep_windows(duration=None):
             raise RuntimeError("无法设置系统执行状态")
         
         # 计算结束时间（如果指定了持续时间）
-        if duration is not None:
-            end_time = datetime.now() + timedelta(minutes=duration)
-            print(f"已启动防睡眠模式，将持续 {duration} 分钟...")
-        else:
-            print("已启动防睡眠模式，按 Ctrl+C 停止...")
+        end_time = datetime.now() + timedelta(minutes=duration)
+        print(f"已启动防睡眠模式，将持续 {duration} 分钟, 按 Ctrl+C 停止...")
         
         # 主循环
         try:
             while True:
                 # 检查是否已达到指定的持续时间
-                if duration is not None and datetime.now() >= end_time:
+                if datetime.now() >= end_time:
                     break
                 
                 # 每5秒检查一次
                 time.sleep(5)
                 
                 # 输出剩余时间（如果指定了持续时间）
-                if duration is not None:
-                    remaining = end_time - datetime.now()
-                    print(f"剩余时间: {remaining.seconds // 60} 分 {remaining.seconds % 60} 秒", end='\r')
+                remaining = end_time - datetime.now()
+                print(f"剩余时间: {remaining.seconds // 60} 分 {remaining.seconds % 60} 秒", end='\r')
         
         except KeyboardInterrupt:
             print("\n收到停止信号，正在退出防睡眠模式...")
@@ -66,41 +66,35 @@ def prevent_sleep_windows(duration=None):
         print(f"发生错误: {e}")
         return 1
 
-def prevent_sleep_mac(duration=None):
+def prevent_sleep_mac(duration:Optional[float]=None):
     """
     使用 caffeinate 命令防止 macOS 进入睡眠状态
     
     参数:
         duration: 防止睡眠的持续时间（分钟），如果为 None 则无限期防止
     """
+    if duration is None:
+        duration = DEFAULT_DURATION
+    
+    process:Optional[subprocess.Popen] = None
     try:
         # 构建 caffeinate 命令
         cmd = ['caffeinate', '-d', '-i', '-m', '-u']  # 防止显示器休眠、系统休眠、磁盘休眠，并模拟用户活动
         
-        if duration is not None:
-            # 如果指定了持续时间，将其转换为秒并添加到命令中
-            duration_sec = int(duration * 60)
-            cmd.extend(['-t', str(duration_sec)])
-            print(f"已启动防睡眠模式，将持续 {duration} 分钟...")
-        else:
-            print("已启动防睡眠模式，按 Ctrl+C 停止...")
+        # 如果指定了持续时间，将其转换为秒并添加到命令中
+        duration_sec = int(duration * 60)
+        cmd.extend(['-t', str(duration_sec)])
+        print(f"已启动防睡眠模式，将持续 {duration} 分钟, 按 Ctrl+C 停止...")
         
         # 执行命令
         process = subprocess.Popen(cmd)
-        
-        # 如果没有指定持续时间，等待用户中断
-        if duration is None:
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                print("\n收到停止信号，正在退出防睡眠模式...")
-                process.terminate()
-                process.wait()
-                print("已成功退出防睡眠模式。")
-        
         return process.wait()
-    
+    except KeyboardInterrupt:
+        print("\n收到停止信号，正在退出防睡眠模式...")
+        if process:
+            process.terminate()
+            process.wait()
+        print("已成功退出防睡眠模式。")
     except Exception as e:
         print(f"发生错误: {e}")
         return 1
