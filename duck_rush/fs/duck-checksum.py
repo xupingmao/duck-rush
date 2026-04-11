@@ -51,15 +51,15 @@ def calc_checksum(fname="", checksum_type="sha1"):
             m.update(chunk)
     return m.hexdigest()
  
-def main(path:str, checksum_type="sha1", **kw):
+def main(path:str, type="sha1", **kw):
     """计算文件/文件夹的校验码,支持的类型:sha1/md5/sha256/sha384/sha512"""
     if os.path.isdir(path):
         for name in os.listdir(path):
             child_path = os.path.join(path, name)
             if os.path.isfile(child_path):
-                print(f'{checksum_type.upper()} %s\t%s' % (calc_checksum(child_path, checksum_type=checksum_type), child_path))
+                print(f'{type.upper()} %s\t%s' % (calc_checksum(child_path, checksum_type=type), child_path))
     else:
-        print(f'{checksum_type}:', calc_checksum(path, checksum_type=checksum_type))
+        print(f'{type}:', calc_checksum(path, checksum_type=type))
 
 
 if __name__ == "__main__":
