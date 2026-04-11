@@ -12,3 +12,4 @@
 id_rsa_github*
 
 *.local.json
+.trae/
