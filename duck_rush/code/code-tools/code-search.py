@@ -9,6 +9,7 @@ import sys
 import chardet
 import fire
 import pdb
+from typing import List, Optional, Union, Tuple, Dict, Any
 
 from fnmatch import fnmatch
 
@@ -24,12 +25,14 @@ CODE_EXT_SET = set([
 ])
 
 # [[func1, args], [func2, args2]]
-COMMANDS = []
+COMMANDS: List[List[Union[callable, List]]] = []
 # 5M
 FILE_SIZE_LIMIT = 1024 * 1024 * 5
 
+class SearchConfig:
+    max_line_width: int = 1000
 
-def set_console_font_color(color):
+def set_console_font_color(color: str) -> None:
     if color == "red":
         sys.stdout.write("\033[31m")
     if color == "green":
@@ -38,43 +41,51 @@ def set_console_font_color(color):
         sys.stdout.write("\033[33m")
     if color == "blue":
         sys.stdout.write("\033[34m")
+    if color == "highlight":
+        # 黄色背景，白色前景
+        sys.stdout.write("\033[43;37m")
+    if color == "file_name":
+        # 蓝色背景，白色前景
+        sys.stdout.write("\033[44;37m")
     if color == "default":
         sys.stdout.write("\033[0m")
 
 class SetTermColor:
     def __init__(self, color: str):
-        self.color = color
+        self.color: str = color
 
-    def __enter__(self):
+    def __enter__(self) -> 'SetTermColor':
         set_console_font_color(self.color)
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type: Optional[type], value: Optional[Exception], traceback: Optional[Any]) -> None:
         set_console_font_color("default")
 
 class Token:
-    pos = [-1, -1]
-    def __init__(self, type='symbol', val=None, pos=None):
-        self.pos  = pos
-        self.type = type
-        self.val  = val
-    def __str__(self):
+    pos: List[int] = [-1, -1]
+    def __init__(self, type: str = 'symbol', val: Optional[Any] = None, pos: Optional[List[int]] = None):
+        self.pos: Optional[List[int]] = pos
+        self.type: str = type
+        self.val: Optional[Any] = val
+    def __str__(self) -> str:
         return f"<Token type={self.type}, val={self.val}, pos={self.pos}>"
     @property
-    def line_no(self):
-        return self.pos[0]
+    def line_no(self) -> Optional[int]:
+        if self.pos:
+            return self.pos[0]
+        return None
 
 
-def findpos(token: Token):
+def findpos(token: Token) -> List[int]:
     if not hasattr(token, 'pos'):
         if hasattr(token, "first"):
             return findpos(token.first)
         print(token)
         return [0,0]
-    return token.pos
+    return token.pos if token.pos else [0,0]
 
 
-def find_error_line(s: str, pos: "list[int]"):
+def find_error_line(s: str, pos: List[int]) -> str:
     """
     @param {str} s: source code
     @param {int} pos: position
@@ -92,8 +103,8 @@ def find_error_line(s: str, pos: "list[int]"):
     r += "     "+" "*x+"^" +'\n'
     return r
     
-def compile_error(module_name: str, code:str, token, e_msg = ""):
-    if token != None:
+def compile_error(module_name: str, code: str, token: Optional[Token], e_msg: str = "") -> None:
+    if token is not None:
         # print_token(token)
         pos = findpos(token)
         r = find_error_line(code, pos)
@@ -121,7 +132,7 @@ class Tokenizer:
 
     pos = [-1,-1] # position [line, col]
 
-    def __init__(self, code:str):
+    def __init__(self, code:str, file_):
         self.line=1
         self.line_start=0 # 一行开始的索引
         self.nl=True
@@ -398,23 +409,25 @@ class Tokenizer:
         return lines[line_no-1]
 
 class CodeSearcher:
-    def __init__(self, fpath: str, source: str, ignore_case=False, search_type = ""):
-        self.fpath  = fpath
-        self.lines  = []
-        self.source = source
-        self.encoding = None
-        self.ignore_case = ignore_case
-        self.search_type = search_type
+    def __init__(self, fpath: str, source: str, ignore_case: bool = False, search_type: str = ""):
+        self.fpath: str = fpath
+        self.lines: List[Tuple[int, str]] = []
+        self.source: str = source
+        self.encoding: Optional[str] = None
+        self.ignore_case: bool = ignore_case
+        self.search_type: str = search_type
+        self.ignore_large_line: bool = True
+        self.text: Optional[str] = None
 
-    def _get_result(self):
+    def _get_result(self) -> Optional['CodeSearcher']:
         if len(self.lines) > 0:
             return self
         return None
 
-    def append(self, line_no: int, line_text: str):
+    def append(self, line_no: int, line_text: str) -> None:
         self.lines.append((line_no, line_text))
 
-    def readfile(self, fpath:str):
+    def readfile(self, fpath: str) -> str:
         last_err = None
         ENCODING_TUPLE = ("utf-8", "gbk", "mbcs", "latin_1")
 
@@ -428,7 +441,7 @@ class CodeSearcher:
                 last_err = e
         raise Exception(f"can not read file {fpath}", last_err)
 
-    def _do_search_text(self):
+    def _do_search_text(self) -> None:
         text = self.readfile(self.fpath)
         self.text = text
         source = self.source
@@ -439,33 +452,57 @@ class CodeSearcher:
             original_line = line
             if self.ignore_case:
                 line = line.lower()
+            if self.ignore_large_line and len(line) > SearchConfig.max_line_width:
+                continue
             if source in line:
                 self.append(index + 1, original_line)
 
-    def print_detail(self):
-        print("\nFile: %s [%s]\n" % (self.fpath, len(self.lines)))
+    def print_detail(self) -> None:
+        print("\nFile: ", end="")
+        # 高亮显示文件名
+        with SetTermColor("file_name"):
+            print(self.fpath, end="")
+        print(" [%s]\n" % len(self.lines))
 
         for index, line in self.lines:
-            with SetTermColor("red"):
-                print("  %04d: %s" % (index,line))
+            print("  %04d: " % index, end="")
+            source = self.source
+            if self.ignore_case:
+                source = source.lower()
+                line_lower = line.lower()
+                pos = line_lower.find(source)
+            else:
+                pos = line.find(source)
+            
+            if pos != -1:
+                # 打印匹配前的部分
+                print(line[:pos], end="")
+                # 高亮显示匹配的部分
+                with SetTermColor("highlight"):
+                    print(line[pos:pos+len(source)], end="")
+                # 打印匹配后的部分
+                print(line[pos+len(source):])
+            else:
+                # 如果没有找到匹配（可能是其他搜索类型），直接打印整行
+                print(line)
 
-    def _do_search(self):
+    def _do_search(self) -> None:
         if self.search_type == "assign":
             return self._search_assign()
         
         return self._do_search_text()
         
-    def search(self):
+    def search(self) -> Optional['CodeSearcher']:
         error = check_file_size(self.fpath)
-        if error != None:
+        if error is not None:
             print("WARN: READ_FILE_FAILED fpath: %s, error: %s" % (self.fpath, error))
-            return
+            return None
         
         self._do_search()
 
         return self._get_result()
     
-    def _search_assign(self):
+    def _search_assign(self) -> None:
         _, ext = os.path.splitext(self.fpath)
         if ext in (".html", ".txt"):
             return
@@ -489,29 +526,31 @@ class CodeSearcher:
             b = tokenizer[index+1]
             if a.val == self.source and b.type in ("=", ":=", ":"):
                 line_text = tokenizer.get_line_text(a.line_no)
-                self.append(a.line_no, line_text)
+                if line_text:
+                    self.append(a.line_no, line_text)
             index += 1
 
 
-def is_code_file(fpath):
+def is_code_file(fpath: str) -> bool:
     _, ext = os.path.splitext(fpath)
     return ext in CODE_EXT_SET
 
 
-def get_file_size(fpath, format=False):
+def get_file_size(fpath: str, format: bool = False) -> int:
     st = os.stat(fpath)
     if st and st.st_size >= 0:
         return st.st_size
     return -1
 
-def check_file_size(fpath):
+def check_file_size(fpath: str) -> Optional[str]:
     size = get_file_size(fpath)
     if size < 0:
         return "os.stat failed"
     if size > FILE_SIZE_LIMIT:
         return "file too large"
+    return None
 
-def readfile(fpath):
+def readfile(fpath: str) -> str:
     last_err = None
     ENCODING_TUPLE = ("utf-8", "gbk", "mbcs", "latin_1")
 
@@ -523,13 +562,30 @@ def readfile(fpath):
             last_err = e
     raise Exception(f"can not read file {fpath}", last_err)
 
-def search_code(source = "", dirname="./", search_type = "", ignore_case=True, skip_files = None, debug = False):
+def search_code(source: str = "", dirname: str = "./", search_type: str = "", ignore_case: bool = True, skip_files: Optional[str] = None, debug: bool = False) -> None:
     if debug:
         print(f"source={source}, dirname={dirname}, ignore_case={ignore_case}, skip_files={skip_files}")
-    results = [] # type: list[CodeSearcher]
+    results: List[CodeSearcher] = []
 
     if source == "":
-        print("source不能为空")
+        print("=== Duck Code Search 工具 ===")
+        print("用于在代码文件中搜索指定的内容")
+        print("\n使用方法:")
+        print("  python code-search.py --source <搜索内容> [选项]")
+        print("\n选项:")
+        print("  --source <内容>     要搜索的内容（必填）")
+        print("  --dirname <目录>    要搜索的目录，默认为当前目录")
+        print("  --search_type <类型> 搜索类型，如 'assign' 表示搜索赋值语句")
+        print("  --ignore_case <bool> 是否忽略大小写，默认为 True")
+        print("  --skip_files <模式>  跳过匹配的文件，如 '*.pyc'")
+        print("  --debug <bool>       是否开启调试模式")
+        print("\n示例:")
+        print("  # 搜索包含 'def' 的代码")
+        print("  python code-search.py --source 'def'")
+        print("\n  # 在指定目录中搜索")
+        print("  python code-search.py --source 'class' --dirname './src'")
+        print("\n  # 搜索赋值语句")
+        print("  python code-search.py --source 'count' --search_type 'assign'")
         return
 
     for root, dirs, files in os.walk(dirname):
