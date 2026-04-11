@@ -4,6 +4,7 @@
 import os
 import sys
 import shutil
+import json
 
 try:
     from termcolor import colored
@@ -87,6 +88,54 @@ def makedirs(dirname):
         os.makedirs(dirname)
         return True
     return False
+
+
+def collect_commands():
+    '''收集所有命令并生成命令列表'''
+    commands = []
+    index = 0
+    
+    for root, dirs, files in os.walk(SRC_PATH):
+        for fname in files:
+            if InstallConfig.is_skip_file(fname):
+                continue
+                
+            name, ext = os.path.splitext(fname)
+            if ext not in InstallConfig.code_ext_set:
+                continue
+                
+            fpath = os.path.join(root, fname)
+            fpath = os.path.abspath(fpath)
+            
+            # 计算相对路径，用于分类
+            rel_path = os.path.relpath(root, SRC_PATH)
+            category = rel_path if rel_path != '.' else 'root'
+            
+            command = {
+                'id': index + 1,
+                'name': name,
+                'path': fpath,
+                'category': category,
+                'extension': ext
+            }
+            commands.append(command)
+            index += 1
+    
+    return commands
+
+
+def save_commands(commands):
+    '''保存命令列表到data/commands.local.json'''
+    data_dir = os.path.join(DIR_PATH, 'data')
+    makedirs(data_dir)
+    
+    output_file = os.path.join(data_dir, 'commands.local.json')
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(commands, f, ensure_ascii=False, indent=2)
+    
+    print(f"命令列表已保存到: {output_file}")
+    print(f"共收集到 {len(commands)} 个命令")
 
 def check_environment():
     if os.name == "nt":
@@ -274,6 +323,11 @@ def do_install():
         install_for_windows()
     else:
         install_for_unix()
+    
+    # 收集并保存命令列表
+    print("\n收集命令列表...")
+    commands = collect_commands()
+    save_commands(commands)
     
     print(colored("安装完成!", "green"))
 
