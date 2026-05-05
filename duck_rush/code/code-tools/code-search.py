@@ -6,7 +6,6 @@
 import os
 import argparse
 import sys
-import chardet
 import fire
 import pdb
 from typing import List, Optional, Union, Tuple, Dict, Any
@@ -62,27 +61,30 @@ class SetTermColor:
         set_console_font_color("default")
 
 class Token:
-    pos: List[int] = [-1, -1]
-    def __init__(self, type: str = 'symbol', val: Optional[Any] = None, pos: Optional[List[int]] = None):
-        self.pos: Optional[List[int]] = pos
+    line = 0
+    col = 0
+    
+    def __init__(self, type: str = 'symbol', val: Optional[Any] = None, line = 0, col = 0):
+        self.line = line
+        self.col = col
         self.type: str = type
         self.val: Optional[Any] = val
+    
     def __str__(self) -> str:
-        return f"<Token type={self.type}, val={self.val}, pos={self.pos}>"
+        return f"<Token type={self.type}, val={self.val}, line={self.line}, col={self.col}>"
+    
     @property
     def line_no(self) -> Optional[int]:
-        if self.pos:
-            return self.pos[0]
-        return None
+        return self.line + 1
 
 
 def findpos(token: Token) -> List[int]:
-    if not hasattr(token, 'pos'):
+    if not hasattr(token, 'line') or not hasattr(token, 'col'):
         if hasattr(token, "first"):
             return findpos(token.first)
         print(token)
         return [0,0]
-    return token.pos if token.pos else [0,0]
+    return [token.line, token.col]
 
 
 def find_error_line(s: str, pos: List[int]) -> str:
@@ -133,14 +135,15 @@ class Tokenizer:
     B_BEGIN = ['[','(','{']
     B_END   = [']',')','}']
 
-    current_position = [-1,-1] # position [line, col]
+    line = 0 # 从0开始索引
+    col = 0  # 从0开始索引
 
     def __init__(self, code: str, fpath: str = ""):
         self.fpath = fpath
-        self.current_line = 1
+        self.current_line = 1 # 从1开始
         self.line_start_index = 0 # 一行开始的索引
         self.is_newline = True
-        self.tokens = [] # type: list[Token]
+        self.tokens: List[Token] = []
         self.indent_stack = [0]
         self.brace_count = 0
         self.code = self.clean(code)
@@ -151,6 +154,8 @@ class Tokenizer:
         
         self.comment_begin = "#"
         self.comment_end = "\n"
+        self.line = 0 # 从0开始索引
+        self.col = 0  # 从0开始索引
 
         self.cached_lines = []
         self.lines_cached = False
@@ -166,20 +171,20 @@ class Tokenizer:
         if token_type == 'in':
             last_token = self.tokens.pop()
             if last_token.type == 'not':
-                self.tokens.append(Token('notin', value, self.current_position))
+                self.tokens.append(Token('notin', value, line=self.line, col=self.col))
             else:
                 self.tokens.append(last_token)
-                self.tokens.append(Token(token_type, value, self.current_position))
+                self.tokens.append(Token(token_type, value, line=self.line, col=self.col))
         elif token_type == 'not':
             # is not
             last_token = self.tokens.pop()
             if last_token.type == 'is':
-                self.tokens.append(Token("isnot", value, self.current_position))
+                self.tokens.append(Token("isnot", value, line=self.line, col=self.col))
             else:
                 self.tokens.append(last_token)
-                self.tokens.append(Token(token_type, value, self.current_position))
+                self.tokens.append(Token(token_type, value, line=self.line, col=self.col))
         else:
-            self.tokens.append(Token(token_type, value, self.current_position))
+            self.tokens.append(Token(token_type, value, line=self.line, col=self.col))
 
     def tokenize(self):
         self.current_index = 0
@@ -190,7 +195,8 @@ class Tokenizer:
 
     def _step(self):
         current_char = self.code[self.current_index]
-        self.current_position = [self.current_line, self.current_index - self.line_start_index + 1]
+        self.line = self.current_line - 1 # 从0开始索引
+        self.col = self.current_index - self.line_start_index # 从0开始索引
         if self.is_python and self.is_newline:
             self.is_newline = False
             self.do_indent()
@@ -221,11 +227,19 @@ class Tokenizer:
             self.do_name()
             return
         
-        if current_char == '"' or current_char == "'":
-            self.do_string()
+        if current_char == '"' or current_char == "'" or current_char == '`':
+            self.do_string(current_char, current_char)
             return
         
-        if current_char == '\\' and self.code[self.current_index+1] == '\n':
+        if self.code.startswith('"""', self.current_index):
+            self.do_string('"""', '"""')
+            return
+        
+        if self.code.startswith("'''", self.current_index):
+            self.do_string("'''", "'''")
+            return
+        
+        if current_char == '\\' and self.get_char(self.current_index+1) == '\n':
             self.current_index += 2
             self.current_line += 1
             self.line_start_index = self.current_index
@@ -235,7 +249,12 @@ class Tokenizer:
             self.current_index += 1
             return
         
-        compile_error('do_tokenize', self.code, Token('', '', self.current_position), f"unknown token at file {self.fpath}")
+        print("do_tokenize_error:")
+        print("-"* 60)
+        for index, token in enumerate(self.tokens):
+            print(f"{index:02} {token}")
+
+        compile_error('do_tokenize', self.code, Token('', '', line=self.line, col=self.col), f"unknown token at file {self.fpath}")
 
     def do_indent(self):
         indent_level = 0
@@ -335,53 +354,48 @@ class Tokenizer:
         else: 
             self.add('name', name_value)
 
-    def do_string(self):
+    def do_string(self, start="", end=""):
+        self.current_index += len(start)
         string_value = ''
-        quote_char = self.code[self.current_index]  # quote char
-        self.current_index += 1
-        remaining_length = self.code_length - self.current_index
-
-        if remaining_length >= 5 and self.code[self.current_index] == quote_char and self.code[self.current_index+1] == quote_char:
-            # check long string """
-            self.current_index += 2
-            while self.current_index < self.code_length - 2:
+        quote_len = len(end)
+        
+        while self.current_index < self.code_length:
+            if self.code.startswith(end, self.current_index):
+                # find end string
+                self.add('string', string_value)
+                self.current_index += quote_len
+                return
+            else:
                 current_char = self.code[self.current_index]
-                if current_char == quote_char and self.code[self.current_index+1] == quote_char and self.code[self.current_index+2] == quote_char:
-                    self.current_index += 3
-                    self.add('string', string_value)
-                    break
-                else:
-                    string_value += current_char
-                    self.current_index += 1
-                    if current_char == '\n': 
-                        self.current_line += 1
-                        self.line_start_index = self.current_index
-        else:
-            while self.current_index < self.code_length:
-                current_char = self.code[self.current_index]
+                self.current_index += 1
+      
+                if current_char == "\n": 
+                    self.current_line += 1
+                    self.line = self.current_line - 1 # 从0开始索引
+                    self.line_start_index = self.current_index
+                    self.col = 0
+                              
                 if current_char == "\\":
-                    self.current_index = self.current_index + 1
-                    current_char = self.code[self.current_index]
+                    # handle escape character
+                    self.current_index += 1
+                    current_char = self.get_char(self.current_index)
                     if current_char == "n": 
-                        current_char = '\n'
+                        current_char = "\n"
                     elif current_char == "r": 
-                        current_char = chr(13)
+                        current_char = "\r"
                     elif current_char == "t": 
                         current_char = "\t"
                     elif current_char == "0": 
                         current_char = "\0"
-                    elif current_char == 'b': 
-                        current_char = '\b'
-                    string_value += current_char
-                    self.current_index += 1
-                elif current_char == quote_char:
-                    self.current_index += 1
-                    self.add('string', string_value)
-                    break
-                else:
-                    string_value += current_char
-                    self.current_index += 1
-
+                    elif current_char == "b": 
+                        current_char = "\b"
+                    else:
+                        # keep escape character
+                        pass
+                
+                string_value += current_char
+                
+                            
     def do_comment(self, comment_begin: str = "", comment_end: str = ""):
         self.current_index += len(comment_begin)
         comment_value = ""
@@ -409,13 +423,41 @@ class Tokenizer:
     def is_number_begin(self, char: str) -> bool:
         return char >= '0' and char <= '9'
             
-
     def is_name_begin(self, char: str) -> bool:
         return (char>='a' and char<='z') or (char>='A' and char<='Z') or (char in '_$')
         
     def is_name(self, char: str) -> bool:
-        return (char>='a' and char<='z') or (char>='A' and char<='Z') or (char in '_$') or (char>='0' and char<='9')
+        if char >= 'a' and char <= 'z':
+            return True
+        if char >= 'A' and char <= 'Z':
+            return True
+        if char in '_$':
+            return True
+        if char >= '0' and char <= '9':
+            return True
+        return False
     
+    def do_comment(self, comment_begin: str = "", comment_end: str = ""):
+        self.current_index += len(comment_begin)
+        comment_value = ""
+        start_index = self.current_index
+        while self.current_index < self.code_length:
+            """
+            原逻辑
+            if s[i] == "\n":
+                break
+            """
+            if self.code[self.current_index] == "\n":
+                self.current_line += 1
+                self.line_start_index = self.current_index + 1
+            if self.code.startswith(comment_end, self.current_index):
+                break
+            self.current_index += 1
+        comment_value = self.code[start_index:self.current_index]
+        self.current_index += len(comment_end)
+        if comment_value.startswith("@debugger"):
+            self.add("@", "debugger")
+
     def get_token(self, index: int = 0) -> Token:
         if index < 0:
             index += len(self.tokens)
@@ -423,6 +465,14 @@ class Tokenizer:
         if index < len(self.tokens):
             return self.tokens[index]
         return Token("<EOF>")
+    
+    def get_char(self, index: int = 0) -> str:
+        if index < 0:
+            index += len(self.code)
+        assert index >= 0
+        if index < len(self.code):
+            return self.code[index]
+        return ""
     
     def _get_lines(self) -> List[str]:
         if self.lines_cached:
