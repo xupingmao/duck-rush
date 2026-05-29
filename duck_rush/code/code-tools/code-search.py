@@ -6,7 +6,7 @@
 import os
 import argparse
 import sys
-import fire
+
 import pdb
 from typing import List, Optional, Union, Tuple, Dict, Any
 
@@ -30,6 +30,8 @@ FILE_SIZE_LIMIT = 1024 * 1024 * 5
 
 class SearchConfig:
     max_line_width: int = 1000
+    debug: bool = False
+    case_sensitive: bool = False
 
 def set_console_font_color(color: str) -> None:
     if color == "red":
@@ -493,12 +495,12 @@ class Tokenizer:
         return lines[line_no-1]
 
 class CodeSearcher:
-    def __init__(self, file_path: str, search_term: str, ignore_case: bool = False, search_type: str = ""):
+    def __init__(self, file_path: str, search_term: str, search_type: str = ""):
         self.file_path: str = file_path
         self.matching_lines: List[Tuple[int, str]] = []
         self.search_term: str = search_term
         self.encoding: Optional[str] = None
-        self.ignore_case: bool = ignore_case
+        self.case_sensitive: bool = SearchConfig.case_sensitive
         self.search_type: str = search_type
         self.ignore_large_line: bool = True
         self.file_content: Optional[str] = None
@@ -529,12 +531,12 @@ class CodeSearcher:
         content = self.read_file(self.file_path)
         self.file_content = content
         search_term = self.search_term
-        if self.ignore_case:
+        if not self.case_sensitive:
             search_term = self.search_term.lower()
 
         for line_index, line in enumerate(content.split("\n")):
             original_line = line
-            if self.ignore_case:
+            if not self.case_sensitive:
                 line = line.lower()
             if self.ignore_large_line and len(line) > SearchConfig.max_line_width:
                 continue
@@ -551,7 +553,7 @@ class CodeSearcher:
         for line_number, line in self.matching_lines:
             print("  %04d: " % line_number, end="")
             search_term = self.search_term
-            if self.ignore_case:
+            if not self.case_sensitive:
                 search_term = search_term.lower()
                 line_lower = line.lower()
                 match_position = line_lower.find(search_term)
@@ -594,7 +596,7 @@ class CodeSearcher:
         content = self.read_file(self.file_path)
         self.file_content = content
         search_term = self.search_term
-        if self.ignore_case:
+        if not self.case_sensitive:
             search_term = search_term.lower()
             content = content.lower()
 
@@ -655,31 +657,10 @@ def read_file(file_path: str) -> str:
             last_error = e
     raise Exception(f"can not read file {file_path}", last_error)
 
-def search_code(search_term: str = "", directory: str = "./", search_type: str = "", ignore_case: bool = True, skip_files: Optional[str] = None, debug: bool = False) -> None:
-    if debug:
-        print(f"search_term={search_term}, directory={directory}, ignore_case={ignore_case}, skip_files={skip_files}")
+def search_code(search_term: str = "", directory: str = "./", search_type: str = "", skip_files: Optional[str] = None) -> None:
+    if SearchConfig.debug:
+        print(f"search_term={search_term}, directory={directory}, case_sensitive={SearchConfig.case_sensitive}, skip_files={skip_files}")
     search_results: List[CodeSearcher] = []
-
-    if search_term == "":
-        print("=== Duck Code Search 工具 ===")
-        print("用于在代码文件中搜索指定的内容")
-        print("\n使用方法:")
-        print("  python code-search.py --search_term <搜索内容> [选项]")
-        print("\n选项:")
-        print("  --search_term <内容> 要搜索的内容（必填）")
-        print("  --directory <目录>   要搜索的目录，默认为当前目录")
-        print("  --search_type <类型> 搜索类型，如 'assign' 表示搜索赋值语句")
-        print("  --ignore_case <bool> 是否忽略大小写，默认为 True")
-        print("  --skip_files <模式>  跳过匹配的文件，如 '*.pyc'")
-        print("  --debug <bool>       是否开启调试模式")
-        print("\n示例:")
-        print("  # 搜索包含 'def' 的代码")
-        print("  python code-search.py --search_term 'def'")
-        print("\n  # 在指定目录中搜索")
-        print("  python code-search.py --search_term 'class' --directory './src'")
-        print("\n  # 搜索赋值语句")
-        print("  python code-search.py --search_term 'count' --search_type 'assign'")
-        return
 
     for root, dirs, files in os.walk(directory):
         for file_name in files:
@@ -689,7 +670,7 @@ def search_code(search_term: str = "", directory: str = "./", search_type: str =
             file_path = os.path.join(root, file_name)
             if not is_code_file(file_path):
                 continue
-            searcher = CodeSearcher(file_path, search_term, ignore_case=ignore_case, search_type=search_type)
+            searcher = CodeSearcher(file_path, search_term, search_type=search_type)
             search_result = searcher.search()
             if search_result is None:
                 continue
@@ -705,5 +686,24 @@ def search_code(search_term: str = "", directory: str = "./", search_type: str =
 
 
 if __name__ == '__main__':
-    fire.Fire(search_code)
+    parser = argparse.ArgumentParser(description='Duck Code Search 工具 - 在代码文件中搜索指定的内容')
+    parser.add_argument('--directory', type=str, default='./', help='要搜索的目录')
+    parser.add_argument('--search_type', type=str, default='', help='搜索类型，如 assign 表示搜索赋值语句')
+    parser.add_argument('--search_assign', action='store_true', default=False, help='是否搜索赋值语句')
+    parser.add_argument('--case_sensitive', action='store_true', default=False, help='区分大小写')
+    parser.add_argument('--skip_files', type=str, default=None, help='跳过匹配的文件，如 *.pyc')
+    parser.add_argument('--debug', action='store_true', default=False, help='是否开启调试模式')
+    parser.add_argument("keyword", help="要搜索的关键词")
+    
+    args = parser.parse_args()
+    
+    if args.search_assign:
+        args.search_type = "assign"
+        
+    if args.keyword == "":
+        parser.print_help()
+    else:
+        SearchConfig.debug = args.debug
+        SearchConfig.case_sensitive = args.case_sensitive
+        search_code(args.keyword, args.directory, args.search_type, args.skip_files)
 
