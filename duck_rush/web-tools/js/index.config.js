@@ -3,8 +3,9 @@ const menuConfig = [
     {
         id: 'home',
         name: '首页',
-        url: 'web-tools-index.html',
-        icon: '🏠'
+        url: 'pages/home.html',
+        icon: '🏠',
+        description: '查看和搜索工具列表'
     },
     {
         id: 'nav-tools',
