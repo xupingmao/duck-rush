@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片像素对比工具</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; padding: 20px; color: #333; }
+h1 { text-align: center; margin-bottom: 20px; font-size: 24px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.upload-area { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+.upload-box { flex: 1; min-width: 250px; border: 2px dashed #aaa; border-radius: 12px; padding: 30px; text-align: center; background: #fff; cursor: pointer; transition: border-color .3s, background .3s; position: relative; }
+.upload-box:hover { border-color: #4a90d9; background: #f0f6ff; }
+.upload-box.dragover { border-color: #4a90d9; background: #e8f0fe; }
+.upload-box img { max-width: 100%; max-height: 300px; display: none; margin-top: 10px; border-radius: 8px; }
+.upload-box .placeholder { color: #999; font-size: 14px; }
+.upload-box .placeholder .icon { font-size: 40px; display: block; margin-bottom: 8px; }
+.upload-box.has-image .placeholder { display: none; }
+.upload-box.has-image img { display: block; }
+.upload-box .change-hint { display: none; position: absolute; inset: 0; border-radius: 10px; background: rgba(0,0,0,.55); color: #fff; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; letter-spacing: 1px; backdrop-filter: blur(2px); }
+.upload-box.has-image { position: relative; border-style: solid; border-color: #4a90d9; background: #fafcff; }
+.upload-box.has-image:hover .change-hint { display: flex; }
+.upload-box .change-hint span { background: rgba(255,255,255,.2); padding: 6px 18px; border-radius: 20px; }
+.controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: center; margin-bottom: 20px; }
+.controls button { padding: 8px 20px; border: none; border-radius: 8px; background: #4a90d9; color: #fff; font-size: 14px; cursor: pointer; transition: background .2s; }
+.controls button:hover { background: #357abd; }
+.controls button:disabled { background: #ccc; cursor: not-allowed; }
+.controls button.danger { background: #e74c3c; }
+.controls button.danger:hover { background: #c0392b; }
+.controls label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.controls input[type="range"] { width: 120px; }
+.result { display: none; margin-bottom: 20px; }
+.result.show { display: block; }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
+.stat-card { background: #fff; border-radius: 10px; padding: 14px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.1); text-align: center; min-width: 120px; }
+.stat-card .label { font-size: 12px; color: #888; }
+.stat-card .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+.stat-card .value.green { color: #27ae60; }
+.stat-card .value.red { color: #e74c3c; }
+.stat-card .value.orange { color: #f39c12; }
+.canvas-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.canvas-wrapper { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.canvas-wrapper .title { font-size: 13px; color: #888; margin-bottom: 6px; text-align: center; }
+.canvas-wrapper canvas { display: block; max-width: 100%; }
+.mode-tabs { display: flex; gap: 0; margin-bottom: 16px; justify-content: center; }
+.mode-tabs button { padding: 6px 18px; border: 1px solid #ccc; background: #fff; font-size: 13px; cursor: pointer; }
+.mode-tabs button:first-child { border-radius: 6px 0 0 6px; }
+.mode-tabs button:last-child { border-radius: 0 6px 6px 0; }
+.mode-tabs button.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+.thumb-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+.thumb-row .thumb-box { width: 80px; height: 80px; border-radius: 6px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color .2s; }
+.thumb-row .thumb-box.active { border-color: #4a90d9; }
+.thumb-row .thumb-box img { width: 100%; height: 100%; object-fit: cover; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>图片像素对比工具</h1>
+
+<div class="upload-area">
+<div class="upload-box" id="dropLeft">
+<div class="placeholder">
+<span class="icon">🖼️</span>
+拖拽或点击上传 <strong>图A</strong>
+</div>
+<img id="imgLeft">
+<div class="change-hint"><span>点击更换图片</span></div>
+</div>
+<div class="upload-box" id="dropRight">
+<div class="placeholder">
+<span class="icon">🖼️</span>
+拖拽或点击上传 <strong>图B</strong>
+</div>
+<img id="imgRight">
+<div class="change-hint"><span>点击更换图片</span></div>
+</div>
+</div>
+
+<div class="controls">
+<button id="btnCompare" disabled>开始对比</button>
+<button id="btnSwap" disabled>交换图片</button>
+<button id="btnReset" class="danger">清空</button>
+<label>
+<select id="diffMode">
+<option value="highlight">高亮差异</option>
+<option value="blend">半透明叠加</option>
+<option value="side-by-side">并排原图</option>
+<option value="diff-only">仅差异区域</option>
+</select>
+</label>
+<label>
+容差: <span id="toleranceVal">10</span>
+<input type="range" id="tolerance" min="0" max="100" value="10">
+</label>
+</div>
+
+<div class="mode-tabs" id="modeTabs">
+<button class="active" data-view="diff">差异视图</button>
+<button data-view="left">仅图A</button>
+<button data-view="right">仅图B</button>
+</div>
+
+<div class="result" id="resultPanel">
+<div class="stats" id="statsRow"></div>
+<div class="canvas-container" id="canvasRow"></div>
+</div>
+</div>
+
+<script>
+(function() {
+const dropLeft = document.getElementById('dropLeft');
+const dropRight = document.getElementById('dropRight');
+const imgLeft = document.getElementById('imgLeft');
+const imgRight = document.getElementById('imgRight');
+const btnCompare = document.getElementById('btnCompare');
+const btnSwap = document.getElementById('btnSwap');
+const btnReset = document.getElementById('btnReset');
+const diffMode = document.getElementById('diffMode');
+const tolerance = document.getElementById('tolerance');
+const toleranceVal = document.getElementById('toleranceVal');
+const resultPanel = document.getElementById('resultPanel');
+const statsRow = document.getElementById('statsRow');
+const canvasRow = document.getElementById('canvasRow');
+const modeTabs = document.getElementById('modeTabs');
+
+let leftFile = null, rightFile = null;
+let leftData = null, rightData = null;
+let diffData = null;
+let currentView = 'diff';
+
+function loadImage(file, imgEl, boxEl, cb) {
+const reader = new FileReader();
+reader.onload = function(e) {
+imgEl.src = e.target.result;
+imgEl.onload = function() {
+boxEl.classList.add('has-image');
+cb && cb();
+updateButtons();
+};
+};
+reader.readAsDataURL(file);
+}
+
+function setupDrop(box, imgEl, side) {
+const input = document.createElement('input');
+input.type = 'file';
+input.accept = 'image/*';
+input.style.display = 'none';
+box.appendChild(input);
+
+box.addEventListener('click', function(e) {
+if (e.target.tagName !== 'IMG') input.click();
+});
+
+input.addEventListener('change', function() {
+if (this.files && this.files[0]) {
+const file = this.files[0];
+if (side === 'left') { leftFile = file; loadImage(file, imgLeft, box, () => leftData = null); }
+else { rightFile = file; loadImage(file, imgRight, box, () => rightData = null); }
+}
+});
+
+box.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); box.classList.add('dragover'); });
+box.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); box.classList.remove('dragover'); });
+box.addEventListener('drop', function(e) {
+e.preventDefault(); e.stopPropagation(); box.classList.remove('dragover');
+if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+const file = e.dataTransfer.files[0];
+if (side === 'left') { leftFile = file; loadImage(file, imgLeft, box, () => leftData = null); }
+else { rightFile = file; loadImage(file, imgRight, box, () => rightData = null); }
+}
+});
+}
+
+setupDrop(dropLeft, imgLeft, 'left');
+setupDrop(dropRight, imgRight, 'right');
+
+function updateButtons() {
+btnCompare.disabled = !leftFile || !rightFile;
+btnSwap.disabled = !leftFile && !rightFile;
+}
+
+function resetAll() {
+leftFile = rightFile = null;
+leftData = rightData = diffData = null;
+imgLeft.src = ''; imgRight.src = '';
+dropLeft.classList.remove('has-image'); dropRight.classList.remove('has-image');
+resultPanel.classList.remove('show');
+updateButtons();
+currentView = 'diff';
+document.querySelectorAll('.mode-tabs button').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'diff'); });
+}
+
+btnReset.addEventListener('click', resetAll);
+
+btnSwap.addEventListener('click', function() {
+const tmpFile = leftFile; leftFile = rightFile; rightFile = tmpFile;
+const tmpImg = imgLeft.src; imgLeft.src = imgRight.src; imgRight.src = tmpImg;
+const tmpData = leftData; leftData = rightData; rightData = tmpData;
+if (leftFile) dropLeft.classList.add('has-image'); else dropLeft.classList.remove('has-image');
+if (rightFile) dropRight.classList.add('has-image'); else dropRight.classList.remove('has-image');
+diffData = null;
+resultPanel.classList.remove('show');
+updateButtons();
+});
+
+tolerance.addEventListener('input', function() {
+toleranceVal.textContent = this.value;
+if (leftData && rightData) compareImages();
+});
+
+diffMode.addEventListener('change', function() {
+if (diffData) renderResult();
+});
+
+modeTabs.addEventListener('click', function(e) {
+const btn = e.target.closest('button');
+if (!btn) return;
+document.querySelectorAll('.mode-tabs button').forEach(function(b) { b.classList.remove('active'); });
+btn.classList.add('active');
+currentView = btn.dataset.view;
+if (diffData) renderResult();
+});
+
+function getCanvas(img) {
+const c = document.createElement('canvas');
+const ctx = c.getContext('2d');
+c.width = img.naturalWidth;
+c.height = img.naturalHeight;
+ctx.drawImage(img, 0, 0);
+return c;
+}
+
+function getImageData(img) {
+const c = getCanvas(img);
+return { canvas: c, ctx: c.getContext('2d'), data: c.getContext('2d').getImageData(0, 0, c.width, c.height) };
+}
+
+function rgbDiff(p1, p2) {
+return Math.abs(p1[0] - p2[0]) + Math.abs(p1[1] - p2[1]) + Math.abs(p1[2] - p2[2]);
+}
+
+function compareImages() {
+const tol = parseInt(tolerance.value);
+const leftImg = imgLeft, rightImg = imgRight;
+
+const w = Math.max(leftImg.naturalWidth, rightImg.naturalWidth);
+const h = Math.max(leftImg.naturalHeight, rightImg.naturalHeight);
+
+// Get left data
+if (!leftData) {
+const lc = getCanvas(leftImg);
+leftData = { canvas: lc, ctx: lc.getContext('2d'), w: lc.width, h: lc.height };
+}
+if (!rightData) {
+const rc = getCanvas(rightImg);
+rightData = { canvas: rc, ctx: rc.getContext('2d'), w: rc.width, h: rc.height };
+}
+
+const outCanvas = document.createElement('canvas');
+outCanvas.width = w;
+outCanvas.height = h;
+const outCtx = outCanvas.getContext('2d');
+
+const diffCanvas = document.createElement('canvas');
+diffCanvas.width = w;
+diffCanvas.height = h;
+const diffCtx = diffCanvas.getContext('2d');
+
+// Draw original images scaled to common size
+outCtx.drawImage(leftData.canvas, 0, 0, w, h);
+const leftPixels = outCtx.getImageData(0, 0, w, h).data;
+
+outCtx.clearRect(0, 0, w, h);
+outCtx.drawImage(rightData.canvas, 0, 0, w, h);
+const rightPixels = outCtx.getImageData(0, 0, w, h).data;
+
+outCtx.clearRect(0, 0, w, h);
+outCtx.drawImage(leftData.canvas, 0, 0, w, h);
+
+const diffImgData = diffCtx.createImageData(w, h);
+const diffPixels = diffImgData.data;
+
+let diffCount = 0;
+let totalPixels = w * h;
+let maxDiff = 0;
+let totalDiff = 0;
+
+for (let i = 0; i < totalPixels; i++) {
+const idx = i * 4;
+const dr = Math.abs(leftPixels[idx] - rightPixels[idx]);
+const dg = Math.abs(leftPixels[idx+1] - rightPixels[idx+1]);
+const db = Math.abs(leftPixels[idx+2] - rightPixels[idx+2]);
+const diff = (dr + dg + db) / 3;
+const isDiff = diff > tol;
+
+if (isDiff) {
+diffCount++;
+diffPixels[idx] = 255;
+diffPixels[idx+1] = 0;
+diffPixels[idx+2] = 0;
+diffPixels[idx+3] = 200;
+} else {
+diffPixels[idx+3] = 0;
+}
+
+totalDiff += diff;
+if (diff > maxDiff) maxDiff = diff;
+}
+
+diffCtx.putImageData(diffImgData, 0, 0);
+
+const diffPercent = totalPixels > 0 ? (diffCount / totalPixels * 100) : 0;
+const avgDiff = totalPixels > 0 ? (totalDiff / totalPixels) : 0;
+
+// Create highlight overlay canvas
+const overlayCanvas = document.createElement('canvas');
+overlayCanvas.width = w;
+overlayCanvas.height = h;
+const overlayCtx = overlayCanvas.getContext('2d');
+overlayCtx.drawImage(leftData.canvas, 0, 0, w, h);
+overlayCtx.drawImage(diffCanvas, 0, 0);
+
+// Create diff-only canvas
+const diffOnlyCanvas = document.createElement('canvas');
+diffOnlyCanvas.width = w;
+diffOnlyCanvas.height = h;
+const diffOnlyCtx = diffOnlyCanvas.getContext('2d');
+const diffOnlyData = diffOnlyCtx.createImageData(w, h);
+const diffOnlyPixels = diffOnlyData.data;
+for (let i = 0; i < totalPixels; i++) {
+const idx = i * 4;
+const dr = Math.abs(leftPixels[idx] - rightPixels[idx]);
+const dg = Math.abs(leftPixels[idx+1] - rightPixels[idx+1]);
+const db = Math.abs(leftPixels[idx+2] - rightPixels[idx+2]);
+const diff = (dr + dg + db) / 3;
+const isDiff = diff > tol;
+if (isDiff) {
+diffOnlyPixels[idx] = leftPixels[idx];
+diffOnlyPixels[idx+1] = leftPixels[idx+1];
+diffOnlyPixels[idx+2] = leftPixels[idx+2];
+diffOnlyPixels[idx+3] = 255;
+} else {
+diffOnlyPixels[idx+3] = 0;
+}
+}
+diffOnlyCtx.putImageData(diffOnlyData, 0, 0);
+
+// Blend canvas
+const blendCanvas = document.createElement('canvas');
+blendCanvas.width = w;
+blendCanvas.height = h;
+const blendCtx = blendCanvas.getContext('2d');
+blendCtx.globalAlpha = 0.5;
+blendCtx.drawImage(leftData.canvas, 0, 0, w, h);
+blendCtx.globalAlpha = 0.5;
+blendCtx.drawImage(rightData.canvas, 0, 0, w, h);
+
+diffData = {
+w, h,
+diffCount, totalPixels, diffPercent, avgDiff, maxDiff,
+overlayCanvas, diffCanvas, diffOnlyCanvas, blendCanvas,
+leftCanvas: leftData.canvas, rightCanvas: rightData.canvas
+};
+
+renderResult();
+btnCompare.disabled = false;
+}
+
+function renderResult() {
+resultPanel.classList.add('show');
+const d = diffData;
+if (!d) return;
+
+statsRow.innerHTML = '';
+const statConfig = [
+{ label: '总像素', value: d.totalPixels.toLocaleString(), cls: '' },
+{ label: '差异像素', value: d.diffCount.toLocaleString(), cls: 'red' },
+{ label: '差异比例', value: d.diffPercent.toFixed(2) + '%', cls: d.diffPercent > 10 ? 'red' : d.diffPercent > 1 ? 'orange' : 'green' },
+{ label: '平均差异', value: d.avgDiff.toFixed(2), cls: '' },
+{ label: '最大差异', value: d.maxDiff.toFixed(1), cls: '' },
+];
+
+statConfig.forEach(function(s) {
+const card = document.createElement('div');
+card.className = 'stat-card';
+card.innerHTML = '<div class="label">' + s.label + '</div><div class="value ' + s.cls + '">' + s.value + '</div>';
+statsRow.appendChild(card);
+});
+
+canvasRow.innerHTML = '';
+
+const mode = diffMode.value;
+
+if (mode === 'side-by-side') {
+const wrappers = [
+{ title: '图A (左)', canvas: d.leftCanvas },
+{ title: '图B (右)', canvas: d.rightCanvas },
+];
+wrappers.forEach(function(w) {
+const wrap = document.createElement('div');
+wrap.className = 'canvas-wrapper';
+wrap.innerHTML = '<div class="title">' + w.title + '</div>';
+const c = document.createElement('canvas');
+c.width = d.w; c.height = d.h;
+const ctx = c.getContext('2d');
+ctx.drawImage(w.canvas, 0, 0, d.w, d.h);
+c.style.maxWidth = Math.min(500, Math.max(200, 600 * d.w / (d.w + d.h))) + 'px';
+wrap.appendChild(c);
+canvasRow.appendChild(wrap);
+});
+return;
+}
+
+let srcCanvas;
+if (currentView === 'diff') {
+if (mode === 'highlight') srcCanvas = d.overlayCanvas;
+else if (mode === 'blend') srcCanvas = d.blendCanvas;
+else if (mode === 'diff-only') srcCanvas = d.diffOnlyCanvas;
+else srcCanvas = d.overlayCanvas;
+} else if (currentView === 'left') {
+srcCanvas = d.leftCanvas;
+} else {
+srcCanvas = d.rightCanvas;
+}
+
+const wrap = document.createElement('div');
+wrap.className = 'canvas-wrapper';
+const titles = { diff: '对比结果', left: '图A', right: '图B' };
+wrap.innerHTML = '<div class="title">' + (currentView === 'diff' ? (mode === 'highlight' ? '高亮差异' : mode === 'blend' ? '半透明叠加' : mode === 'diff-only' ? '仅差异区域' : '对比结果') : titles[currentView]) + '</div>';
+const c = document.createElement('canvas');
+c.width = d.w; c.height = d.h;
+const ctx = c.getContext('2d');
+ctx.drawImage(srcCanvas, 0, 0);
+c.style.maxWidth = Math.min(700, Math.max(300, 800 * d.w / (d.w + d.h))) + 'px';
+wrap.appendChild(c);
+canvasRow.appendChild(wrap);
+}
+
+btnCompare.addEventListener('click', function() {
+if (!leftFile || !rightFile) return;
+if (!imgLeft.complete || !imgRight.complete) return;
+if (!imgLeft.naturalWidth || !imgRight.naturalWidth) return;
+compareImages();
+});
+
+document.addEventListener('keydown', function(e) {
+if (e.key === 'Enter' && !btnCompare.disabled) btnCompare.click();
+});
+
+console.log('图片像素对比工具已加载 — 上传两张图片后点击"开始对比"');
+})();
+</script>
+</body>
+</html>
