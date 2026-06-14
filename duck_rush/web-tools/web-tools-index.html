@@ -264,10 +264,12 @@
             if (!tools) {
                 tools = [];
                 menuConfig.forEach(category => {
-                    if (category.children && category.children.length > 0) {
-                        category.children.forEach(tool => {
+                    if (category.tabs && category.tabs.length > 0) {
+                        category.tabs.forEach(tool => {
                             tools.push({ ...tool, category });
                         });
+                    } else if (category.url) {
+                        tools.push({ ...category, category });
                     }
                 });
             }
@@ -306,14 +308,14 @@
                 // 筛选工具
                 const filteredTools = [];
                 menuConfig.forEach(category => {
-                    if (category.children && category.children.length > 0) {
-                        category.children.forEach(tool => {
+                    if (category.tabs && category.tabs.length > 0) {
+                        category.tabs.forEach(tool => {
                             const toolId = (tool.id || '').toLowerCase();
                             const toolName = (tool.name || '').toLowerCase();
                             const toolUrl = (tool.url || '').toLowerCase();
                             const toolDescription = (tool.description || '').toLowerCase();
                             const categoryName = (category.name || '').toLowerCase();
-                            
+
                             // 搜索工具id、名称、URL、描述和分类名称
                             if (
                                 toolId.includes(searchTerm) ||
@@ -325,6 +327,20 @@
                                 filteredTools.push({ ...tool, category });
                             }
                         });
+                    } else if (category.url) {
+                        const catId = (category.id || '').toLowerCase();
+                        const catName = (category.name || '').toLowerCase();
+                        const catUrl = (category.url || '').toLowerCase();
+                        const catDescription = (category.description || '').toLowerCase();
+
+                        if (
+                            catId.includes(searchTerm) ||
+                            catName.includes(searchTerm) ||
+                            catUrl.includes(searchTerm) ||
+                            catDescription.includes(searchTerm)
+                        ) {
+                            filteredTools.push({ ...category, category });
+                        }
                     }
                 });
                 

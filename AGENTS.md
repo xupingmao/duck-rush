@@ -1,0 +1,43 @@
+# duck-rush (冲鸭) — 项目指南
+
+## 快速开始
+
+```bash
+python install.py    # 安装全部工具（装依赖 → sdist install → 生成包装脚本 → 收集命令索引）
+```
+
+## 项目结构
+
+- `duck_rush/` — 主源码包，约110+个独立CLI脚本，按领域分目录
+- `duck_rush/duck.py` — CLI入口，按名称匹配并执行各脚本
+- `duck_rush/web-tools/` — 独立Web工具中心（SPA），入口 `index.html`
+- `duck_rush/gui-tools/floatbar/` — tkinter浮动工具栏
+- `duck_rush/utils/` — 共享工具模块（`fs_util`、`os_util`、`sqlite_util`）
+- `config/requirements.txt` — Python依赖（termcolor, fire, chardet, xlwt, xlrd）
+- `install.py` — 构建/安装编排脚本（**无其他构建系统**）
+- `lib/` — 第三方库（目前仅jquery-1.12.4）
+- `data/` — 运行时生成，已gitignore
+
+## 关键命令
+
+| 命令 | 说明 |
+|------|------|
+| `python install.py` | 安装全部（pip install → setup.py sdist install → 生成包装器 → 索引采集） |
+| `python duck_rush/duck.py list` | 列出所有已注册命令 |
+| `python duck_rush/web-tools/duck-web-tools.py` | 启动Web工具（file:// 或 HTTP :8000） |
+| `python duck_rush/web-tools/duck-build-web-tools-index.py` | 重新生成 `web-tools-index.html`（扫描HTML → 生成索引卡片） |
+
+## 测试
+
+- **无正式测试框架**，`test/` 目录仅为用法示例
+- FloatBar GUI 含3个手动测试脚本：`gui-tools/floatbar/test_*.py`
+- 直接 `python <脚本>` 执行测试
+
+## 开发注意事项
+
+- **代码生成**：修改 `web-tools/pages/` 下HTML后，需运行 `duck-build-web-tools-index.py` 重新生成索引
+- **安装后入口**：每个 `.py` 脚本被包装为独立命令（Win: `%USERPROFILE%\duck_rush\*.bat`，Unix: `local/bin/*`）
+- **gitignore** 已忽略 `local/`、`data/`、`gui-tools/`、`*.local.json`、构建产物
+- **Git远程**：`github` → github.com/xupingmao/duck-rush，`origin` → gitee.com/xupingmao/duck-rush
+- **跨平台**：使用 `duck_rush/utils/os_util.py` 的 `is_windows/is_mac/is_linux` 判断平台
+- **依赖按需引入**：部分脚本（如图片处理）可能需PIL/numpy等额外包，但 `requirements.txt` 未列出
