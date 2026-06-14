@@ -10,7 +10,7 @@ const menuConfig = [
         id: 'nav-tools',
         name: '导航工具',
         icon: '🌐',
-        children: [
+        tabs: [
             {
                 id: 'tool-hub',
                 name: '网址导航',
