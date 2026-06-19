@@ -55,11 +55,27 @@ def scan(prefix="", next=[], port=80):
         else:
             scan(prefix=f"{prefix}{part}", next=rest, port=port)
 
-def main(ip="127.0.0.*", port=80, timeout=1.0):
+def parse_ports(port_str):
+    """解析端口参数，支持单个、逗号分隔、范围（如 80,443,8000-8080）"""
+    ports = []
+    for part in port_str.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, hi = part.split("-", 1)
+            ports.extend(range(int(lo), int(hi) + 1))
+        else:
+            ports.append(int(part))
+    return ports
+
+def main(ip="127.0.0.*", port="80", timeout=1.0):
     signal.signal(signal.SIGINT, _signal_handler)
     ScanConfig.timeout = timeout
+    port_list = parse_ports(port)
     parts = ip.split(".")
-    scan(prefix="", next=parts, port=port)
+    for p in port_list:
+        if INTERRUPTED:
+            break
+        scan(prefix="", next=parts, port=p)
     clean_line()
     print("done")
 
@@ -67,8 +83,8 @@ def main(ip="127.0.0.*", port=80, timeout=1.0):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("ip", type=str, default="127.0.0.*", nargs="?")
-    parser.add_argument("--port", type=int, default=80)
+    parser.add_argument("ip", type=str, default="127.0.0.1", nargs="?")
+    parser.add_argument("--port", type=str, default="80")
     parser.add_argument("--timeout", type=float, default=1.0)
     args = parser.parse_args()
     main(args.ip, args.port, args.timeout)
