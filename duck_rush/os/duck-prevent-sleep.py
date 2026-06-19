@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 DEFAULT_DURATION = 60 * 24 * 100 # minutes
+SLEEP_INTERVAL = 1 # 单位秒
 
 def prevent_sleep_windows(duration: Optional[float]=None):
     """
@@ -46,7 +47,7 @@ def prevent_sleep_windows(duration: Optional[float]=None):
                     break
                 
                 # 每5秒检查一次
-                time.sleep(5)
+                time.sleep(SLEEP_INTERVAL)
                 
                 # 输出剩余时间（如果指定了持续时间）
                 remaining = end_time - datetime.now()
@@ -91,7 +92,7 @@ def prevent_sleep_mac(duration:Optional[float]=None):
             if datetime.now() >= end_time:
                 break
 
-            time.sleep(5)
+            time.sleep(SLEEP_INTERVAL)
 
             remaining = end_time - datetime.now()
             print(f"剩余时间: {remaining.seconds // 60} 分 {remaining.seconds % 60} 秒", end='\r')
