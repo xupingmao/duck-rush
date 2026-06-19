@@ -1,7 +1,15 @@
 # encoding=utf-8
 
+import signal
+import sys
 import argparse
 from socket import socket, AF_INET, SOCK_STREAM
+
+INTERRUPTED = False
+
+def _signal_handler(sig, frame):
+    global INTERRUPTED
+    INTERRUPTED = True
 
 class ScanConfig:
     timeout = 1.0
@@ -12,6 +20,8 @@ def clean_line():
 
 #list_sort = sorted(list, key = lambda d:d[0], reverse = False)
 def check_net_addr(host="127.0.0.1", port=80):
+    if INTERRUPTED:
+        return
     clean_line()
     print(f"checking {host}:{port}", end="", flush=True)
 
@@ -28,6 +38,8 @@ def check_net_addr(host="127.0.0.1", port=80):
         pass
 
 def scan(prefix="", next=[], port=80):
+    if INTERRUPTED:
+        return
     if len(next) == 0:
         check_net_addr(host=prefix, port=port)
     else:
@@ -37,11 +49,14 @@ def scan(prefix="", next=[], port=80):
         part, rest = next[0], next[1:]
         if part == "*":
             for x in range(256):
+                if INTERRUPTED:
+                    break
                 scan(prefix=f"{prefix}{x}", next=rest, port=port)
         else:
             scan(prefix=f"{prefix}{part}", next=rest, port=port)
 
 def main(ip="127.0.0.*", port=80, timeout=1.0):
+    signal.signal(signal.SIGINT, _signal_handler)
     ScanConfig.timeout = timeout
     parts = ip.split(".")
     scan(prefix="", next=parts, port=port)
