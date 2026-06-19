@@ -10,7 +10,7 @@ Description: 描述
 '''
 
 import socket
-import fire
+import argparse
 import sys
 import traceback
 import typing
@@ -50,10 +50,10 @@ class TelnetClient:
             return func(*args, **kw)
         except socket.timeout:
             print("connect timeout")
+        except TimeoutError: # type: ignore
+            print("connect timeout")
         except ConnectionRefusedError:
             print("connect refused")
-        except TimeoutError:
-            print("connect timeout")
         except InterruptedError:
             print("connect interrupted")
         except Exception as e:
@@ -113,4 +113,9 @@ def main(ip_address: str, port: str, debug=False):
     client.run()
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ip_address", type=str)
+    parser.add_argument("port", type=str)
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+    main(args.ip_address, args.port, args.debug)

@@ -10,7 +10,7 @@ Description: 描述
 '''
 # encoding=utf-8
 
-import fire
+import argparse
 from datetime import datetime
 
 def format_money(value=0, round_digits=2):
@@ -60,4 +60,19 @@ def main(savings=0, work_years=10,
         spend_this_year = round(spend_this_year*(1+spend_increase_rate), round_digits)
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--savings", default=0, type=int)
+    parser.add_argument("--work-years", default=10, type=int)
+    parser.add_argument("--income", default=100, type=float)
+    parser.add_argument("--income-increase-rate", default=0.05, type=float)
+    parser.add_argument("--spend", default=20, type=float)
+    parser.add_argument("--spend-increase-rate", default=0.02, type=float)
+    parser.add_argument("--investment-return-rate", default=0.1, type=float)
+    parser.add_argument("--start-year", default=THIS_YEAR, type=int)
+    parser.add_argument("--total-years", default=50, type=int)
+    args = parser.parse_args()
+    main(savings=args.savings, work_years=args.work_years,
+         income=args.income, income_increase_rate=args.income_increase_rate,
+         spend=args.spend, spend_increase_rate=args.spend_increase_rate,
+         investment_return_rate=args.investment_return_rate,
+         start_year=args.start_year, total_years=args.total_years)

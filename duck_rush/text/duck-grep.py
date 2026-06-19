@@ -7,7 +7,7 @@
 import os
 import sys
 import re
-import fire
+import argparse
 
 def do_grep(search_key = ""):
     """用于windows环境模拟linux的grep命令"""
@@ -25,7 +25,10 @@ def do_grep(search_key = ""):
 
 
 def main():
-    fire.Fire(do_grep)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("search-key", type=str, default="")
+    args = parser.parse_args()
+    do_grep(args.search_key)
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,4 @@
 # encoding=utf-8
-import fire
 import os
 import platform
 import socket
@@ -26,4 +25,4 @@ def main():
     print(json.dumps(result, indent=2))
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    main()
