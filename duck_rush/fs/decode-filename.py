@@ -10,7 +10,7 @@ Description: 描述
 '''
 
 import os
-import fire
+import argparse
 
 from urllib.parse import unquote
 
@@ -34,4 +34,7 @@ def decode_filename_in_dir(dirname="."):
         print("重命名完成!")
 
 if __name__ == '__main__':
-    fire.Fire(decode_filename_in_dir)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dirname", default=".", type=str)
+    args = parser.parse_args()
+    decode_filename_in_dir(dirname=args.dirname)
