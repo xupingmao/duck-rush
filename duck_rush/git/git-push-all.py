@@ -11,7 +11,7 @@
 
 import os
 import sys
-import fire
+import argparse
 
 try:
     import termcolor
@@ -52,5 +52,8 @@ def check_git():
         sys.exit(1)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--actions", type=str, default="")
+    args = parser.parse_args()
     check_git()
-    fire.Fire(push_all)
+    push_all(set() if not args.actions else set(args.actions.split(',')))

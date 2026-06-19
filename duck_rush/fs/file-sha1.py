@@ -10,9 +10,9 @@ Description: 描述
 '''
 #!/usr/bin/env python 2
 #coding : utf-8 3 
+import argparse
 import hashlib
 import os
-import fire
 
 CHUNK_SIZE = 8096
 
@@ -34,7 +34,7 @@ def sha1_sum(fname=""):
             m.update(chunk)
     return m.hexdigest()
 
-def main(path=None, **kw):
+def main(path: str, **kw):
     if os.path.isdir(path):
         for name in os.listdir(path):
             child_path = os.path.join(path, name)
@@ -45,4 +45,7 @@ def main(path=None, **kw):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(description='计算文件的SHA1值')
+    parser.add_argument('path', default="", type=str, help='文件或目录路径')
+    args = parser.parse_args()
+    main(path=args.path)

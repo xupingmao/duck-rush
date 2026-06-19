@@ -1,6 +1,5 @@
 # encoding=utf-8
 import os
-import fire
 import sys
 
 duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
@@ -29,4 +28,4 @@ def delete_other_branches():
         os_util.exec_cmd(f"git branch -D {line}")
 
 if __name__ == "__main__":
-    fire.Fire(delete_other_branches)
+    delete_other_branches()

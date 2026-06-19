@@ -9,10 +9,10 @@ FilePath: /duck_rush/duck_rush/git/git-count-lines.py
 Description: 描述
 '''
 # encoding=utf-8
+import argparse
 import typing
 import os
 import subprocess
-import fire
 
 def my_popen(cmd, debug=False):
     if debug:
@@ -70,5 +70,10 @@ def main(encoding="utf-8", debug=False, sort=False):
             print(f"{item.user_name}: added lines: {item.add}, removed lines: {item.sub}, total lines: {item.loc}")
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(description='统计Git提交行数')
+    parser.add_argument('--encoding', default='utf-8', type=str, help='编码')
+    parser.add_argument('--debug', action='store_true', help='调试模式')
+    parser.add_argument('--sort', action='store_true', help='排序')
+    args = parser.parse_args()
+    main(encoding=args.encoding, debug=args.debug, sort=args.sort)
     
