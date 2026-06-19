@@ -9,9 +9,9 @@
 @Description: Description
 """
 # encoding=utf-8
+import argparse
 import os
 import html
-import fire
 from urllib.parse import quote
 
 DEFAULT_OUTPUT = "file-index.html"
@@ -107,4 +107,8 @@ def main(dirname=".", output=DEFAULT_OUTPUT):
     builder.build(dirname=dirname, output=output)
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(description='创建文件索引HTML')
+    parser.add_argument('dirname', default='.', type=str, help='目录路径', nargs="?")
+    parser.add_argument('--output', default=DEFAULT_OUTPUT, type=str, help='输出文件路径')
+    args = parser.parse_args()
+    main(dirname=args.dirname, output=args.output)

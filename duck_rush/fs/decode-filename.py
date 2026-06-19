@@ -35,6 +35,6 @@ def decode_filename_in_dir(dirname="."):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("dirname", default=".", type=str)
+    parser.add_argument("dirname", default=".", type=str, nargs="?")
     args = parser.parse_args()
     decode_filename_in_dir(dirname=args.dirname)

@@ -5,7 +5,7 @@
 # @modified 2021/10/07 00:43:40
 # @filename delete-empty-dirs.py
 
-import fire
+import argparse
 import os
 
 def is_empty_file(fpath):
@@ -47,5 +47,10 @@ def delete_empty_dirs(dirname=".", confirmed = False, print_info = True):
 
 if __name__ == '__main__':
     # 支持指定目录
-    fire.Fire(delete_empty_dirs)
+    parser = argparse.ArgumentParser(description='删除目录下的空文件')
+    parser.add_argument('dirname', nargs='?', default='.', type=str, help='目录路径')
+    parser.add_argument('--confirmed', action='store_true', help='确认删除')
+    parser.add_argument('--no-print-info', action='store_false', dest='print_info', help='不打印信息')
+    args = parser.parse_args()
+    delete_empty_dirs(dirname=args.dirname, confirmed=args.confirmed, print_info=args.print_info)
 
