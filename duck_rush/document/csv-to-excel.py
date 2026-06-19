@@ -10,16 +10,10 @@ import xlrd
 import os
 import sys
 import argparse
+
 from collections import namedtuple
 
 csv.field_size_limit(500 * 1024 * 1024)
-
-try:
-    import xlwt
-    import xlrd
-except ImportError:
-    xlwt = None
-    xlrd = None
 
 def write_row(worksheet, lineno, row):
     for n, item in enumerate(row):
@@ -49,7 +43,7 @@ def read_csv_data(filepath):
         print('......')
         return data
 
-def main(path=None, confirmed = False, **kw):
+def main(path="", confirmed = False, **kw):
     data = read_csv_data(path)
     newpath, _ = os.path.splitext(path)
     newpath += '.xls'
