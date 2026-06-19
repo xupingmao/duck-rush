@@ -31,18 +31,18 @@ def exec_cmd(cmd="", do_print=True):
         print(yellow_text(f"[executing]: {cmd}"))
     os.system(cmd)
 
-def push_all(actions=set()):
+def push_all(tags=False):
     """推送到所有的远端
 
     操作选项:
-    * with-tags 推送所有的tag
+    * tags 推送所有的tag
     """
     remote_list = list_remote()
     print("检测到远端配置: %s" % remote_list)
     for remote in remote_list:
         # print("准备推送到 %s ..." % remote)
         exec_cmd(f"git push {remote}")
-        if "with-tags" in actions:
+        if tags:
             exec_cmd(f"git push {remote} --tags")
     
 def check_git():
@@ -53,7 +53,7 @@ def check_git():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--actions", type=str, default="")
+    parser.add_argument("--tags", action="store_true", help="推送 tags 到所有远端")
     args = parser.parse_args()
     check_git()
-    push_all(set() if not args.actions else set(args.actions.split(',')))
+    push_all(tags=args.tags)
