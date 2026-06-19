@@ -1,7 +1,7 @@
 import shutil
 import os
 import chardet
-import fire
+import argparse
 
 def convert_file(filename: str, skip_backup = False):
     if not skip_backup:
@@ -42,6 +42,10 @@ def convert(filename:str, skip_backup = False):
         convert_file(filename, skip_backup=skip_backup)
 
 if __name__ == "__main__":
-    fire.Fire(convert)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", type=str)
+    parser.add_argument("--skip-backup", action="store_true")
+    args = parser.parse_args()
+    convert(filename=args.filename, skip_backup=args.skip_backup)
 
 

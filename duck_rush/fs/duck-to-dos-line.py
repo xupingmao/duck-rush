@@ -4,7 +4,7 @@
 # @since 2020/10/08 12:39:41
 # @modified 2020/10/11 13:40:34
 
-import fire
+import argparse
 import sys
 import termcolor
 
@@ -28,4 +28,7 @@ def main(fpath = ""):
         fp.write(new_bin)
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(description='把文件转换成dos风格的换行(\\r\\n)')
+    parser.add_argument('fpath', type=str, help='文件路径')
+    args = parser.parse_args()
+    main(fpath=args.fpath)

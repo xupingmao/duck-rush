@@ -1,8 +1,8 @@
 # encoding=utf-8
 
+import argparse
 import os
 import sys
-import fire
 
 def main(old_path="", new_path=""):
     if not os.path.exists(old_path):
@@ -17,4 +17,8 @@ def main(old_path="", new_path=""):
     print("重命名完成!")
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(description='重命名/移动文件')
+    parser.add_argument('old_path', type=str, help='源文件路径')
+    parser.add_argument('new_path', type=str, help='目标文件路径')
+    args = parser.parse_args()
+    main(old_path=args.old_path, new_path=args.new_path)

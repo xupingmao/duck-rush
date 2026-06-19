@@ -6,7 +6,7 @@
 
 import os
 import sys
-import fire
+import argparse
 
 
 mirror_mapping = {
@@ -41,4 +41,7 @@ def setup_pip_config(mirror="aliyun"):
 
 
 if __name__ == "__main__":
-    fire.Fire(setup_pip_config)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mirror", default="aliyun", type=str)
+    args = parser.parse_args()
+    setup_pip_config(mirror=args.mirror)

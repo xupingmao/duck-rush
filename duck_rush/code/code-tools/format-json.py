@@ -11,7 +11,6 @@ Description: 描述
 
 import sys
 import json
-import fire
 
 def format_json():
     """格式化json并且打印"""
@@ -20,4 +19,4 @@ def format_json():
     print(json.dumps(obj, sort_keys=True, indent="  ", ensure_ascii=False))
 
 if __name__ == "__main__":
-    fire.Fire(format_json)
+    format_json()

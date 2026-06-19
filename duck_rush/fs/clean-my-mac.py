@@ -1,5 +1,4 @@
 
-import fire
 import os
 
 def get_dir_size(dirname=""):
@@ -22,4 +21,4 @@ def clean_my_mac():
         print_dir_size(tvOS_runtime, "tvOS运行时")
 
 if __name__ == "__main__":
-    fire.Fire(clean_my_mac)
+    clean_my_mac()

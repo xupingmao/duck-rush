@@ -12,7 +12,7 @@ Description: 描述
 #coding : utf-8 3 
 import hashlib
 import os
-import fire
+import argparse
 
 from io import BufferedReader
 
@@ -63,4 +63,8 @@ def main(path:str, type="sha1", **kw):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path", type=str)
+    parser.add_argument("--type", default="sha1", type=str)
+    args = parser.parse_args()
+    main(path=args.path, type=args.type)

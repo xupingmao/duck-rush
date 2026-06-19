@@ -10,7 +10,7 @@ Description: 描述
 '''
 
 import time
-import fire
+import argparse
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -31,5 +31,8 @@ def main(unixtime="0"):
         print(f"秒时间: {format_time(sec)}")
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("unixtime", default="0", type=str)
+    args = parser.parse_args()
+    main(unixtime=args.unixtime)
 
