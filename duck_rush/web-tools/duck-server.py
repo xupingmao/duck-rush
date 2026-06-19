@@ -16,14 +16,16 @@ import time
 import logging
 import argparse
 import threading
+from email.message import Message
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 # ──────────────────────────────────────────────
 #  配置
 # ──────────────────────────────────────────────
-DEFAULT_PORT = 8000
-DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT: int = 8000
+DEFAULT_HOST: str = "0.0.0.0"
 
 # ──────────────────────────────────────────────
 #  日志
@@ -33,91 +35,112 @@ logging.basicConfig(
     format="[%(asctime)s] %(levelname)s %(message)s",
     datefmt="%H:%M:%S",
 )
-log = logging.getLogger("duck-server")
+log: logging.Logger = logging.getLogger("duck-server")
 
 
 class Request:
-    """封装请求信息，供 RouteHandler 使用"""
+    """纯数据对象 — 承载请求输入，不含响应方法"""
 
-    def __init__(self, handler, path, query, body):
-        self._handler = handler
+    path: str
+    query: Dict[str, str]
+    body: bytes
+    method: str
+    headers: Message
+    client_address: Tuple[str, int]
+
+    def __init__(
+        self,
+        path: str,
+        query: Dict[str, str],
+        body: bytes,
+        method: str,
+        headers: Message,
+        client_address: Tuple[str, int],
+    ) -> None:
         self.path = path
         self.query = query
         self.body = body
-        self.method = handler.command
-        self.headers = handler.headers
-        self.client_address = handler.client_address
-
-    def send_json(self, data, status=200):
-        self._handler.send_json(data, status)
-
-    def send_text(self, text, status=200, content_type="text/plain; charset=utf-8"):
-        self._handler.send_text(text, status, content_type)
-
-    def send_error(self, code, message=None):
-        self._handler.send_error(code, message)
-
-    def get_json_body(self):
-        return json.loads(self.body) if self.body else None
+        self.method = method
+        self.headers = headers
+        self.client_address = client_address
 
 
-class RouteHandler:
-    """路由处理器的基类，子类实现 do_GET / do_POST 等方法"""
+class BaseBizHandler:
+    """业务处理器基类 — 通过 self.send_*() 输出响应，request 参数为输入"""
 
-    def do_GET(self, request):
-        self._method_not_allowed(request)
+    _res: 'DuckRequestHandler'
 
-    def do_POST(self, request):
-        self._method_not_allowed(request)
+    def __init__(self) -> None:
+        self._res = None  # type: ignore[assignment]
 
-    def do_PUT(self, request):
-        self._method_not_allowed(request)
+    def do_GET(self, request: Request) -> Any:
+        self.send_error(405)
 
-    def do_DELETE(self, request):
-        self._method_not_allowed(request)
+    def do_POST(self, request: Request) -> Any:
+        self.send_error(405)
 
-    def _method_not_allowed(self, request):
-        request.send_error(405, "Method Not Allowed")
+    def do_PUT(self, request: Request) -> Any:
+        self.send_error(405)
+
+    def do_DELETE(self, request: Request) -> Any:
+        self.send_error(405)
+
+    def send_json(self, data: Any, status: int = 200) -> None:
+        self._res.send_json(data, status)
+
+    def send_text(
+        self,
+        text: str,
+        status: int = 200,
+        content_type: str = "text/plain; charset=utf-8",
+    ) -> None:
+        self._res.send_text(text, status, content_type)
+
+    def send_error(self, code: int, message: Optional[str] = None) -> None:
+        self._res.send_error(code, message)
+
+    def get_json_body(self, request: Request) -> Any:
+        return json.loads(request.body) if request.body else None
 
 
 class DuckRequestHandler(SimpleHTTPRequestHandler):
-    """可扩展的 HTTP 请求处理器"""
+    """HTTP 请求处理器 — 静态文件服务 + 自定义路由分发"""
 
-    # 允许跨域的域名列表（空列表表示不限制）
-    CORS_ORIGINS = ["*"]
+    CORS_ORIGINS: ClassVar[List[str]] = ["*"]
 
-    # 自定义路由表：{path: handler_class}
-    # handler_class 是 RouteHandler 的子类，含 do_GET/do_POST 等方法
-    CUSTOM_ROUTES = {}
+    # 自定义路由表：{path: BaseBizHandler 子类}
+    CUSTOM_ROUTES: ClassVar[Dict[str, Type[BaseBizHandler]]] = {}
 
-    def do_OPTIONS(self):
+    # ── HTTP 方法 ─────────────────────────────
+
+    def do_OPTIONS(self) -> None:
         self.send_cors_headers()
         self.send_response(204)
         self.end_headers()
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.handle_custom_route("GET"):
             return
         super().do_GET()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         if self.handle_custom_route("POST"):
             return
         self.send_error(405, "Method Not Allowed")
 
-    def do_PUT(self):
+    def do_PUT(self) -> None:
         if self.handle_custom_route("PUT"):
             return
         self.send_error(405, "Method Not Allowed")
 
-    def do_DELETE(self):
+    def do_DELETE(self) -> None:
         if self.handle_custom_route("DELETE"):
             return
         self.send_error(405, "Method Not Allowed")
 
     # ── CORS ──────────────────────────────────
 
-    def send_cors_headers(self):
+    def send_cors_headers(self) -> None:
         origins = self.CORS_ORIGINS
         if origins and len(origins) > 0:
             origin = origins[0] if origins != ["*"] else "*"
@@ -126,32 +149,35 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.send_header("Access-Control-Max-Age", "86400")
 
-    def end_headers(self):
+    def end_headers(self) -> None:
         self.send_cors_headers()
         super().end_headers()
 
     # ── 自定义路由 ────────────────────────────
 
-    def handle_custom_route(self, method):
+    def handle_custom_route(self, method: str) -> bool:
         parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/") or "/"
-        query = dict((k, v[0]) for k, v in parse_qs(parsed.query).items())
+        path: str = parsed.path.rstrip("/") or "/"
+        query: Dict[str, str] = dict(
+            (k, v[0]) for k, v in parse_qs(parsed.query).items()
+        )
 
-        handler_class = self.CUSTOM_ROUTES.get(path)
+        handler_class: Optional[Type[BaseBizHandler]] = self.CUSTOM_ROUTES.get(path)
         if handler_class is None:
             return False
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length) if content_length > 0 else b""
+        content_length: int = int(self.headers.get("Content-Length", 0))
+        body: bytes = self.rfile.read(content_length) if content_length > 0 else b""
 
         try:
-            handler = handler_class()
-            req = Request(self, path, query, body)
-            method_handler = getattr(handler, f"do_{method}", None)
-            if method_handler is None:
-                handler._method_not_allowed(req)
+            handler: BaseBizHandler = handler_class()
+            handler._res = self
+            req = Request(path, query, body, method, self.headers, self.client_address)
+            fn = getattr(handler, f"do_{method}", None)
+            if fn is None:
+                handler.send_error(405)
                 return True
-            result = method_handler(req)
+            result: Any = fn(req)
             if result is None:
                 return True
             if isinstance(result, dict):
@@ -165,16 +191,21 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
 
     # ── 响应辅助 ──────────────────────────────
 
-    def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
+    def send_json(self, data: Any, status: int = 200) -> None:
+        body: bytes = json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def send_text(self, text, status=200, content_type="text/plain; charset=utf-8"):
-        body = text.encode("utf-8")
+    def send_text(
+        self,
+        text: str,
+        status: int = 200,
+        content_type: str = "text/plain; charset=utf-8",
+    ) -> None:
+        body: bytes = text.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -183,34 +214,45 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
 
     # ── 日志 ──────────────────────────────────
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         log.info(f"{self.client_address[0]} - {format % args}")
 
 
 class DuckServer:
     """封装 HTTPServer，提供 start / stop 接口"""
 
-    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, directory=None):
+    host: str
+    port: int
+    directory: str
+    _server: Optional[HTTPServer]
+    _thread: Optional[threading.Thread]
+
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
+        directory: Optional[str] = None,
+    ) -> None:
         self.host = host
         self.port = port
         self.directory = directory or os.getcwd()
         self._server = None
         self._thread = None
 
-    def start(self):
+    def start(self) -> None:
         os.chdir(self.directory)
         self._server = HTTPServer((self.host, self.port), DuckRequestHandler)
         log.info(f"服务器已启动: http://localhost:{self.port}/")
         log.info(f"服务目录: {self.directory}")
         self._server.serve_forever()
 
-    def start_in_thread(self):
+    def start_in_thread(self) -> threading.Thread:
         self._thread = threading.Thread(target=self.start, daemon=True)
         self._thread.start()
         log.info(f"服务器已在后台线程启动 (端口 {self.port})")
         return self._thread
 
-    def stop(self):
+    def stop(self) -> None:
         if self._server:
             self._server.shutdown()
             self._server.server_close()
@@ -218,37 +260,41 @@ class DuckServer:
             log.info("服务器已停止")
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         return self._server is not None
 
-    def get_url(self):
+    def get_url(self) -> str:
         return f"http://localhost:{self.port}/"
 
 
-def create_server(host=DEFAULT_HOST, port=DEFAULT_PORT, directory=None):
+def create_server(
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    directory: Optional[str] = None,
+) -> DuckServer:
     """快捷创建 DuckServer 实例"""
     return DuckServer(host=host, port=port, directory=directory)
 
 
 # ── 注册自定义路由示例 ────────────────────────
-class _StatusHandler(RouteHandler):
-    def do_GET(self, request):
+class _StatusHandler(BaseBizHandler):
+    def do_GET(self, request: Request) -> Dict[str, Any]:
         return {"status": "ok", "time": time.time(), "version": "1.0"}
 
-    def do_POST(self, request):
-        data = request.get_json_body()
+    def do_POST(self, request: Request) -> Dict[str, Any]:
+        data = self.get_json_body(request)
         return {"received": data, "method": "POST"}
 
 
-class _InfoHandler(RouteHandler):
-    def do_GET(self, request):
+class _InfoHandler(BaseBizHandler):
+    def do_GET(self, request: Request) -> Dict[str, str]:
         return {
             "name": "Duck Server",
             "description": "基于 http.server 的可扩展 Web 服务器",
         }
 
 
-def _register_example_routes():
+def _register_example_routes() -> None:
     DuckRequestHandler.CUSTOM_ROUTES = {
         "/api/status": _StatusHandler,
         "/api/info": _InfoHandler,
@@ -256,7 +302,7 @@ def _register_example_routes():
 
 
 # ── 命令行入口 ────────────────────────────────
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Duck HTTP Server")
     parser.add_argument("--port", "-p", type=int, default=DEFAULT_PORT, help=f"端口号 (默认: {DEFAULT_PORT})")
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help=f"监听地址 (默认: {DEFAULT_HOST})")
@@ -279,7 +325,8 @@ def main():
         print()
         log.info("正在停止服务器...")
         server.stop()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
