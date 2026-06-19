@@ -294,10 +294,15 @@ def install_for_unix():
     makedirs(local_bin_path)
     add_shell_path(local_bin_path)
 
+def install_leveldb():
+    print("安装 duck_leveldb 模块 ...")
+    os.system(f"{sys.executable} -m pip install duck_leveldb")
+
 def install_requirements():
     # import pip
     print("安装依赖包...")
     os.system(f"pip install -r config/requirements.txt")
+    install_leveldb()
     print("依赖包安装完成")
 
 def install_duck_rush_package():
