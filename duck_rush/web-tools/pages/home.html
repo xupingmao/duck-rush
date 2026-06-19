@@ -285,7 +285,7 @@
                 toolCard.innerHTML = `
                     <h3 class="tool-title">${category.icon || ''} ${tool.name}</h3>
                     <p class="tool-description">${tool.description || ''}</p>
-                    <a href="${tool.url}" class="tool-link">打开工具</a>
+                    <a href="${tool.url.replace(/^pages\//, '')}" class="tool-link">打开工具</a>
                 `;
                 
                 toolsGrid.appendChild(toolCard);
