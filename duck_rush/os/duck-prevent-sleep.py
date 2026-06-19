@@ -75,29 +75,37 @@ def prevent_sleep_mac(duration:Optional[float]=None):
     """
     if duration is None:
         duration = DEFAULT_DURATION
-    
+
     process:Optional[subprocess.Popen] = None
     try:
-        # 构建 caffeinate 命令
-        cmd = ['caffeinate', '-d', '-i', '-m', '-u']  # 防止显示器休眠、系统休眠、磁盘休眠，并模拟用户活动
-        
-        # 如果指定了持续时间，将其转换为秒并添加到命令中
-        duration_sec = int(duration * 60)
-        cmd.extend(['-t', str(duration_sec)])
+        # 构建 caffeinate 命令（后台运行，不带 -t 由自己控制时长）
+        cmd = ['caffeinate', '-d', '-i', '-m', '-u']
         print(f"已启动防睡眠模式，将持续 {duration} 分钟, 按 Ctrl+C 停止...")
-        
-        # 执行命令
+
+        # 后台启动 caffeinate
         process = subprocess.Popen(cmd)
-        return process.wait()
+
+        end_time = datetime.now() + timedelta(minutes=duration)
+
+        while True:
+            if datetime.now() >= end_time:
+                break
+
+            time.sleep(5)
+
+            remaining = end_time - datetime.now()
+            print(f"剩余时间: {remaining.seconds // 60} 分 {remaining.seconds % 60} 秒", end='\r')
+
     except KeyboardInterrupt:
         print("\n收到停止信号，正在退出防睡眠模式...")
+    except Exception as e:
+        print(f"发生错误: {e}")
+        return 1
+    finally:
         if process:
             process.terminate()
             process.wait()
         print("已成功退出防睡眠模式。")
-    except Exception as e:
-        print(f"发生错误: {e}")
-        return 1
     
 def prevent_sleep(duration=None):
     if os.name == "nt":
