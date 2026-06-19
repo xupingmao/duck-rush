@@ -1,6 +1,6 @@
 # encoding=utf-8
 
-import fire
+import argparse
 from socket import socket, AF_INET, SOCK_STREAM
 
 class ScanConfig:
@@ -51,4 +51,9 @@ def main(ip="127.0.0.*", port=80, timeout=1.0):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ip", type=str, default="127.0.0.*", nargs="?")
+    parser.add_argument("--port", type=int, default=80)
+    parser.add_argument("--timeout", type=float, default=1.0)
+    args = parser.parse_args()
+    main(args.ip, args.port, args.timeout)

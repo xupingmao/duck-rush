@@ -7,7 +7,7 @@ FilePath: /901_duck_rush/duck_rush/math-tools/duck-calc.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
 # encoding=utf-8
-import fire
+import argparse
 
 
 def print_help():
@@ -26,4 +26,7 @@ def main(expression=""):
     print(result)
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("expression", default="", type=str)
+    args = parser.parse_args()
+    main(expression=args.expression)
