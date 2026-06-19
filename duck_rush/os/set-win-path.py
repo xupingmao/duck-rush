@@ -12,7 +12,7 @@ Description: 描述
 
 import os
 import sys
-import fire
+import argparse
 
 def add_path(value=""):
     path = os.environ["path"]
@@ -49,4 +49,8 @@ def main(op="add", value=""):
     # os.system(f"SETX PATH %PATH%;{value} /m")
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--op", type=str, default="add")
+    parser.add_argument("--value", type=str, default="")
+    args = parser.parse_args()
+    main(args.op, args.value)

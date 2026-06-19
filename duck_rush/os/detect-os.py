@@ -12,7 +12,7 @@
 import os
 import sys
 import platform
-import fire
+import argparse
 
 def print_row(key: str, value):
     print(key.rjust(20), value)
@@ -39,4 +39,7 @@ def main(detail=False):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--detail", action="store_true")
+    args = parser.parse_args()
+    main(args.detail)

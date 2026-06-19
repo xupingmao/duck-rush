@@ -1,6 +1,6 @@
 # encoding=utf-8
 
-import fire
+import argparse
 import sys
 
 def cat_stdin():
@@ -20,4 +20,8 @@ def cat_file(filename="", encoding="utf-8"):
 
 
 if __name__ == "__main__":
-    fire.Fire(cat_file)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", type=str, default="")
+    parser.add_argument("--encoding", type=str, default="utf-8")
+    args = parser.parse_args()
+    cat_file(args.filename, args.encoding)
