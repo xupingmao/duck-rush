@@ -27,46 +27,36 @@ import subprocess
 import sys
 import argparse
 import time
-import threading
+import importlib.util
+
+# 加载同目录下的 duck-server.py
+_import_dir = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location(
+    "duck_server", os.path.join(_import_dir, "duck-server.py")
+)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+DuckServer = _mod.DuckServer
 
 def get_web_tools_dir():
-    """
-    获取 web-tools 目录的绝对路径
-    """
-    # 获取当前脚本所在目录
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return script_dir
+    return os.path.dirname(os.path.abspath(__file__))
+
+_server_instance = None
 
 def start_http_server(port=8000):
-    """
-    在 web-tools 目录下启动 HTTP 服务器
-    """
+    global _server_instance
     web_tools_dir = get_web_tools_dir()
     
     try:
-        # 启动 HTTP 服务器
-        server_process = subprocess.Popen(
-            [sys.executable, "-m", "http.server", str(port)],
-            cwd=web_tools_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        
-        # 等待服务器启动
-        time.sleep(1)
-        
-        # 检查服务器是否成功启动
-        if server_process.poll() is not None:
-            # 服务器启动失败
-            stderr = server_process.stderr.read().decode('utf-8')
-            print(f"错误: HTTP 服务器启动失败 - {stderr}", file=sys.stderr)
-            return None
-        
+        server = DuckServer(port=port, directory=web_tools_dir)
+        server.start_in_thread()
+        _server_instance = server
+        # 等待服务器线程就绪
+        time.sleep(0.5)
         print(f"HTTP 服务器已启动，端口: {port}")
         print(f"服务器目录: {web_tools_dir}")
-        print(f"访问地址: http://localhost:{port}/web-tools-index.html")
-        
-        return server_process
+        print(f"访问地址: http://localhost:{port}/index.html")
+        return server
     except Exception as e:
         print(f"错误: 启动 HTTP 服务器失败 - {e}", file=sys.stderr)
         return None
@@ -117,52 +107,36 @@ def main():
     
     args = parser.parse_args()
     
-    server_process = None
+    server = None
     
     if args.http:
-        # 启动 HTTP 服务器
-        server_process = start_http_server(args.port)
-        
-        if not server_process:
+        server = start_http_server(args.port)
+        if not server:
             return 1
-        
-        # 构建 HTTP URL
         url = f"http://localhost:{args.port}/index.html"
     else:
-        # 使用文件协议打开
         web_tools_dir = get_web_tools_dir()
         index_file = os.path.join(web_tools_dir, "index.html")
-        
-        # 构建文件协议 URL
         if platform.system() == "Windows":
-            # Windows 路径格式: file:///C:/path/to/file.html
             url = f"file:///{index_file.replace(os.sep, '/')}"
         else:
-            # Unix/Linux/MacOS 路径格式: file:///path/to/file.html
             url = f"file://{index_file}"
-        
         print(f"使用文件协议打开: {url}")
     
-    # 打开浏览器
     success = open_browser(url)
     
     if success and args.http:
         print("\n提示: 服务器将在您关闭终端时停止")
         print("如果需要手动停止服务器，请按 Ctrl+C")
-        
-        # 保持脚本运行，直到用户中断
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n正在停止 HTTP 服务器...")
-            server_process.terminate()
-            server_process.wait()
+            server.stop()
             print("HTTP 服务器已停止")
     elif args.http:
-        # 打开浏览器失败，停止服务器
-        server_process.terminate()
-        server_process.wait()
+        server.stop()
         return 1
     
     return 0
