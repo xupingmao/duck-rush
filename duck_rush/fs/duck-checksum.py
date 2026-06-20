@@ -1,70 +1,73 @@
 # -*- coding:utf-8 -*-
-'''
-Author: xupingmao
-email: 578749341@qq.com
-Date: 2024-04-30 01:22:13
-LastEditors: xupingmao
-LastEditTime: 2024-08-17 17:25:48
-FilePath: /duck_rush/duck_rush/fs/duck-checksum.py
-Description: 描述
-'''
-#!/usr/bin/env python 2
-#coding : utf-8 3 
+import sys
 import hashlib
 import os
 import argparse
-
 from io import BufferedReader
 
 CHUNK_SIZE = 8192
 
-hash_dict = {
-    "sha1": hashlib.sha1(),
-    "md5": hashlib.md5(),
-    "sha256": hashlib.sha256(),
-    "sha384": hashlib.sha384(),
-    "sha512": hashlib.sha512(),
-}
+ALGORITHMS = sorted(hashlib.algorithms_available)
 
-def get_hash_lib(hash_type=""):
-    hash_type = hash_type.lower()
-    m = hash_dict.get(hash_type)
-    if m is None:
-        raise Exception(f"unknown hash_type {hash_type}")
-    return m
 
-def calc_checksum(fname="", checksum_type="sha1"):
-    """ 计算文件的SHA1值
-    """
-    def read_chunks(fh: BufferedReader):
-        fh.seek(0)
-        chunk = fh.read(CHUNK_SIZE)
-        while chunk:
-            yield chunk
-            chunk = fh.read(CHUNK_SIZE)
-        else: #最后要将游标放回文件开头
-            fh.seek(0)
-    
+class HelpFormatter(argparse.RawTextHelpFormatter):
+    pass
+
+
+def get_hash_lib(hash_type: str):
+    try:
+        return hashlib.new(hash_type)
+    except ValueError:
+        print("不支持的哈希算法: %s" % hash_type, file=sys.stderr)
+        print("可用算法: %s" % ", ".join(ALGORITHMS), file=sys.stderr)
+        sys.exit(1)
+
+
+def calc_checksum(fname: str, checksum_type: str = "sha1"):
     m = get_hash_lib(checksum_type)
     with open(fname, "rb") as fh:
-        for chunk in read_chunks(fh):
+        fh.seek(0)
+        while True:
+            chunk = fh.read(CHUNK_SIZE)
+            if not chunk:
+                break
             m.update(chunk)
     return m.hexdigest()
- 
-def main(path:str, type="sha1", **kw):
-    """计算文件/文件夹的校验码,支持的类型:sha1/md5/sha256/sha384/sha512"""
+
+
+def format_hash(type: str, hexdigest: str) -> str:
+    return "%s: %s" % (type, hexdigest)
+
+
+def main(path: str, type: str = "sha1", raw: bool = False):
     if os.path.isdir(path):
         for name in os.listdir(path):
             child_path = os.path.join(path, name)
             if os.path.isfile(child_path):
-                print(f'{type.upper()} %s\t%s' % (calc_checksum(child_path, checksum_type=type), child_path))
+                h = calc_checksum(child_path, type)
+                if raw:
+                    print(h, child_path)
+                else:
+                    print(format_hash(type, h), child_path)
     else:
-        print(f'{type}:', calc_checksum(path, checksum_type=type))
+        h = calc_checksum(path, type)
+        if raw:
+            print(h)
+        else:
+            print(format_hash(type, h))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=str)
-    parser.add_argument("--type", default="sha1", type=str)
+    algo_list = ", ".join(ALGORITHMS)
+    parser = argparse.ArgumentParser(
+        description="计算文件/目录的哈希校验码",
+        formatter_class=HelpFormatter,
+        epilog="支持的哈希算法 (%d 种):\n  %s" % (len(ALGORITHMS), algo_list),
+    )
+    parser.add_argument("path", help="文件或目录路径")
+    parser.add_argument("--type", default="sha1", choices=ALGORITHMS,
+                        help="哈希算法（默认 sha1）")
+    parser.add_argument("--raw", action="store_true",
+                        help="只输出哈希值，不包含算法前缀")
     args = parser.parse_args()
-    main(path=args.path, type=args.type)
+    main(path=args.path, type=args.type, raw=args.raw)
