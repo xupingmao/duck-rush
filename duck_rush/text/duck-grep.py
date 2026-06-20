@@ -9,14 +9,18 @@ import re
 import argparse
 
 
+def match_substring(pattern: str, line: str) -> bool:
+    return pattern in line
+
+
 def do_grep(pattern: str = "", line_number: bool = False, regex: bool = False):
     """用于windows环境模拟linux的grep命令"""
-    match_func = re.search if regex else (lambda p, l: p in l)
+    match_func = re.search if regex else match_substring
     for line_no, line in enumerate(sys.stdin, 1):
         line = line.rstrip("\n")
         if match_func(pattern, line):
             if line_number:
-                print(f"{line_no:4d}│ {line}")
+                print(f"{line_no:4d} │ {line}")
             else:
                 print(line)
 
