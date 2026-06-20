@@ -2,33 +2,35 @@
 # @author xupingmao
 # @since 2021/12/25 12:07:03
 # @modified 2021/12/25 15:03:40
-# @filename duck-sort.py
+# @filename duck-grep.py
 
-import os
 import sys
 import re
 import argparse
 
-def do_grep(search_key = ""):
+
+def do_grep(pattern: str = "", line_number: bool = False, regex: bool = False):
     """用于windows环境模拟linux的grep命令"""
-    fp = sys.stdin
-    while True:
-        line = fp.readline()
-        if line == "":
-            # 读取到文件结尾
-            break
-        clean_line = line.strip()
-        if clean_line == "":
-            continue
-        if search_key in clean_line:
-            print(clean_line)
+    match_func = re.search if regex else (lambda p, l: p in l)
+    for line_no, line in enumerate(sys.stdin, 1):
+        line = line.rstrip("\n")
+        if match_func(pattern, line):
+            if line_number:
+                print(f"{line_no:4d}│ {line}")
+            else:
+                print(line)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("search-key", type=str, default="")
+    parser.add_argument("pattern", type=str, default="")
+    parser.add_argument("-n", "--line-number", action="store_true",
+                        help="show line numbers")
+    parser.add_argument("-E", "--regexp", action="store_true",
+                        help="pattern is a regular expression")
     args = parser.parse_args()
-    do_grep(args.search_key)
+    do_grep(args.pattern, args.line_number, args.regexp)
+
 
 if __name__ == '__main__':
     main()
