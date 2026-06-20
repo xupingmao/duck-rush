@@ -14,18 +14,42 @@ import sys
 import platform
 import argparse
 
-def print_row(key: str, value):
-    print(key.rjust(20), value)
+def print_row(key: str, value, indent: int = 2):
+    print(" " * indent + key.ljust(20) + str(value))
+
+def print_separator(char: str = "-", length: int = 40):
+    print(char * length)
+
+def print_section(title: str):
+    print()
+    print("[ %s ]" % title)
+    print_separator()
 
 def print_detail():
-    # 参考文档： https://blog.csdn.net/KnownAll/article/details/81560050
-    # os.name 用于判断模块是否可用，只注册了三个值 posix/nt/java
+    uname = platform.uname()
+
+    print_section("系统信息")
+    print_row("OS:", platform.system())
+    print_row("版本:", platform.version())
+    print_row("发布:", platform.release())
+    print_row("主机名:", uname.node)
+
+    print_section("硬件信息")
+    print_row("架构:", platform.machine())
+    print_row("处理器:", platform.processor())
+    arch = platform.architecture()
+    print_row("系统位数:", arch[0])
+    print_row("链接格式:", arch[1])
+
+    print_section("Python 信息")
+    print_row("实现:", platform.python_implementation())
+    print_row("版本:", platform.python_version())
+    print_row("编译器:", platform.python_compiler())
+    print_row("构建:", platform.python_build()[0])
+
+    print_section("平台标识")
     print_row("os.name:", os.name)
-    # sys.platform 依赖在构建配置时指定的编译器定义
     print_row("sys.platform:", sys.platform)
-    # platform.system() 会返回更详细的系统信息，比如 Linux/Windows/Darwin
-    print_row("platform.system():", platform.system())
-    print_row("platform.version():", platform.version())
 
 def print_simple():
     print(platform.system())
