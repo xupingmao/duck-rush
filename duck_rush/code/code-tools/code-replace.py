@@ -7,7 +7,7 @@ import os
 import argparse
 import sys
 import chardet
-from typing import List, Optional, Union, Tuple, TextIO
+from typing import List, Optional, Union, Tuple, TextIO, Callable
 
 duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
 if duck_rush_dir not in sys.path:
@@ -26,7 +26,7 @@ CODE_EXT_SET = set([
 ])
 
 # [[func1, args], [func2, args2]]
-COMMANDS: List[List[Union[callable, List]]] = []
+COMMANDS: List[List[Union[Callable, List]]] = []
 # 5M
 FILE_SIZE_LIMIT = 1024 * 1024 * 5
 
