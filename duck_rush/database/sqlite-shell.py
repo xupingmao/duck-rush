@@ -58,6 +58,7 @@ class SqliteShell:
         self.conn = sqlite3.connect(db_path)
         self.show_headers = True
         self.mode = "column"
+        self._init_dot_cmd_map()
 
     def close(self):
         if self.conn:
@@ -89,6 +90,7 @@ class SqliteShell:
         print(self.db_path)
 
     def query(self, sql, params=None):
+        assert self.conn != None
         cursor = self.conn.cursor()
         try:
             if params:
@@ -126,32 +128,35 @@ class SqliteShell:
         except Exception as e:
             print("Error: %s" % e)
 
+    _DOT_EXIT = {"quit", "q", "exit"}
+
+    def _init_dot_cmd_map(self):
+        self._dot_cmd_map = {
+            "tables": lambda a: self.list_tables(),
+            "schema": lambda a: self.show_schema(a),
+            "databases": lambda a: self.show_databases(),
+            "headers": self._set_headers,
+            "mode": self._set_mode,
+            "help": lambda a: print_help(),
+        }
+
+    def _set_headers(self, arg):
+        self.show_headers = not (arg and arg.lower() == "off")
+
+    def _set_mode(self, arg):
+        self.mode = "line" if arg and arg.lower() == "line" else "column"
+
     def exec_dot_command(self, line):
         parts = line[1:].strip().split()
         if not parts:
             return True
         cmd = parts[0].lower()
         arg = " ".join(parts[1:]) if len(parts) > 1 else None
-        if cmd in ("quit", "q", "exit"):
+        if cmd in self._DOT_EXIT:
             return False
-        elif cmd == "tables":
-            self.list_tables()
-        elif cmd == "schema":
-            self.show_schema(arg)
-        elif cmd == "databases":
-            self.show_databases()
-        elif cmd == "headers":
-            if arg and arg.lower() == "off":
-                self.show_headers = False
-            else:
-                self.show_headers = True
-        elif cmd == "mode":
-            if arg and arg.lower() == "line":
-                self.mode = "line"
-            else:
-                self.mode = "column"
-        elif cmd == "help":
-            print_help()
+        handler = self._dot_cmd_map.get(cmd)
+        if handler:
+            handler(arg)
         else:
             print("未知命令: %s，输入 .help 查看帮助" % cmd)
         return True

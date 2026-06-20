@@ -39,6 +39,7 @@ class LeveldbShell:
     def __init__(self, db_path: str, create: bool = False) -> None:
         self.db_path = db_path
         self.db = LevelDB(db_path, create)
+        self._init_cmd_map()
 
     def close(self) -> None:
         if self.db:
@@ -51,8 +52,8 @@ class LeveldbShell:
     def __exit__(self, *args):
         self.close()
 
-    def cmd_get(self, key: str) -> None:
-        val = self.db.get(key.encode())
+    def cmd_get(self, args: str) -> None:
+        val = self.db.get(args.strip().encode())
         if val is None:
             print("(not found)")
         else:
@@ -62,8 +63,8 @@ class LeveldbShell:
         self.db.put(key.encode(), value.encode())
         print("OK")
 
-    def cmd_delete(self, key: str) -> None:
-        self.db.delete(key.encode())
+    def cmd_delete(self, args: str) -> None:
+        self.db.delete(args.strip().encode())
         print("OK")
 
     def _compile_regex(self, pattern: Optional[str]) -> Optional[re.Pattern]:
@@ -110,19 +111,36 @@ class LeveldbShell:
         all_rows = self._scan_all(key_regex, value_regex)
         print(len(all_rows))
 
+    def _exec_put(self, args: str) -> None:
+        k, v = parse_kv_args(args)
+        if k is None or v is None:
+            print("用法: put <key> <value>")
+            return
+        self.cmd_put(k, v)
+
+    _DOT_CMDS = {"quit", "q", "exit"}
+
+    def _init_cmd_map(self) -> None:
+        self._cmd_map = {
+            "get": self.cmd_get,
+            "put": self._exec_put,
+            "del": self.cmd_delete,
+            "scan": self.cmd_scan_inline,
+            "count": self.cmd_count_inline,
+        }
+
     def exec_dot_command(self, line: str) -> bool:
         parts = line[1:].strip().split(maxsplit=2)
         if not parts:
             return True
         cmd = parts[0].lower()
-        if cmd in ("quit", "q", "exit"):
+        if cmd in self._DOT_CMDS:
             return False
-        elif cmd == "help":
+        if cmd == "help":
             print_help()
             return True
-        else:
-            self.exec_line(line[1:].strip())
-            return True
+        self.exec_line(line[1:].strip())
+        return True
 
     def exec_line(self, line: str) -> None:
         parts = line.strip().split(maxsplit=1)
@@ -130,21 +148,9 @@ class LeveldbShell:
             return
         cmd = parts[0].lower()
         rest = parts[1] if len(parts) > 1 else ""
-
-        if cmd == "get":
-            self.cmd_get(rest.strip())
-        elif cmd == "put":
-            k, v = parse_kv_args(rest)
-            if k is None or v is None:
-                print("用法: put <key> <value>")
-                return
-            self.cmd_put(k, v)
-        elif cmd == "del":
-            self.cmd_delete(rest.strip())
-        elif cmd == "scan":
-            self.cmd_scan_inline(rest)
-        elif cmd == "count":
-            self.cmd_count_inline(rest)
+        handler = self._cmd_map.get(cmd)
+        if handler:
+            handler(rest)
         else:
             print("未知命令: %s，输入 .help 查看帮助" % cmd)
 
@@ -187,20 +193,9 @@ class LeveldbShell:
                 self.exec_line(line)
 
     def run_one_shot(self, cmd: str, args_str: str = "") -> None:
-        if cmd == "get":
-            self.cmd_get(args_str.strip())
-        elif cmd == "put":
-            k, v = parse_kv_args(args_str)
-            if k is None or v is None:
-                print("用法: put <key> <value>")
-                return
-            self.cmd_put(k, v)
-        elif cmd == "del":
-            self.cmd_delete(args_str.strip())
-        elif cmd == "scan":
-            self.cmd_scan_inline(args_str)
-        elif cmd == "count":
-            self.cmd_count_inline(args_str)
+        handler = self._cmd_map.get(cmd)
+        if handler:
+            handler(args_str)
 
 
 def main() -> None:
