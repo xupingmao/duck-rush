@@ -1,5 +1,4 @@
 termcolor
-fire
 chardet
 xlwt
 xlrd
