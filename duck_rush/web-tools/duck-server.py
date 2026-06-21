@@ -108,6 +108,23 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
 
     CORS_ORIGINS: ClassVar[List[str]] = ["*"]
 
+    # 需要指定 charset=utf-8 的文本文件扩展名
+    _TEXT_EXTENSIONS: ClassVar[set] = {
+        ".js", ".css", ".html", ".htm", ".json", ".svg",
+        ".xml", ".txt", ".md", ".mjs", ".cjs", ".vue",
+    }
+
+    def guess_type(self, path) -> str:
+        ctype = super().guess_type(path)
+        if ctype and ctype.startswith("text/"):
+            return ctype + "; charset=utf-8"
+        if ctype == "application/javascript":
+            return "application/javascript; charset=utf-8"
+        ext = os.path.splitext(path)[1].lower()
+        if ext in self._TEXT_EXTENSIONS:
+            return f"{ctype or 'application/octet-stream'}; charset=utf-8"
+        return ctype or "application/octet-stream"
+
     # 自定义路由表：{path: BaseBizHandler 子类}
     CUSTOM_ROUTES: ClassVar[Dict[str, Type[BaseBizHandler]]] = {}
 
