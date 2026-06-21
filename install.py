@@ -299,19 +299,17 @@ def install_leveldb():
     os.system(f"{sys.executable} -m pip install duck_leveldb")
 
 def install_requirements():
-    # import pip
     print("安装依赖包...")
-    os.system(f"pip install -r config/requirements.txt")
+    os.system(f"pip install -r \"{os.path.join(DIR_PATH, 'config', 'requirements.txt')}\"")
     install_leveldb()
     print("依赖包安装完成")
 
 def install_duck_rush_package():
     print("安装 duck_rush 模块 ...")
-    os.system(f"{sys.executable} setup.py sdist install")
+    os.system(f"{sys.executable} \"{os.path.join(DIR_PATH, 'setup.py')}\" sdist install")
     print("清理临时文件...")
-    shutil.rmtree("./build", ignore_errors=True)
-    shutil.rmtree("./dist", ignore_errors=True)
-    shutil.rmtree("./duck_rush.egg-info", ignore_errors=True)
+    for d in ("build", "dist", "duck_rush.egg-info"):
+        shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
     print("duck_rush模块安装完成")
 
 def do_install():

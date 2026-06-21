@@ -87,19 +87,9 @@ def list_command_func(args):
         print(cmd.fpath)
 
 def install_func(args):
-    profile_name = ".bash_profile"
-    home_path = os.environ["HOME"]
-    profile_path = os.path.join(home_path, profile_name)
-    print("install to [%s]" % profile_path)
-
-    with open(profile_path) as fp:
-        content = fp.read()
-
-    fpath = os.path.abspath(__file__)
-    alias_instruction = 'alias duck="python3 %s"' % fpath
-    if alias_instruction not in content:
-        with open(profile_path, mode = "a+") as fp:
-            fp.write("\n" + alias_instruction + "\n")
+    install_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "install.py")
+    install_script = os.path.normpath(install_script)
+    os.system("%s %s" % (sys.executable, install_script))
 
 def help_func(args):
     PARSER.print_help()
