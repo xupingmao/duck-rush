@@ -276,6 +276,23 @@ function loadInitPage() {
                 }
                 if (found) break;
             }
+
+            // 查找tab菜单项
+            if (item.tabs) {
+                for (const [index, tab] of item.tabs.entries()) {
+                    tab.index = index;
+                    if (tab.url === currentUrl) {
+                        loadPage(item, tab);
+                        const navItem = document.querySelector(`#${item.id} a`);
+                        if (navItem) {
+                            updateActiveNavItem(navItem);
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
         }
 
         if (!found) {
