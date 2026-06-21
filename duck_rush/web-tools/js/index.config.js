@@ -43,6 +43,7 @@ const menuConfig = [
     {
         id: "text-tools",
         name: "文本工具",
+        icon: "📄",
         tabs: [
             {
                 id: 'text-split',
@@ -74,6 +75,7 @@ const menuConfig = [
     {
         id: 'run-script',
         name: '运行脚本',
+        icon: '📜',
         tabs: [
             {
                 id: 'run-js',
@@ -87,11 +89,13 @@ const menuConfig = [
         id: 'timestamp-tool',
         name: '时间戳工具',
         url: 'pages/timestamp.html',
+        icon: "🕘",
         description: "用于转换和操作时间戳的工具，方便时间计算和显示。"
     },
     {
         id: 'calculator',
         name: '计算器',
+        icon: "🔢",
         tabs: [
             {
                 id: "math-calculator",
@@ -116,6 +120,19 @@ const menuConfig = [
                 name: '卡路里计算器',
                 url: 'pages/calculator/calorie-calculator.html',
                 description: "用于计算食物热量的工具，帮助您管理和控制饮食。"
+            }
+        ]
+    },
+    {
+        id: "img-tools",
+        icon: "🖼️",
+        name: "图片工具",
+        tabs: [
+            {
+                id: "img-diff",
+                name: "图片diff",
+                description: "图片像素对比工具",
+                url: "pages/image-diff.html"
             }
         ]
     },
