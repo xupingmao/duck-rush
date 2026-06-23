@@ -92,10 +92,17 @@ def install_func(args):
     os.system("%s %s" % (sys.executable, install_script))
 
 def upgrade_func(args):
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root = get_project_root()
     os.chdir(project_root)
     os.system("git pull")
     install_func(args)
+
+def get_project_root():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def dir_func(args):
+    project_root = get_project_root()
+    print(project_root)
 
 def help_func(args):
     PARSER.print_help()
@@ -129,6 +136,7 @@ ACTION_FUNC_DICT = {
     "list": list_command_func,
     "install": install_func,
     "upgrade": upgrade_func,
+    "dir": dir_func,
     "help": help_func,
 }
 
