@@ -3,6 +3,7 @@
 
 import os
 import sys
+import platform
 import shutil
 import json
 
@@ -159,11 +160,7 @@ def is_script_file(fpath):
 
 class WindowsInstaller:
 
-    BAT_SCRIPT_TEMPLATE = """
-@echo off
-set DUCK_RUSH_DIR={duck_rush_dir}
-{python} "{fpath}" %*
-"""
+    BAT_SCRIPT_TEMPLATE = "\r\n@echo off\r\nset DUCK_RUSH_DIR={duck_rush_dir}\r\n{python} \"{fpath}\" %*\r\n"
     
     NON_CODE_EXT_SET = InstallConfig.not_code_file_set
 
@@ -172,6 +169,7 @@ set DUCK_RUSH_DIR={duck_rush_dir}
         self.dirname = dirname
         self.debug = False
         self.count = 0
+        self.expected_names = set()
 
     def is_script_file(self, fpath):
         name, ext = os.path.splitext(fpath)
@@ -187,18 +185,28 @@ set DUCK_RUSH_DIR={duck_rush_dir}
         if ext != ".py":
             return
         
-        # 只支持Python            
+        # 只支持Python
+        self.expected_names.add(fname_base + ".bat")
         content = self.BAT_SCRIPT_TEMPLATE.format(python = sys.executable, fpath = fpath.replace("\\", "\\\\"), duck_rush_dir=DIR_PATH)
         bat_path = os.path.join(self.dirname, fname_base + ".bat")
 
+        # 检查文件是否存在且内容一致
+        if os.path.exists(bat_path):
+            with open(bat_path) as fp:
+                old_content = fp.read()
+            if old_content == content:
+                self.count += 1
+                print("[%03d] 跳过(无变化): %s" % (self.count, bat_path))
+                return
+
         self.count += 1
-        print("[%03d] 安装脚本: %s" % (self.count, bat_path))
+        print("[%03d] 更新脚本: %s" % (self.count, bat_path))
         if self.debug:
             print(content)
             print("")
             return
 
-        with open(bat_path, "w+") as fp:
+        with open(bat_path, "w") as fp:
             fp.write(content)
 
 
@@ -212,11 +220,23 @@ set DUCK_RUSH_DIR={duck_rush_dir}
 
                 self.create_file(fpath)
 
+    def remove_stale_files(self):
+        if not os.path.exists(self.dirname):
+            return
+        for fname in os.listdir(self.dirname):
+            if fname in self.expected_names:
+                continue
+            fpath = os.path.join(self.dirname, fname)
+            if os.path.isfile(fpath) and fname.endswith(".bat"):
+                os.remove(fpath)
+                print("删除过期脚本: %s" % fpath)
+
     def install(self):
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)
 
         self.create_bat_files()
+        self.remove_stale_files()
 
 def install_for_windows():
     import termcolor
@@ -252,14 +272,8 @@ def install_for_windows():
 def install_for_unix():
     log_info("准备安装duck_rush ... ")
 
-    # 清空旧的 local/bin 脚本
     local_bin_path = os.path.join(LOCAL_PATH, "bin")
-    if os.path.exists(local_bin_path):
-        for fname in os.listdir(local_bin_path):
-            fpath = os.path.join(local_bin_path, fname)
-            if os.path.isfile(fpath):
-                os.remove(fpath)
-                log_info("清理旧脚本: %r", fpath)
+    makedirs(local_bin_path)
 
     def get_start_code(fpath, ext):
         """构建启动脚本"""
@@ -269,39 +283,54 @@ def install_for_unix():
             return "sh %r $*" % fpath
         return ""
 
-    def save_start_code(fpath, code):
-        dirname = os.path.dirname(fpath)
-        # log_info("%s :: %s", fpath, code)
-        makedirs(dirname)
-        with open(fpath, "w") as fp:
-            fp.write(code)
-
+    # 第1步：收集所有当前应生成的脚本名
+    expected_names = set()
     index = 0
     for root, dirs, files in os.walk(SRC_PATH):
         for fname in files:
             if not is_script_file(fname):
                 continue
-
             if InstallConfig.is_skip_file(fname):
                 continue
-
             fpath = os.path.join(root, fname)
             fpath = os.path.abspath(fpath)
-
             name, ext = os.path.splitext(fname)
+            expected_names.add(name)
+
             start_code = get_start_code(fpath, ext)
-            start_file = os.path.join(LOCAL_PATH, "bin", name)
+            start_file = os.path.join(local_bin_path, name)
             start_file = os.path.abspath(start_file)
-            save_start_code(start_file, start_code)
-            log_info("[%03d]安装脚本[%r]", index+1, fpath)
+
+            # 检查文件是否存在且内容一致
+            if os.path.exists(start_file):
+                with open(start_file) as fp:
+                    old_code = fp.read()
+                if old_code == start_code:
+                    log_info("[%03d]跳过(无变化)[%r]", index+1, fpath)
+                    index += 1
+                    continue
+
+            makedirs(os.path.dirname(start_file))
+            with open(start_file, "w") as fp:
+                fp.write(start_code)
+            log_info("[%03d]更新脚本[%r]", index+1, fpath)
             index += 1
+
+    # 第2步：删除不再需要的旧脚本
+    if os.path.exists(local_bin_path):
+        for fname in os.listdir(local_bin_path):
+            if fname in expected_names:
+                continue
+            fpath = os.path.join(local_bin_path, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                log_info("删除过期脚本: %r", fpath)
 
     # 本地的一些临时脚本
     makedirs(LOCAL_PATH)
     add_shell_path(LOCAL_PATH)
 
     # 必须在最后添加并且标记为执行文件
-    makedirs(local_bin_path)
     add_shell_path(local_bin_path)
 
 def install_leveldb():
@@ -343,6 +372,16 @@ def do_install():
     save_commands(commands)
     
     print(colored("安装完成!", "green"))
+
+    # 汇总信息
+    print("")
+    print("=" * 40)
+    print("安装汇总")
+    print("=" * 40)
+    print("  操作系统: %s" % platform.platform())
+    print("  Python版本: %s" % sys.version.split()[0])
+    print("  脚本总数: %d" % len(commands))
+    print("=" * 40)
 
 if __name__ == '__main__':
     do_install()
