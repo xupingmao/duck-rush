@@ -252,6 +252,15 @@ def install_for_windows():
 def install_for_unix():
     log_info("准备安装duck_rush ... ")
 
+    # 清空旧的 local/bin 脚本
+    local_bin_path = os.path.join(LOCAL_PATH, "bin")
+    if os.path.exists(local_bin_path):
+        for fname in os.listdir(local_bin_path):
+            fpath = os.path.join(local_bin_path, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                log_info("清理旧脚本: %r", fpath)
+
     def get_start_code(fpath, ext):
         """构建启动脚本"""
         if ext == ".py":
@@ -292,7 +301,6 @@ def install_for_unix():
     add_shell_path(LOCAL_PATH)
 
     # 必须在最后添加并且标记为执行文件
-    local_bin_path = os.path.join(LOCAL_PATH, "bin")
     makedirs(local_bin_path)
     add_shell_path(local_bin_path)
 
