@@ -79,7 +79,7 @@ def add_shell_path(fpath):
     fpath = os.path.abspath(fpath)
     os.system("chmod -R +x %s" % fpath)
 
-    cmd = "PATH=$PATH:%s" % fpath
+    cmd = "export PATH=$PATH:%s" % fpath
     append_to_bash_profile(cmd)
 
 def makedirs(dirname):
@@ -149,6 +149,7 @@ def check_environment():
         print("")
         return "nt"
     else:
+        print("检测到Unix/Linux环境")
         return "unix"
 
 def is_script_file(fpath):
