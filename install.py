@@ -50,14 +50,15 @@ def log_info(fmt, *args):
     print(fmt % args)
 
 def find_bash_profile_path():
+    bash_rc = os.path.join(HOME_PATH, ".bashrc")
+    if os.path.exists(bash_rc):
+        return bash_rc
+
     bash_profile = os.path.join(HOME_PATH, ".bash_profile")
     if os.path.exists(bash_profile):
         return bash_profile
 
-    bash_rc = os.path.join(HOME_PATH, ".bashrc")
-    if os.path.exists(bash_rc):
-        return bash_rc
-    raise Exception("bash profile not found!")
+    return bash_rc
 
 def load_bash_profile():
     fpath = find_bash_profile_path()
