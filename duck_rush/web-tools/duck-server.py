@@ -69,6 +69,30 @@ class Request:
         self.client_address = client_address
 
 
+class APIResponse:
+    """统一 API 响应结构
+
+    所有 /api/* 接口返回值统一包装为此结构，
+    handle_custom_route 会自动序列化为 JSON 发送。
+    """
+
+    def __init__(self, code: int = 0, message: str = "ok", data: Any = None) -> None:
+        self.code = code        # 0=成功, 非0=错误码
+        self.message = message  # 可读消息
+        self.data = data        # 业务数据
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"code": self.code, "message": self.message, "data": self.data}
+
+    @staticmethod
+    def ok(data: Any = None, message: str = "ok") -> 'APIResponse':
+        return APIResponse(code=0, message=message, data=data)
+
+    @staticmethod
+    def error(message: str, code: int = 1) -> 'APIResponse':
+        return APIResponse(code=code, message=message, data=None)
+
+
 class BaseBizHandler:
     """业务处理器基类 — 通过 self.send_*() 输出响应，request 参数为输入"""
 
@@ -204,7 +228,9 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
             result: Any = fn(req)
             if result is None:
                 return True
-            if isinstance(result, dict):
+            if isinstance(result, APIResponse):
+                self.send_json(result.to_dict())
+            elif isinstance(result, dict):
                 self.send_json(result)
             else:
                 self.send_text(str(result))
@@ -302,20 +328,22 @@ def create_server(
 
 # ── 注册自定义路由示例 ────────────────────────
 class _StatusHandler(BaseBizHandler):
-    def do_GET(self, request: Request) -> Dict[str, Any]:
-        return {"status": "ok", "time": time.time(), "version": "1.0"}
+    def do_GET(self, request: Request) -> APIResponse:
+        return APIResponse.ok(
+            data={"status": "ok", "time": time.time(), "version": "1.0"}
+        )
 
-    def do_POST(self, request: Request) -> Dict[str, Any]:
+    def do_POST(self, request: Request) -> APIResponse:
         data = self.get_json_body(request)
-        return {"received": data, "method": "POST"}
+        return APIResponse.ok(data={"received": data, "method": "POST"})
 
 
 class _InfoHandler(BaseBizHandler):
-    def do_GET(self, request: Request) -> Dict[str, str]:
-        return {
+    def do_GET(self, request: Request) -> APIResponse:
+        return APIResponse.ok(data={
             "name": "Duck Server",
             "description": "基于 http.server 的可扩展 Web 服务器",
-        }
+        })
 
 
 class _ShellHandler(BaseBizHandler):
@@ -324,7 +352,7 @@ class _ShellHandler(BaseBizHandler):
     ALLOWED_COMMANDS: List[str] = [
         "grep", "sort", "uniq", "head", "tail", "sed", "awk", "wc",
         "cut", "tr", "rev", "cat", "tac", "nl", "fmt", "pr", "fold",
-        "paste", "join", "comm", "diff", "expand", "unexpand",
+        "paste", "join", "comm", "diff", "expand", "unexpand", "duck-replace",
     ]
 
     def _check_command(self, cmd: str) -> str:
@@ -340,26 +368,26 @@ class _ShellHandler(BaseBizHandler):
                 raise ValueError(f"命令 \"{base}\" 不在允许列表中")
         return cmd
 
-    def do_POST(self, request: Request) -> Dict[str, Any]:
+    def do_POST(self, request: Request) -> APIResponse:
         data = self.get_json_body(request)
         if not data:
-            return {"error": "请求体为空"}
+            return APIResponse.error("请求体为空")
 
         text = data.get("text", "")
         command = data.get("command", "")
-        
+
         if ServerConfig.debug_log:
             log.debug("command = %s", command)
 
         if not text:
-            return {"error": "输入文本为空"}
+            return APIResponse.error("输入文本为空")
         if not command:
-            return {"error": "命令为空"}
+            return APIResponse.error("命令为空")
 
         try:
             command = self._check_command(command)
         except ValueError as e:
-            return {"error": str(e)}
+            return APIResponse.error(str(e))
 
         proc = None
         try:
@@ -374,18 +402,18 @@ class _ShellHandler(BaseBizHandler):
                 input=text.encode('utf-8'),
                 timeout=30,
             )
-            return {
+            return APIResponse.ok(data={
                 "output": stdout.decode('utf-8', errors='replace'),
                 "stderr": stderr.decode('utf-8', errors='replace'),
                 "returncode": proc.returncode,
-            }
+            })
         except subprocess.TimeoutExpired:
             if proc:
                 proc.kill()
                 proc.communicate()
-            return {"error": "命令执行超时，已终止"}
+            return APIResponse.error("命令执行超时，已终止")
         except Exception as e:
-            return {"error": f"执行失败: {e}"}
+            return APIResponse.error(f"执行失败: {e}")
 
 
 def _register_core_routes() -> None:
