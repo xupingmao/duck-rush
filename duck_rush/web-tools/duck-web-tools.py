@@ -27,36 +27,37 @@ import subprocess
 import sys
 import argparse
 import time
-import importlib.util
-
-# 加载同目录下的 duck-server.py
-_import_dir = os.path.dirname(os.path.abspath(__file__))
-_spec = importlib.util.spec_from_file_location(
-    "duck_server", os.path.join(_import_dir, "duck-server.py")
-)
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
-DuckServer = _mod.DuckServer
+import signal
 
 def get_web_tools_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
-_server_instance = None
 
-def start_http_server(port=8000):
-    global _server_instance
+def get_server_script():
+    return os.path.join(get_web_tools_dir(), "duck-server.py")
+
+
+_server_process = None
+
+
+def start_http_server(port=8000, extra_args=None):
+    global _server_process
     web_tools_dir = get_web_tools_dir()
     
+    cmd = [sys.executable, get_server_script(), "--port", str(port)]
+    if extra_args:
+        cmd.extend(extra_args)
+    
+    cmd_str = " ".join(cmd)
+    print(f"服务器命令: {cmd_str}")
+    
     try:
-        server = DuckServer(port=port, directory=web_tools_dir)
-        server.start_in_thread()
-        _server_instance = server
-        # 等待服务器线程就绪
+        _server_process = subprocess.Popen(cmd, cwd=web_tools_dir)
         time.sleep(0.5)
         print(f"HTTP 服务器已启动，端口: {port}")
         print(f"服务器目录: {web_tools_dir}")
         print(f"访问地址: http://localhost:{port}/index.html")
-        return server
+        return _server_process
     except Exception as e:
         print(f"错误: 启动 HTTP 服务器失败 - {e}", file=sys.stderr)
         return None
@@ -96,7 +97,7 @@ def main():
     """
     parser = argparse.ArgumentParser(
         description='跨平台命令行工具，用于打开 Web 工具索引页面',
-        epilog='示例:\n  duck-web-tools.py  # 使用文件协议打开 Web 工具索引页面（默认）\n  duck-web-tools.py --http  # 启动 HTTP 服务器并使用 HTTP 协议打开\n  duck-web-tools.py --http --port 3000  # 指定 HTTP 端口'
+        epilog='示例:\n  duck-web-tools.py  # 使用文件协议打开 Web 工具索引页面（默认）\n  duck-web-tools.py --http  # 启动 HTTP 服务器并使用 HTTP 协议打开\n  duck-web-tools.py --http --port 3000  # 指定 HTTP 端口\n  duck-web-tools.py --http --example-routes  # 传入额外参数给 duck-server'
     )
     
     # 添加可选参数
@@ -105,12 +106,10 @@ def main():
     parser.add_argument('--http', action='store_true', help='使用 HTTP 协议打开（需要启动服务器）')
     parser.add_argument('--port', '-p', type=int, default=8000, help='HTTP 服务器端口 (默认: 8000)')
     
-    args = parser.parse_args()
-    
-    server = None
+    args, extra_args = parser.parse_known_args()
     
     if args.http:
-        server = start_http_server(args.port)
+        server = start_http_server(args.port, extra_args=extra_args)
         if not server:
             return 1
         url = f"http://localhost:{args.port}/index.html"
@@ -133,13 +132,23 @@ def main():
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n正在停止 HTTP 服务器...")
-            server.stop()
+            _stop_server()
             print("HTTP 服务器已停止")
     elif args.http:
-        server.stop()
+        _stop_server()
         return 1
     
     return 0
+
+
+def _stop_server():
+    global _server_process
+    if _server_process:
+        if platform.system() == "Windows":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(_server_process.pid)], capture_output=True)
+        else:
+            _server_process.send_signal(signal.SIGTERM)
+        _server_process = None
 
 if __name__ == "__main__":
     sys.exit(main())

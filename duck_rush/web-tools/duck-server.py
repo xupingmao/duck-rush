@@ -27,6 +27,9 @@ from urllib.parse import urlparse, parse_qs
 DEFAULT_PORT: int = 8000
 DEFAULT_HOST: str = "0.0.0.0"
 
+class ServerConfig:
+    debug_log = False
+
 # ──────────────────────────────────────────────
 #  日志
 # ──────────────────────────────────────────────
@@ -178,6 +181,9 @@ class DuckRequestHandler(SimpleHTTPRequestHandler):
         query: Dict[str, str] = dict(
             (k, v[0]) for k, v in parse_qs(parsed.query).items()
         )
+        
+        if ServerConfig.debug_log:
+            log.debug("path = %s", path)
 
         handler_class: Optional[Type[BaseBizHandler]] = self.CUSTOM_ROUTES.get(path)
         if handler_class is None:
@@ -311,11 +317,86 @@ class _InfoHandler(BaseBizHandler):
         }
 
 
+class _ShellHandler(BaseBizHandler):
+    """处理 Shell 文本处理命令 — 将输入文本通过管道传给指定命令"""
+
+    ALLOWED_COMMANDS: List[str] = [
+        "grep", "sort", "uniq", "head", "tail", "sed", "awk", "wc",
+        "cut", "tr", "rev", "cat", "tac", "nl", "fmt", "pr", "fold",
+        "paste", "join", "comm", "diff", "expand", "unexpand",
+    ]
+
+    def _check_command(self, cmd: str) -> str:
+        """安全检查：只允许已知命令和管道操作"""
+        import re
+        # 允许字母数字、空格、/、-、_、.、'、"、$、|、>、<、;
+        if not re.match(r'^[a-zA-Z0-9\s/\-_.\'\"$^{}()\[\]|><;]+$', cmd):
+            raise ValueError("命令包含不允许的字符")
+        # 按管道拆分，逐个检查每个命令
+        segments = cmd.split("|")
+        for seg in segments:
+            seg = seg.strip()
+            if not seg:
+                continue
+            first_word = seg.split()[0] if seg else ""
+            base = os.path.basename(first_word)
+            if base not in self.ALLOWED_COMMANDS:
+                raise ValueError(f"命令 \"{base}\" 不在允许列表中")
+        return cmd
+
+    def do_POST(self, request: Request) -> Dict[str, Any]:
+        import subprocess
+        data = self.get_json_body(request)
+        if not data:
+            return {"error": "请求体为空"}
+
+        text = data.get("text", "")
+        command = data.get("command", "")
+        
+        if ServerConfig.debug_log:
+            log.debug("command = %s", command)
+
+        if not text:
+            return {"error": "输入文本为空"}
+        if not command:
+            return {"error": "命令为空"}
+
+        try:
+            command = self._check_command(command)
+        except ValueError as e:
+            return {"error": str(e)}
+
+        try:
+            proc = subprocess.run(
+                command,
+                shell=True,
+                input=text,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return {
+                "output": proc.stdout,
+                "stderr": proc.stderr,
+                "returncode": proc.returncode,
+            }
+        except subprocess.TimeoutExpired:
+            return {"error": "命令执行超时"}
+        except Exception as e:
+            return {"error": f"执行失败: {e}"}
+
+
+def _register_core_routes() -> None:
+    DuckRequestHandler.CUSTOM_ROUTES.update({
+        "/api/run-shell": _ShellHandler,
+    })
+
+
 def _register_example_routes() -> None:
-    DuckRequestHandler.CUSTOM_ROUTES = {
+    DuckRequestHandler.CUSTOM_ROUTES.update({
         "/api/status": _StatusHandler,
         "/api/info": _InfoHandler,
-    }
+    })
 
 
 # ── 命令行入口 ────────────────────────────────
@@ -325,10 +406,16 @@ def main() -> int:
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help=f"监听地址 (默认: {DEFAULT_HOST})")
     parser.add_argument("--directory", "-d", type=str, default=None, help="服务目录 (默认: 当前目录)")
     parser.add_argument("--example-routes", action="store_true", help="注册示例 API 路由")
+    parser.add_argument("--debug-log", action="store_true", help="开启调试日志")
     args = parser.parse_args()
 
+    _register_core_routes()
     if args.example_routes:
         _register_example_routes()
+        
+    ServerConfig.debug_log = args.debug_log
+    if args.debug_log:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     server = DuckServer(
         host=args.host,

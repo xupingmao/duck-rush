@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shell文本处理 | Duck Rush</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3436 0%, #636e72 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        main { padding: 24px; }
+
+        .command-bar {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .command-bar label {
+            color: #6a9955;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+
+        .command-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #3c3c3c;
+            border-radius: 4px;
+            background: #252526;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .command-bar input:focus {
+            border-color: #6a9955;
+        }
+
+        .command-bar input::placeholder {
+            color: #6a9955;
+            opacity: 0.5;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6a9955 0%, #4ec9b0 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(106, 153, 85, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: translateY(-1px);
+        }
+
+        .text-areas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .text-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-section label {
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .text-section label .status {
+            font-weight: 400;
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .text-section label .status.running {
+            color: #e67e22;
+        }
+
+        .text-section label .status.done {
+            color: #27ae60;
+        }
+
+        .text-section label .status.error {
+            color: #e74c3c;
+        }
+
+        .text-area-container {
+            flex: 1;
+            min-height: 350px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            tab-size: 4;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #6a9955;
+            box-shadow: 0 0 0 0.2rem rgba(106, 153, 85, 0.25);
+        }
+
+        textarea[readonly] {
+            background: #f8f9fa;
+        }
+
+        .output-section {
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 32px;
+            right: 8px;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #e9ecef;
+        }
+
+        .help-section {
+            margin-top: 20px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .help-section summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #444;
+            font-size: 0.9rem;
+            padding: 4px 0;
+        }
+
+        .help-section .help-content {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .help-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .help-card code {
+            display: block;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .help-card p {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 8px; }
+            main { padding: 16px; }
+            .text-areas {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .text-area-container { min-height: 200px; }
+            .command-bar { flex-direction: column; }
+            .command-bar input { width: 100%; min-width: unset; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">⌨ Shell文本处理</h1>
+            <p class="header-subtitle">用 Shell 命令处理文本 — 输入 → 管道 → 输出</p>
+        </header>
+
+        <main>
+            <div class="command-bar">
+                <label>$</label>
+                <input type="text" id="shellCommand" placeholder="例如: sort -u | head -5" spellcheck="false" autofocus>
+                <button class="btn btn-primary" id="runBtn">▶ 运行</button>
+                <button class="btn btn-secondary" id="clearBtn">清空</button>
+            </div>
+
+            <div class="text-areas">
+                <div class="text-section">
+                    <label for="inputText">
+                        <span>输入文本</span>
+                        <span class="status" id="inputStatus"></span>
+                    </label>
+                    <div class="text-area-container">
+                        <textarea id="inputText" placeholder="在此粘贴要处理的文本..."></textarea>
+                    </div>
+                </div>
+
+                <div class="text-section output-section">
+                    <label for="outputText">
+                        <span>输出结果</span>
+                        <span class="status" id="outputStatus"></span>
+                    </label>
+                    <button class="copy-btn" id="copyBtn">复制</button>
+                    <div class="text-area-container">
+                        <textarea id="outputText" placeholder="结果将显示在这里..." readonly></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <details>
+                    <summary>📖 常用命令示例 (点击展开)</summary>
+                    <div class="help-content">
+                        <div class="help-card">
+                            <code>sort</code>
+                            <p>按字母顺序排序行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>sort -u</code>
+                            <p>排序并去重</p>
+                        </div>
+                        <div class="help-card">
+                            <code>sort -n</code>
+                            <p>按数值排序</p>
+                        </div>
+                        <div class="help-card">
+                            <code>uniq</code>
+                            <p>去除连续重复行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>head -5</code>
+                            <p>取前5行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>tail -5</code>
+                            <p>取后5行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>grep foo</code>
+                            <p>筛选包含 foo 的行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>grep -v foo</code>
+                            <p>排除包含 foo 的行</p>
+                        </div>
+                        <div class="help-card">
+                            <code>sed 's/foo/bar/g'</code>
+                            <p>将 foo 替换为 bar</p>
+                        </div>
+                        <div class="help-card">
+                            <code>wc -l</code>
+                            <p>统计行数</p>
+                        </div>
+                        <div class="help-card">
+                            <code>awk '{print $1}'</code>
+                            <p>取每行第一个字段</p>
+                        </div>
+                        <div class="help-card">
+                            <code>rev</code>
+                            <p>反转每行字符顺序</p>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const shellCommand = document.getElementById('shellCommand');
+        const runBtn = document.getElementById('runBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const inputStatus = document.getElementById('inputStatus');
+        const outputStatus = document.getElementById('outputStatus');
+
+        runBtn.addEventListener('click', runCommand);
+        clearBtn.addEventListener('click', clearAll);
+        copyBtn.addEventListener('click', copyResult);
+
+        shellCommand.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runCommand();
+            }
+        });
+
+        function setStatus(el, text, type) {
+            el.textContent = text;
+            el.className = 'status' + (type ? ' ' + type : '');
+        }
+
+        function runCommand() {
+            const text = inputText.value;
+            const cmd = shellCommand.value.trim();
+
+            if (!text) {
+                setStatus(outputStatus, '⚠ 输入为空', 'error');
+                return;
+            }
+            if (!cmd) {
+                setStatus(outputStatus, '⚠ 请输入命令', 'error');
+                return;
+            }
+
+            setStatus(inputStatus, '⏳ 运行中...', 'running');
+            setStatus(outputStatus, '⏳ 运行中...', 'running');
+            outputText.value = '';
+            runBtn.disabled = true;
+            runBtn.textContent = '⏳ 执行...';
+
+            const apiUrl = '/api/run-shell';
+            const payload = { text: text, command: cmd };
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            .then(function(res) {
+                if (!res.ok) {
+                    return res.json().then(function(err) {
+                        throw new Error(err.error || '请求失败');
+                    });
+                }
+                return res.json();
+            })
+            .then(function(data) {
+                outputText.value = data.output || '';
+                setStatus(inputStatus, '✓ 就绪', 'done');
+                if (data.returncode === 0) {
+                    setStatus(outputStatus, '✓ 完成 (exit ' + data.returncode + ')', 'done');
+                } else {
+                    setStatus(outputStatus, '✗ 退出码 ' + data.returncode, 'error');
+                }
+            })
+            .catch(function(err) {
+                outputText.value = '错误: ' + err.message;
+                setStatus(outputStatus, '✗ ' + err.message, 'error');
+                setStatus(inputStatus, '', '');
+            })
+            .finally(function() {
+                runBtn.disabled = false;
+                runBtn.textContent = '▶ 运行';
+            });
+        }
+
+        function clearAll() {
+            inputText.value = '';
+            outputText.value = '';
+            shellCommand.value = '';
+            setStatus(inputStatus, '', '');
+            setStatus(outputStatus, '', '');
+        }
+
+        function copyResult() {
+            if (!outputText.value) {
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(outputText.value).then(function() {
+                    var orig = copyBtn.textContent;
+                    copyBtn.textContent = '✓ 已复制';
+                    setTimeout(function() { copyBtn.textContent = orig; }, 1000);
+                });
+            } else {
+                outputText.select();
+                document.execCommand('copy');
+                var orig = copyBtn.textContent;
+                copyBtn.textContent = '✓ 已复制';
+                setTimeout(function() { copyBtn.textContent = orig; }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>

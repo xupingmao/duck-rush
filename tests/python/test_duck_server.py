@@ -19,6 +19,8 @@ WEB_TOOLS_DIR = os.path.join(PROJECT_ROOT, "duck_rush", "web-tools")
 SERVER_PATH = os.path.join(WEB_TOOLS_DIR, "duck-server.py")
 
 spec = importlib.util.spec_from_file_location("duck_server", SERVER_PATH)
+assert spec != None
+assert spec.loader != None
 ds = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ds)
 

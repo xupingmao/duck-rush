@@ -50,6 +50,12 @@ const menuConfig = [
                 name: '文本转换工具',
                 url: 'pages/text/text-convert.html',
                 description: "用于将长文本转换为不同格式的工具，方便阅读和处理。"
+            },
+            {
+                id: "text-shell",
+                name: "文本shell工具",
+                url: "pages/text/text-shell.html",
+                description: "用于使用shell工具处理文本"
             }
         ]
     },
