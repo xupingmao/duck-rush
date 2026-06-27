@@ -134,6 +134,7 @@ def parse_file_size(min_size_str, arg_name, exit_on_error = True):
         raise Exception("无效的文件大小: %s" % min_size_str)
 
 class FileFinder:
+    hide_size = False
 
     def __init__(self):
         self.hash_type = "none"
