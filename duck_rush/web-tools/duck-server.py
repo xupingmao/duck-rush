@@ -327,12 +327,7 @@ class _ShellHandler(BaseBizHandler):
     ]
 
     def _check_command(self, cmd: str) -> str:
-        """安全检查：只允许已知命令和管道操作"""
-        import re
-        # 允许字母数字、空格、/、-、_、.、'、"、$、|、>、<、;
-        if not re.match(r'^[a-zA-Z0-9\s/\-_.\'\"$^{}()\[\]|><;]+$', cmd):
-            raise ValueError("命令包含不允许的字符")
-        # 按管道拆分，逐个检查每个命令
+        """按管道拆分，逐个检查命令是否在白名单中"""
         segments = cmd.split("|")
         for seg in segments:
             seg = seg.strip()
@@ -372,7 +367,8 @@ class _ShellHandler(BaseBizHandler):
                 shell=True,
                 input=text,
                 capture_output=True,
-                text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=30,
             )
             return {
