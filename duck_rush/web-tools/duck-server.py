@@ -361,23 +361,29 @@ class _ShellHandler(BaseBizHandler):
         except ValueError as e:
             return {"error": str(e)}
 
+        proc = None
         try:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 command,
                 shell=True,
-                input=text,
-                capture_output=True,
-                encoding='utf-8',
-                errors='replace',
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            stdout, stderr = proc.communicate(
+                input=text.encode('utf-8'),
                 timeout=30,
             )
             return {
-                "output": proc.stdout,
-                "stderr": proc.stderr,
+                "output": stdout.decode('utf-8', errors='replace'),
+                "stderr": stderr.decode('utf-8', errors='replace'),
                 "returncode": proc.returncode,
             }
         except subprocess.TimeoutExpired:
-            return {"error": "命令执行超时"}
+            if proc:
+                proc.kill()
+                proc.communicate()
+            return {"error": "命令执行超时，已终止"}
         except Exception as e:
             return {"error": f"执行失败: {e}"}
 
