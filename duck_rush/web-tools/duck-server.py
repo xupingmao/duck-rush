@@ -16,6 +16,7 @@ import time
 import logging
 import argparse
 import threading
+import subprocess
 from email.message import Message
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -340,7 +341,6 @@ class _ShellHandler(BaseBizHandler):
         return cmd
 
     def do_POST(self, request: Request) -> Dict[str, Any]:
-        import subprocess
         data = self.get_json_body(request)
         if not data:
             return {"error": "请求体为空"}
