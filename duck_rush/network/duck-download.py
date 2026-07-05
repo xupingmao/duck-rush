@@ -46,8 +46,8 @@ def main():
     parser = argparse.ArgumentParser(description="网页图片批量下载工具")
     parser.add_argument("target_url", type=str,
                         help="目标网页地址")
-    parser.add_argument("--save-dir", "-o", type=str, default="./download_images",
-                        help="图片保存目录 (默认: ./download_images)")
+    parser.add_argument("--save-dir", "-o", type=str,
+                        help="图片保存目录")
     args = parser.parse_args()
 
     target_url: str = args.target_url
