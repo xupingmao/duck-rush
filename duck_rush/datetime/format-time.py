@@ -10,11 +10,18 @@ Description: 描述
 '''
 
 import time
+import sys
 import argparse
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-def format_time(unixtime=0, format=DATE_FORMAT):
+_YEAR = 3600 * 24 * 365
+_MS_THRESHOLD = time.time() + _YEAR * 100 # 毫秒时间的阈值，如果比这个大自动判定成毫秒时间戳
+
+class FormatConfig:
+    debug = False
+
+def format_time(unixtime:float=0, format=DATE_FORMAT):
     st = time.localtime(unixtime)
     return time.strftime(format, st)
 
@@ -23,16 +30,36 @@ def parse_date_to_timestamp(date_str=""):
     return time.mktime(st)
 
 def main(unixtime="0"):
-    sec = float(unixtime)
+    if unixtime != "0":
+        do_format(unixtime)
+        return
+        
+    for line in sys.stdin.readlines():
+        line = line.strip()
+        if line == "":
+            continue
+        do_format(line)
 
-    if sec >= parse_date_to_timestamp("3000-01-01 00:00:00"):
-        print(f"毫秒时间: {format_time(sec/1000)}")
+def do_format(time_str: str):
+    sec = float(time_str)
+    if sec >= _MS_THRESHOLD:
+        if FormatConfig.debug:
+            print(f"毫秒时间: {format_time(sec/1000)}")
+        else:
+            print(format_time(sec/1000))
     else:
-        print(f"秒时间: {format_time(sec)}")
-
+        if FormatConfig.debug:
+            print(f"秒时间: {format_time(sec)}")
+        else:
+            print(format_time(sec))
+            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("unixtime", default="0", type=str)
+    parser.add_argument("unixtime", default="0", type=str, nargs="?")
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
+    
+    FormatConfig.debug = args.debug
+    
     main(unixtime=args.unixtime)
 
