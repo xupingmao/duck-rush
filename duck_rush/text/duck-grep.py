@@ -30,10 +30,8 @@ def main():
     parser.add_argument("pattern", type=str, default="")
     parser.add_argument("-n", "--line-number", action="store_true",
                         help="show line numbers")
-    parser.add_argument("-E", "--regexp", action="store_true",
-                        help="pattern is a regular expression")
     args = parser.parse_args()
-    do_grep(args.pattern, args.line_number, args.regexp)
+    do_grep(args.pattern, args.line_number, True)
 
 
 if __name__ == '__main__':
