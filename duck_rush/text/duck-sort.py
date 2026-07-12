@@ -39,7 +39,14 @@ def parse_size(size_str):
     else:
         return 0
 
-def do_sort(fp, reverse = False):
+def parse_number(num_str):
+    try:
+        return float(num_str)
+    except ValueError:
+        return 0
+
+
+def do_sort(fp, reverse = False, numeric = False):
     temp = []
     while True:
         line = fp.readline()
@@ -49,9 +56,12 @@ def do_sort(fp, reverse = False):
         clean_line = line.strip()
         if clean_line == "":
             continue
-        fsize = clean_line.split()[0]
-        size = parse_size(fsize)
-        temp.append((size, line))
+        first_token = clean_line.split()[0]
+        if numeric:
+            key = parse_number(first_token)
+        else:
+            key = parse_size(first_token)
+        temp.append((key, line))
 
     temp.sort(key = lambda x:x[0], reverse = reverse)
     for size, line in temp:
@@ -60,9 +70,11 @@ def do_sort(fp, reverse = False):
 
 def main():
     parser = argparse.ArgumentParser(description = "duck_rush文本排序工具")
-    parser.add_argument("-r", action = "store_true")
+    parser.add_argument("-r", "--reverse", action = "store_true", help = "逆序排序")
+    parser.add_argument("-n", "--numeric-sort", action = "store_true",
+                        help = "按数字大小排序(类似 sort -n), 默认按文件大小单位排序")
     args = parser.parse_args()
-    do_sort(sys.stdin, reverse = args.r)
+    do_sort(sys.stdin, reverse = args.reverse, numeric = args.numeric_sort)
 
 if __name__ == '__main__':
     main()
