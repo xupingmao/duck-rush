@@ -9,35 +9,8 @@ FilePath: /duck_rush/duck_rush/text/duck-sort.py
 Description: 描述
 '''
 
-import os
 import sys
-import re
 import argparse
-
-duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
-if duck_rush_dir not in sys.path:
-    sys.path.append(duck_rush_dir)
-
-
-from duck_rush.utils import os_util
-
-def parse_size(size_str):
-    result = re.match(r"([0-9\.]+)(B|K|M|G)", size_str)
-    if result:
-        g1 = result.group(1)
-        g2 = result.group(2)
-        # print(g1,g2)
-        if g2 == "B":
-            return float(g1)
-        if g2 == "K":
-            return float(g1) * 1024
-        if g2 == "M":
-            return float(g1) * 1024 ** 2
-        if g2 == "G":
-            return float(g1) * 1024 ** 3
-        return -1
-    else:
-        return 0
 
 def parse_number(num_str):
     try:
@@ -60,7 +33,8 @@ def do_sort(fp, reverse = False, numeric = False):
         if numeric:
             key = parse_number(first_token)
         else:
-            key = parse_size(first_token)
+            key = line
+            
         temp.append((key, line))
 
     temp.sort(key = lambda x:x[0], reverse = reverse)
