@@ -6,16 +6,13 @@
 
 import sys
 import io
+import os
 import re
 import argparse
 
 
-def ensure_utf8_streams(encoding: str):
-    """统一编解码, 避免 Windows 控制台代码页(cp936等)导致的中文乱码
-
-    - 输入: 从 sys.stdin.buffer 读取原始字节, 按指定编码解码
-    - 输出: 强制以 UTF-8 写入, 适配 Git Bash / 现代终端
-    """
+def ensure_utf8_output():
+    """强制以 UTF-8 输出, 避免 Windows 控制台代码页导致的中文乱码"""
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
@@ -26,42 +23,51 @@ def match_substring(pattern: str, line: str) -> bool:
     return pattern in line
 
 
-def do_grep(pattern: str = "", line_number: bool = False, regex: bool = False,
-            only_matching: bool = False, after: int = 0, before: int = 0,
-            encoding: str = "utf-8"):
-    """用于windows环境模拟linux的grep命令
+def iter_lines(stream, encoding: str):
+    """从二进制流逐行解码, 返回 (行号, 去尾部换行的内容)"""
+    for line_no, raw in enumerate(stream, 1):
+        yield line_no, raw.decode(encoding, errors="replace").rstrip("\n")
 
-    - only_matching: 类似 grep -o, 只输出匹配到的部分
-    - after/before: 类似 grep -A/-B, 输出匹配行之后/之前的上下文
-    - encoding: 输入内容的编码(默认 utf-8, GBK 文件可传 gbk)
-    """
+
+def format_prefix(label: str, line_no: int, show_label: bool, line_number: bool) -> str:
+    parts = []
+    if show_label:
+        parts.append(label)
+    if line_number:
+        parts.append(f"{line_no:4d}")
+    if parts:
+        return " │ ".join(parts) + " │ "
+    return ""
+
+
+def print_matches(pattern, regex, line_no, text, label, show_label, line_number, only_matching):
+    prefix = format_prefix(label, line_no, show_label, line_number)
+    if only_matching:
+        matches = [m.group(0) for m in re.finditer(pattern, text)] if regex else [pattern]
+        for m in matches:
+            print(prefix + m)
+    else:
+        print(prefix + text)
+
+
+def grep_stream(pattern, regex, line_number, only_matching, after, before,
+                encoding, stream, label, show_label):
+    """对单个输入流(文件或 stdin)执行 grep"""
     match_func = re.search if regex else match_substring
 
-    # 从 stdin.buffer 读取原始字节, 避免 Windows 默认代码页解码错误
-    def read_lines():
-        for line_no, raw in enumerate(sys.stdin.buffer, 1):
-            yield line_no, raw.decode(encoding, errors="replace").rstrip("\n")
-
-    # 无上下文时流式输出, 保持原有行为
+    # 无上下文时流式输出
     if after == 0 and before == 0:
-        for line_no, line in read_lines():
-            if not match_func(pattern, line):
-                continue
-            if only_matching:
-                matches = [m.group(0) for m in re.finditer(pattern, line)] if regex else [pattern]
-                for m in matches:
-                    print_line(line_no, m, line_number)
-            else:
-                print_line(line_no, line, line_number)
+        for line_no, line in iter_lines(stream, encoding):
+            if match_func(pattern, line):
+                print_matches(pattern, regex, line_no, line, label,
+                              show_label, line_number, only_matching)
         return
 
     # 需要上下文时, 先把所有行读入内存
-    lines = list(read_lines())
-
+    lines = list(iter_lines(stream, encoding))
     n = len(lines)
     matched = [bool(match_func(pattern, text)) for _, text in lines]
 
-    # 计算需要打印的行范围(匹配行前后各 after/before 行)
     print_idx = [False] * n
     for i in range(n):
         if matched[i]:
@@ -83,24 +89,14 @@ def do_grep(pattern: str = "", line_number: bool = False, regex: bool = False,
         prev_printed = True
 
         line_no, text = lines[j]
-        if matched[j] and only_matching:
-            matches = [m.group(0) for m in re.finditer(pattern, text)] if regex else [pattern]
-            for m in matches:
-                print_line(line_no, m, line_number)
-        else:
-            print_line(line_no, text, line_number)
-
-
-def print_line(line_no: int, content: str, line_number: bool):
-    if line_number:
-        print(f"{line_no:4d} │ {content}")
-    else:
-        print(content)
+        print_matches(pattern, regex, line_no, text, label,
+                      show_label, line_number, only_matching and matched[j])
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("pattern", type=str, default="")
+    parser = argparse.ArgumentParser(description="用于windows环境模拟linux的grep命令")
+    parser.add_argument("pattern", type=str, help="匹配模式(支持正则)")
+    parser.add_argument("files", nargs="*", help="要搜索的文件(不指定则从 stdin 读取)")
     parser.add_argument("-n", "--line-number", action="store_true",
                         help="show line numbers")
     parser.add_argument("-o", "--only-matching", action="store_true",
@@ -111,10 +107,35 @@ def main():
                         help="打印匹配行之前的 NUM 行上下文(类似 grep -B)")
     parser.add_argument("-E", "--encoding", default="utf-8",
                         help="输入内容的编码(默认 utf-8, GBK 文件可传 gbk)")
+    parser.add_argument("-H", "--with-filename", action="store_true",
+                        help="总是打印文件名(类似 grep -H)")
+    parser.add_argument("--no-filename", action="store_true",
+                        help="不打印文件名(类似 grep -h)")
     args = parser.parse_args()
-    ensure_utf8_streams(args.encoding)
-    do_grep(args.pattern, args.line_number, True, args.only_matching,
-            args.after_context, args.before_context, args.encoding)
+
+    ensure_utf8_output()
+
+    if args.files:
+        # 多个文件或 -H 时显示文件名; -h 强制不显示
+        if args.no_filename:
+            show_label = False
+        else:
+            show_label = args.with_filename or len(args.files) > 1
+        for fpath in args.files:
+            if not os.path.exists(fpath):
+                sys.stderr.write("duck-grep: %s: No such file or directory\n" % fpath)
+                continue
+            try:
+                with open(fpath, "rb") as fp:
+                    grep_stream(args.pattern, True, args.line_number, args.only_matching,
+                                args.after_context, args.before_context, args.encoding,
+                                fp, fpath, show_label)
+            except Exception as e:
+                sys.stderr.write("duck-grep: %s: %s\n" % (fpath, e))
+    else:
+        grep_stream(args.pattern, True, args.line_number, args.only_matching,
+                    args.after_context, args.before_context, args.encoding,
+                    sys.stdin.buffer, "", False)
 
 
 if __name__ == '__main__':
