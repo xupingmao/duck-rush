@@ -14,8 +14,12 @@ import json
 import argparse
 
 
-def extract_json_fragments(text: str):
-    """从文本中提取所有顶层 JSON(对象或数组)。
+def extract_segments(text: str):
+    """从文本中提取所有顶层 JSON(对象或数组)以及它们之间的非 JSON 文本。
+
+    每个片段为一个元组 ``(kind, value)``:
+    - ``("json", obj)``: 解析出的 JSON 对象/数组
+    - ``("text", str)``: JSON 之间的原始非 JSON 文本
 
     找到每个 `{`/`[` 起始位置, 用 JSONDecoder.raw_decode 尝试解析:
     解析成功则记录结果并从其后的位置继续找下一个 JSON; 失败则跳过一个字符继续。
@@ -24,7 +28,7 @@ def extract_json_fragments(text: str):
     例如日志行 `xxx {"a":1} yyy ["b"] end`。
     """
     decoder = json.JSONDecoder()
-    results = []
+    segments = []
     i = 0
     n = len(text)
     while i < n:
@@ -45,33 +49,58 @@ def extract_json_fragments(text: str):
             i = pos + 1
             continue
 
-        results.append(obj)
+        if pos > i:
+            segments.append(("text", text[i:pos]))
+        segments.append(("json", obj))
         i = end
-    return results
+
+    if i < n:
+        segments.append(("text", text[i:]))
+    return segments
 
 
-def format_text(text: str, compact: bool, sort_keys: bool):
+def format_text(text: str, compact: bool, sort_keys: bool, keep_text: bool):
     """提取并格式化输出 JSON。
 
-    - compact=False: 美化展示,每个 JSON 之间空一行
+    - compact=False: 美化展示, 每个 JSON 之间空一行
     - compact=True: 一行展示一个 JSON
+    - keep_text=True: 同时原样输出 JSON 之间的非 JSON 文本
     """
-    objs = extract_json_fragments(text)
-    if not objs:
+    segments = extract_segments(text)
+    if not segments:
         raise ValueError("未从输入中解析出任何 JSON")
 
-    blocks = []
-    for obj in objs:
+    json_blocks = []
+    for kind, value in segments:
+        if kind != "json":
+            continue
         if compact:
-            blocks.append(json.dumps(obj, ensure_ascii=False, sort_keys=sort_keys))
+            json_blocks.append(
+                json.dumps(value, ensure_ascii=False, sort_keys=sort_keys))
         else:
-            blocks.append(json.dumps(
-                obj, ensure_ascii=False, sort_keys=sort_keys, indent="  "))
+            json_blocks.append(json.dumps(
+                value, ensure_ascii=False, sort_keys=sort_keys, indent="  "))
 
-    if compact:
-        print("\n".join(blocks))
-    else:
-        print("\n\n".join(blocks))
+    if not json_blocks:
+        raise ValueError("未从输入中解析出任何 JSON")
+
+    if not keep_text:
+        if compact:
+            print("\n".join(json_blocks))
+        else:
+            print("\n\n".join(json_blocks))
+        return
+
+    # keep_text=True: 按原文顺序, 将格式化后的 JSON 与原始文本交织输出
+    out = []
+    json_idx = 0
+    for kind, value in segments:
+        if kind == "json":
+            out.append(json_blocks[json_idx])
+            json_idx += 1
+        else:
+            out.append(value)
+    print("".join(out))
 
 
 def format_json():
@@ -84,6 +113,8 @@ def format_json():
                         help="一行展示一个 JSON(紧凑模式)")
     parser.add_argument("-s", "--sort-keys", action="store_true",
                         help="按 key 排序输出(默认不排序, 与美化保持一致)")
+    parser.add_argument("-k", "--keep-text", action="store_true",
+                        help="保留并原样输出 JSON 之间的非 JSON 文本内容")
     args = parser.parse_args()
 
     if args.filename:
@@ -92,7 +123,8 @@ def format_json():
     else:
         text = sys.stdin.read()
 
-    format_text(text, compact=args.compact, sort_keys=args.sort_keys)
+    format_text(text, compact=args.compact, sort_keys=args.sort_keys,
+                keep_text=args.keep_text)
 
 
 if __name__ == "__main__":
