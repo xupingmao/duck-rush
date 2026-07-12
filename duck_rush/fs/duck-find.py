@@ -283,7 +283,7 @@ class FileFinder:
                 self.move_file(fpath)
 
         if count == 0:
-            print("\n没有找到文件\n")
+            sys.stderr.write("\n没有找到文件\n")
 
         if count > 0 and not self.hide_size:
             print("\n文件总大小: %s" % format_size(total_size))
