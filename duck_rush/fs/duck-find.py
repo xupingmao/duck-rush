@@ -145,6 +145,8 @@ class FileFinder:
         self.print_base_name = False
         self.min_size = -1
         self.max_size = -1
+        self.find_empty_files = False
+        self.find_empty_dirs = False
 
     def set_min_size(self, min_size_str):
         self.min_size = parse_file_size(min_size_str, "min_size")
@@ -236,8 +238,6 @@ class FileFinder:
 
     def execute(self):
         self.check_args()
-        hash_type = self.hash_type
-        move_to = self.move_to
         print_base_name = self.print_base_name
 
         count = 0
@@ -258,8 +258,17 @@ class FileFinder:
                     continue
 
                 file_size = stat.st_size
-                if not self.is_size_matched(file_size):
+
+                # --empty-files: 只列出空文件
+                if self.find_empty_files:
+                    if file_size != 0:
+                        continue
+                # --empty-dirs: 只列出空目录，跳过普通文件
+                elif self.find_empty_dirs:
                     continue
+                else:
+                    if not self.is_size_matched(file_size):
+                        continue
 
                 hash_value = self.calc_hash_value(fpath)
 
@@ -270,23 +279,22 @@ class FileFinder:
                 else:
                     path_to_print = os.path.abspath(fpath)
 
-                line_buf = []
-                line_buf.append("%04d" % count)
-                line_buf.append(hash_value)
-
-                if not self.hide_size:
-                    total_size += file_size
-                    line_buf.append("%s" % format_size(file_size))
-
-                line_buf.append(path_to_print)
-                print("|".join(line_buf))
+                print(fpath)
                 self.move_file(fpath)
+
+            # --empty-dirs: 列出空目录 (既没有子文件也没有子目录)
+            if self.find_empty_dirs and len(dirs) == 0 and len(files) == 0:
+                count += 1
+
+                if print_base_name:
+                    path_to_print = os.path.basename(root)
+                else:
+                    path_to_print = os.path.abspath(root)
+
+                print(path_to_print)
 
         if count == 0:
             sys.stderr.write("\n没有找到文件\n")
-
-        if count > 0 and not self.hide_size:
-            print("\n文件总大小: %s" % format_size(total_size))
 
 
 def main():
@@ -305,12 +313,14 @@ def main():
     parser.add_argument("--dir", default=".", help="搜索目录")
     parser.add_argument("--hash", default = "none", help = "文件hash算法")
     parser.add_argument("--name", default = [], action = "append", help = "搜索名称")
-    parser.add_argument("--move_to", default = "", help = "移动到的目标文件夹")
-    parser.add_argument("--hide_size", action = "store_true", help = "隐藏文件大小的信息")
-    parser.add_argument("--print_base_name", action = "store_true", help = "只打印文件名，不打印全路径")
-    parser.add_argument("--index_file", help = "保存的索引文件名称")
-    parser.add_argument("--min_size", default = "", help = "文件大小下限")
-    parser.add_argument("--max_size", default = "", help = "文件大小上限")
+    parser.add_argument("--move-to", default = "", help = "移动到的目标文件夹")
+    parser.add_argument("--hide-size", action = "store_true", help = "隐藏文件大小的信息")
+    parser.add_argument("--print-base-name", action = "store_true", help = "只打印文件名，不打印全路径")
+    parser.add_argument("--index-file", help = "保存的索引文件名称")
+    parser.add_argument("--min-size", default = "", help = "文件大小下限")
+    parser.add_argument("--max-size", default = "", help = "文件大小上限")
+    parser.add_argument("--empty-files", action = "store_true", help = "只列出空文件(大小为0)")
+    parser.add_argument("--empty-dirs", action = "store_true", help = "只列出空目录(没有任何子文件/子目录)")
     args = parser.parse_args()
 
     finder = FileFinder()
@@ -323,6 +333,8 @@ def main():
     finder.print_base_name = args.print_base_name
     finder.set_min_size(args.min_size)
     finder.set_max_size(args.max_size)
+    finder.find_empty_files = args.empty_files
+    finder.find_empty_dirs = args.empty_dirs
 
     finder.execute()
 
