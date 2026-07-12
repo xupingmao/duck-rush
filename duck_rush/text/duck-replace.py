@@ -83,14 +83,21 @@ def main() -> None:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="文本替换工具 — 从管道读取数据，替换匹配的字符串")
     parser.add_argument("pattern", type=str,
-                        help="匹配模式（glob 或 正则，默认 glob）")
+                        help="匹配模式（glob 或 正则，默认 glob）, 换行可以使用${NL}替代")
     parser.add_argument("replacement", type=str,
                         help="替换字符串")
     parser.add_argument("-r", "--regex", action="store_true",
                         help="使用正则匹配模式（默认 glob）")
     parser.add_argument("-i", "--ignore-case", action="store_true",
                         help="忽略大小写")
+    parser.add_argument("--debug", action="store_true", help="打印调试信息")
     args: argparse.Namespace = parser.parse_args()
+    
+    if args.pattern == "${NL}":
+        args.pattern = "\n"
+    
+    if args.debug:
+        print(f"DEBUG: pattern={args.pattern}, replacement={args.replacement}")
 
     do_replace(args.pattern, args.replacement, args.regex, args.ignore_case)
 
