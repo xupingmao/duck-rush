@@ -135,6 +135,7 @@ def parse_file_size(min_size_str, arg_name, exit_on_error = True):
 
 class FileFinder:
     hide_size = False
+    dirname = "."
 
     def __init__(self):
         self.hash_type = "none"
@@ -242,7 +243,7 @@ class FileFinder:
         count = 0
         total_size = 0
         
-        for root, dirs, files in os.walk("."):
+        for root, dirs, files in os.walk(self.dirname):
             for fname in files:
                 fpath = os.path.join(root, fname)
                 # print("process %s ..." % fpath)
@@ -301,6 +302,7 @@ def main():
     # 'store_false': 如果有这个选项就设置成False
     # 'append': 存储成一个列表，可以追加多个值
     # 'append_const': 
+    parser.add_argument("--dir", default=".", help="搜索目录")
     parser.add_argument("--hash", default = "none", help = "文件hash算法")
     parser.add_argument("--name", default = [], action = "append", help = "搜索名称")
     parser.add_argument("--move_to", default = "", help = "移动到的目标文件夹")
@@ -313,6 +315,7 @@ def main():
 
     finder = FileFinder()
 
+    finder.dirname = args.dir
     finder.hash_type = args.hash
     finder.search_names = args.name
     finder.set_move_to_dir(args.move_to)
