@@ -4,6 +4,7 @@ import hashlib
 import argparse
 import sys
 import re
+import fnmatch
 
 CHUNK_SIZE = 8096
 
@@ -178,11 +179,12 @@ class FileFinder:
         if len(self.search_names) == 0:
             return True
 
-        for name in self.search_names:
-            if name not in fname:
-                return False
+        for pattern in self.search_names:
+            # 支持 glob 匹配规则: * 匹配任意多字符, ? 匹配单个字符, [seq] 匹配字符集
+            if fnmatch.fnmatch(fname, pattern):
+                return True
 
-        return True
+        return False
 
     def is_size_matched(self, size):
         if self.min_size > 0 and size < self.min_size:
@@ -241,7 +243,6 @@ class FileFinder:
         print_base_name = self.print_base_name
 
         count = 0
-        total_size = 0
         
         for root, dirs, files in os.walk(self.dirname):
             for fname in files:
@@ -269,9 +270,7 @@ class FileFinder:
                 else:
                     if not self.is_size_matched(file_size):
                         continue
-
-                hash_value = self.calc_hash_value(fpath)
-
+                    
                 count += 1
 
                 if print_base_name:
@@ -279,7 +278,7 @@ class FileFinder:
                 else:
                     path_to_print = os.path.abspath(fpath)
 
-                print(fpath)
+                print(path_to_print)
                 self.move_file(fpath)
 
             # --empty-dirs: 列出空目录 (既没有子文件也没有子目录)
@@ -310,27 +309,31 @@ def main():
     # 'store_false': 如果有这个选项就设置成False
     # 'append': 存储成一个列表，可以追加多个值
     # 'append_const': 
-    parser.add_argument("--dir", default=".", help="搜索目录")
+    parser.add_argument("dir", default=".", help="搜索目录")
+    parser.add_argument("search_name", help = "搜索名称, 支持glob匹配(如 *.py, file?.txt), 支持或关系，比如*.py|*.txt")
     parser.add_argument("--hash", default = "none", help = "文件hash算法")
-    parser.add_argument("--name", default = [], action = "append", help = "搜索名称")
     parser.add_argument("--move-to", default = "", help = "移动到的目标文件夹")
     parser.add_argument("--hide-size", action = "store_true", help = "隐藏文件大小的信息")
-    parser.add_argument("--print-base-name", action = "store_true", help = "只打印文件名，不打印全路径")
+    parser.add_argument("--base-name", action = "store_true", help = "只打印文件名，不打印全路径")
     parser.add_argument("--index-file", help = "保存的索引文件名称")
     parser.add_argument("--min-size", default = "", help = "文件大小下限")
     parser.add_argument("--max-size", default = "", help = "文件大小上限")
     parser.add_argument("--empty-files", action = "store_true", help = "只列出空文件(大小为0)")
     parser.add_argument("--empty-dirs", action = "store_true", help = "只列出空目录(没有任何子文件/子目录)")
+    parser.add_argument("--debug", action="store_true", help="打印调试信息")
     args = parser.parse_args()
 
     finder = FileFinder()
+    
+    if args.debug:
+        print(f"DEBUG: search_name: {args.search_name}")
 
     finder.dirname = args.dir
     finder.hash_type = args.hash
-    finder.search_names = args.name
+    finder.search_names = args.search_name.split("|")
     finder.set_move_to_dir(args.move_to)
     finder.hide_size = args.hide_size
-    finder.print_base_name = args.print_base_name
+    finder.print_base_name = args.base_name
     finder.set_min_size(args.min_size)
     finder.set_max_size(args.max_size)
     finder.find_empty_files = args.empty_files
