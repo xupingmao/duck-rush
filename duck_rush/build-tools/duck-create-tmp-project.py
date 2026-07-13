@@ -74,7 +74,10 @@ def open_shell_here(project_dir: str) -> None:
     shell = os.environ.get("SHELL") or os.environ.get("COMSPEC") or "bash"
     print("已切换工作目录到: %s" % project_dir)
     print("正在打开新的 shell（输入 exit 退出）...")
-    subprocess.call(shell)
+    if os.name == "posix":
+        subprocess.call([shell, "-l"])
+    else:
+        subprocess.call(shell)
 
 
 def main():
