@@ -309,8 +309,8 @@ def main():
     # 'store_false': 如果有这个选项就设置成False
     # 'append': 存储成一个列表，可以追加多个值
     # 'append_const': 
-    parser.add_argument("dir", default=".", help="搜索目录")
-    parser.add_argument("search_name", help = "搜索名称, 支持glob匹配(如 *.py, file?.txt), 支持或关系，比如*.py|*.txt")
+    parser.add_argument("dir", default=".", nargs="?", help="搜索目录")
+    parser.add_argument("--name", default="*", help = "搜索名称, 支持glob匹配(如 *.py, file?.txt), 支持或关系，比如*.py|*.txt")
     parser.add_argument("--hash", default = "none", help = "文件hash算法")
     parser.add_argument("--move-to", default = "", help = "移动到的目标文件夹")
     parser.add_argument("--hide-size", action = "store_true", help = "隐藏文件大小的信息")
@@ -326,11 +326,11 @@ def main():
     finder = FileFinder()
     
     if args.debug:
-        print(f"DEBUG: search_name: {args.search_name}")
+        print(f"DEBUG: args={args}")
 
     finder.dirname = args.dir
     finder.hash_type = args.hash
-    finder.search_names = args.search_name.split("|")
+    finder.search_names = args.name.split("|")
     finder.set_move_to_dir(args.move_to)
     finder.hide_size = args.hide_size
     finder.print_base_name = args.base_name
