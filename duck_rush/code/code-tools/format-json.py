@@ -69,17 +69,51 @@ class JsonFormatter:
     - flat: 将嵌套 JSON 拍平为用 ``sep`` 连接的单层 dict 再输出
     - sep: 拍平时连接 key 的分隔符, 默认 ``.``
     - split: 顶层 JSON 为数组时, 将每个元素拆成独立的 JSON 输出
+    - fields: 仅输出指定的字段(支持用 ``sep`` 连接的嵌套路径, 多个用逗号分隔)
     """
 
     def __init__(self, compact: bool = False, sort_keys: bool = False,
                  keep_text: bool = False, flat: bool = False, sep: str = ".",
-                 split: bool = False):
+                 split: bool = False, fields: list = None):
         self.compact = compact
         self.sort_keys = sort_keys
         self.keep_text = keep_text
         self.flat = flat
         self.sep = sep
         self.split = split
+        self.fields = fields or []
+
+    def _build_wanted(self) -> dict:
+        """将字段列表(支持点号嵌套)构建成嵌套的 wanted 结构。
+
+        例如 ``["a", "b.c"]`` -> ``{"a": {}, "b": {"c": {}}}``
+        空 dict 表示该路径为叶子, 取该 key 对应的值; 非空表示还需继续向下筛选。
+        """
+        wanted = {}
+        for field in self.fields:
+            cur = wanted
+            for part in field.split(self.sep):
+                cur = cur.setdefault(part, {})
+        return wanted
+
+    def pick(self, obj: object, wanted: dict = None) -> object:
+        """按 wanted 结构从 obj 中挑选出指定字段, 保留原有嵌套层级。
+
+        - 仅挑选 dict 中命中的 key, 其它 key 丢弃
+        - list 会对每个元素递归应用同样的筛选
+        - obj 为标量时原样返回
+        """
+        if wanted is None:
+            wanted = self._build_wanted()
+        if isinstance(obj, dict):
+            result = {}
+            for k, sub in wanted.items():
+                if k in obj:
+                    result[k] = self.pick(obj[k], sub) if sub else obj[k]
+            return result
+        elif isinstance(obj, list):
+            return [self.pick(item, wanted) for item in obj]
+        return obj
 
     def flatten(self, obj: object, prefix: str = "", result: dict = None):
         """将嵌套的 dict/list 拍平为单层 dict, key 用 ``sep`` 连接。
@@ -110,6 +144,8 @@ class JsonFormatter:
 
     def dumps(self, value: object) -> str:
         """将单个 JSON 值按上下文选项序列化为字符串。"""
+        if self.fields:
+            value = self.pick(value)
         if self.flat:
             value = self.flatten(value)
         indent = None if self.compact else "  "
@@ -170,6 +206,9 @@ def format_json():
                         help="将嵌套 JSON 拍平为点号连接的单层 dict 再输出")
     parser.add_argument("-S", "--split", action="store_true",
                         help="顶层为数组时, 将每个元素拆成独立的 JSON 输出")
+    parser.add_argument("-F", "--fields", default="",
+                        help="仅输出指定字段, 多个用逗号分隔, 支持点号嵌套路径, "
+                             "如 -F name,meta.id")
     args = parser.parse_args()
 
     if args.filename:
@@ -178,9 +217,12 @@ def format_json():
     else:
         text = sys.stdin.read()
 
+    fields = [f.strip() for f in args.fields.split(",") if f.strip()] \
+        if args.fields else []
+
     ctx = JsonFormatter(compact=args.compact, sort_keys=args.sort_keys,
                         keep_text=args.keep_text, flat=args.flat,
-                        split=args.split)
+                        split=args.split, fields=fields)
     ctx.format_text(text)
 
 
