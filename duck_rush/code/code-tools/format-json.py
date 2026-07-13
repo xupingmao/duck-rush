@@ -59,48 +59,99 @@ def extract_segments(text: str):
     return segments
 
 
-def format_text(text: str, compact: bool, sort_keys: bool, keep_text: bool):
-    """提取并格式化输出 JSON。
+class JsonFormatter:
+    """管理格式化的上下文选项, 并提供拍平/序列化/输出等能力。
 
-    - compact=False: 美化展示, 每个 JSON 之间空一行
-    - compact=True: 一行展示一个 JSON
-    - keep_text=True: 同时原样输出 JSON 之间的非 JSON 文本
+    各选项含义:
+    - compact: 一行展示一个 JSON(否则美化, 每个 JSON 之间空一行)
+    - sort_keys: 按 key 排序输出
+    - keep_text: 保留并原样输出 JSON 之间的非 JSON 文本
+    - flat: 将嵌套 JSON 拍平为用 ``sep`` 连接的单层 dict 再输出
+    - sep: 拍平时连接 key 的分隔符, 默认 ``.``
+    - split: 顶层 JSON 为数组时, 将每个元素拆成独立的 JSON 输出
     """
-    segments = extract_segments(text)
-    if not segments:
-        raise ValueError("未从输入中解析出任何 JSON")
 
-    json_blocks = []
-    for kind, value in segments:
-        if kind != "json":
-            continue
-        if compact:
-            json_blocks.append(
-                json.dumps(value, ensure_ascii=False, sort_keys=sort_keys))
+    def __init__(self, compact: bool = False, sort_keys: bool = False,
+                 keep_text: bool = False, flat: bool = False, sep: str = ".",
+                 split: bool = False):
+        self.compact = compact
+        self.sort_keys = sort_keys
+        self.keep_text = keep_text
+        self.flat = flat
+        self.sep = sep
+        self.split = split
+
+    def flatten(self, obj: object, prefix: str = "", result: dict = None):
+        """将嵌套的 dict/list 拍平为单层 dict, key 用 ``sep`` 连接。
+
+        - dict 的嵌套值用分隔符连接, 如 ``{"a": {"b": 1}}`` -> ``{"a.b": 1}``
+        - list 的元素用数字下标连接, 如 ``{"a": [1, 2]}`` -> ``{"a.0": 1}``
+        - 空 dict/list 会被保留为原值, 避免丢失 key
+        """
+        if result is None:
+            result = {}
+        if isinstance(obj, dict):
+            if not obj:
+                result[prefix] = {}
+                return result
+            for k, v in obj.items():
+                key = "{}{}{}".format(prefix, self.sep, k) if prefix else str(k)
+                self.flatten(v, key, result)
+        elif isinstance(obj, list):
+            if not obj:
+                result[prefix] = []
+                return result
+            for i, v in enumerate(obj):
+                key = "{}{}{}".format(prefix, self.sep, i) if prefix else str(i)
+                self.flatten(v, key, result)
         else:
-            json_blocks.append(json.dumps(
-                value, ensure_ascii=False, sort_keys=sort_keys, indent="  "))
+            result[prefix] = obj
+        return result
 
-    if not json_blocks:
-        raise ValueError("未从输入中解析出任何 JSON")
+    def dumps(self, value: object) -> str:
+        """将单个 JSON 值按上下文选项序列化为字符串。"""
+        if self.flat:
+            value = self.flatten(value)
+        indent = None if self.compact else "  "
+        return json.dumps(value, ensure_ascii=False, sort_keys=self.sort_keys,
+                          indent=indent)
 
-    if not keep_text:
-        if compact:
-            print("\n".join(json_blocks))
-        else:
-            print("\n\n".join(json_blocks))
-        return
+    def format_text(self, text: str):
+        """提取并格式化输出 JSON。"""
+        segments = extract_segments(text)
+        if not segments:
+            raise ValueError("未从输入中解析出任何 JSON")
 
-    # keep_text=True: 按原文顺序, 将格式化后的 JSON 与原始文本交织输出
-    out = []
-    json_idx = 0
-    for kind, value in segments:
-        if kind == "json":
-            out.append(json_blocks[json_idx])
-            json_idx += 1
-        else:
-            out.append(value)
-    print("".join(out))
+        # 每个 json 片段对应的若干 json 块(数组拆分时一个片段对应多块)
+        blocks_per_segment = []
+        for kind, value in segments:
+            if kind != "json":
+                continue
+            if self.split and isinstance(value, list):
+                blocks = [self.dumps(item) for item in value]
+            else:
+                blocks = [self.dumps(value)]
+            blocks_per_segment.append(blocks)
+
+        json_blocks = [b for blocks in blocks_per_segment for b in blocks]
+        if not json_blocks:
+            raise ValueError("未从输入中解析出任何 JSON")
+
+        if not self.keep_text:
+            joiner = "\n" if self.compact else "\n\n"
+            print(joiner.join(json_blocks))
+            return
+
+        # keep_text=True: 按原文顺序, 将格式化后的 JSON 与原始文本交织输出
+        out = []
+        seg_idx = 0
+        for kind, value in segments:
+            if kind == "json":
+                out.extend(blocks_per_segment[seg_idx])
+                seg_idx += 1
+            else:
+                out.append(value)
+        print("".join(out))
 
 
 def format_json():
@@ -115,6 +166,10 @@ def format_json():
                         help="按 key 排序输出(默认不排序, 与美化保持一致)")
     parser.add_argument("-k", "--keep-text", action="store_true",
                         help="保留并原样输出 JSON 之间的非 JSON 文本内容")
+    parser.add_argument("-f", "--flat", action="store_true",
+                        help="将嵌套 JSON 拍平为点号连接的单层 dict 再输出")
+    parser.add_argument("-S", "--split", action="store_true",
+                        help="顶层为数组时, 将每个元素拆成独立的 JSON 输出")
     args = parser.parse_args()
 
     if args.filename:
@@ -123,8 +178,10 @@ def format_json():
     else:
         text = sys.stdin.read()
 
-    format_text(text, compact=args.compact, sort_keys=args.sort_keys,
-                keep_text=args.keep_text)
+    ctx = JsonFormatter(compact=args.compact, sort_keys=args.sort_keys,
+                        keep_text=args.keep_text, flat=args.flat,
+                        split=args.split)
+    ctx.format_text(text)
 
 
 if __name__ == "__main__":
