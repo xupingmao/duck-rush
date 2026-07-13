@@ -33,20 +33,20 @@ def trim_content(content: str, chars: str = None, left: bool = False,
     return content.strip(chars)
 
 
-def do_len(fp, chars: str = None, left: bool = False, right: bool = False,
+def do_len(lines, chars: str = None, left: bool = False, right: bool = False,
            total: bool = False) -> None:
     """
-    逐行读取, 在对每行做 trim 之后输出其长度, 结果写到 stdout。
+    逐行统计, 在对每行做 trim 之后输出其长度, 结果写到 stdout。
 
     参数:
-        fp:     输入文件对象或 stdin
+        lines:  可迭代的行序列(文件对象/stdin 或字符串列表)
         chars:  需要去除的字符集合, 为 None 时去除空白字符
         left:   只去除左侧字符
         right:  只去除右侧字符
         total:  额外在末尾输出所有行长度的总和
     """
     sum_len: int = 0
-    for line in fp:
+    for line in lines:
         content, _ = split_newline(line)
         trimmed: str = trim_content(content, chars, left, right)
         line_len: int = len(trimmed)
@@ -60,8 +60,10 @@ def do_len(fp, chars: str = None, left: bool = False, right: bool = False,
 def main() -> None:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="统计文本在 trim 之后每行的长度")
-    parser.add_argument("input", type=str, nargs="?", default="",
-                        help="输入文件, 缺省为读取标准输入")
+    parser.add_argument("text", type=str, nargs="?", default=None,
+                        help="直接传入待统计的文本(可含换行); 缺省时读取标准输入")
+    parser.add_argument("-f", "--file", type=str, default="",
+                        help="输入文件, 指定后优先从文件读取(否则用 text 或 stdin)")
     parser.add_argument("-c", "--chars", type=str, default=None,
                         help="需要去除的字符集合, 缺省为空白字符")
     parser.add_argument("-l", "--left", action="store_true",
@@ -72,11 +74,14 @@ def main() -> None:
                         help="在末尾额外输出所有行长度的总和")
     args: argparse.Namespace = parser.parse_args()
 
-    if args.input == "":
-        do_len(sys.stdin, args.chars, args.left, args.right, args.total)
-    else:
-        with open(args.input, encoding="utf-8") as fp:
+    if args.file:
+        with open(args.file, encoding="utf-8") as fp:
             do_len(fp, args.chars, args.left, args.right, args.total)
+    elif args.text is not None:
+        do_len(args.text.splitlines(), args.chars, args.left,
+               args.right, args.total)
+    else:
+        do_len(sys.stdin, args.chars, args.left, args.right, args.total)
 
 
 if __name__ == '__main__':
