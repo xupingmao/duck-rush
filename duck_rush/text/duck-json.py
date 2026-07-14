@@ -29,16 +29,27 @@ class Config:
 _OP_MAP = {
     "=": operator.eq,
     "==": operator.eq,
+    "eq": operator.eq,
     "!=": operator.ne,
+    "ne": operator.ne,
     ">=": operator.ge,
+    "ge": operator.ge,
     "<=": operator.le,
+    "le": operator.le,
     ">": operator.gt,
     "gt": operator.gt,
     "<": operator.lt,
+    "lt": operator.lt,
 }
 
+
 # 运算符按长度从长到短排列, 避免把 >= 误判为 = 或 >
-_OP_SEQ = ("!=", ">=", "<=", "==", "=", ">", "<", "gt")
+_OP_SEQ = ["!=", ">=", "<=", "=="]
+
+# 再加入其他操作符
+for _op in _OP_MAP:
+    if _op not in _OP_SEQ:
+        _OP_SEQ.append(_op)
 
 
 def _coerce_numeric(v):
@@ -126,7 +137,7 @@ class FilterTerm:
 class FilterExpr:
     """多条 term 的或(OR)组合, 在循环外解析构造一次。"""
 
-    def __init__(self, terms):
+    def __init__(self, terms: List[FilterTerm]):
         self.terms = terms
 
     def match(self, obj) -> bool:
