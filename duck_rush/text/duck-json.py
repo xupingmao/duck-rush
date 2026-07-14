@@ -12,6 +12,170 @@ Description: 从输入(可能是包含json的片段)中提取json并格式化输
 import sys
 import json
 import argparse
+import operator
+from typing import Optional, List
+
+
+class Config:
+    debug = False
+
+# ---------------------------------------------------------------------------
+# --filter 支持: 顶层字段 + 比较运算符 组成 term, 多个 term 之间为或(OR)关系
+#   - 单条: 字段 运算符 值, 如  name="test"   age > 10   age >= 18
+#   - 多个 term 用 | 分隔, 如  name="test" | age > 10
+#   - 也可多次使用 --filter, 如  --filter 'name="test"' --filter 'age > 10'
+#   - 不支持嵌套路径 / 点号前缀 / 正则
+# ---------------------------------------------------------------------------
+_OP_MAP = {
+    "=": operator.eq,
+    "==": operator.eq,
+    "!=": operator.ne,
+    ">=": operator.ge,
+    "<=": operator.le,
+    ">": operator.gt,
+    "gt": operator.gt,
+    "<": operator.lt,
+}
+
+# 运算符按长度从长到短排列, 避免把 >= 误判为 = 或 >
+_OP_SEQ = ("!=", ">=", "<=", "==", "=", ">", "<", "gt")
+
+
+def _coerce_numeric(v):
+    """能转成数字则转(float), 否则返回 None。bool 不视为数字。"""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        try:
+            return float(v)
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_value(s: str):
+    """把条件右侧的字面值解析为 字符串/整数/浮点数。带引号视为字符串。"""
+    s = s.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    try:
+        if '.' in s or 'e' in s.lower():
+            return float(s)
+        return int(s)
+    except ValueError:
+        return s
+
+
+def _get_field(obj, field: str):
+    """取顶层字段的值, 找不到返回 None。"""
+    if isinstance(obj, dict) and field in obj:
+        return obj[field]
+    return None
+
+
+def _split_terms(expr: str):
+    """按 | 切分为多个 term(OR), 忽略引号内的 |。"""
+    parts:List[str] = []
+    buf:List[str] = []
+    in_q:Optional[str] = None
+    
+    i = 0
+    while i < len(expr):
+        c = expr[i]
+        if in_q:
+            buf.append(c)
+            if c == in_q:
+                in_q = None
+        elif c in ('"', "'"):
+            in_q = c
+            buf.append(c)
+        elif c == '|':
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(c)
+        i += 1
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
+
+
+class FilterTerm:
+    """单条已解析的过滤条件: field op expected, 在循环外构造一次。"""
+
+    def __init__(self, field: str, op, expected):
+        self.field = field
+        self.op = op                       # operator.eq / operator.gt ...
+        self.expected = expected
+        self.expected_num = _coerce_numeric(expected)
+
+    def match(self, obj) -> bool:
+        actual = _get_field(obj, self.field)
+        if actual is None:
+            return False
+        na = _coerce_numeric(actual)
+        if na is not None and self.expected_num is not None:
+            return self.op(na, self.expected_num)
+        return self.op(str(actual), str(self.expected))
+    
+    def __str__(self) -> str:
+        return str(dict(field = self.field, op = self.op, expected = self.expected))
+
+
+class FilterExpr:
+    """多条 term 的或(OR)组合, 在循环外解析构造一次。"""
+
+    def __init__(self, terms):
+        self.terms = terms
+
+    def match(self, obj) -> bool:
+        return any(t.match(obj) for t in self.terms)
+    
+    def __str__(self) -> str:
+        terms = [str(term) for term in self.terms]
+        return str(dict(terms = terms))
+
+
+def parse_filter_term(term_str: str) -> FilterTerm:
+    """解析单条 term 字符串(字段 运算符 值)为 FilterTerm, 仅调用一次。"""
+    term = term_str.strip()
+    in_q = None
+    for i, ch in enumerate(term):
+        if in_q:
+            if ch == in_q:
+                in_q = None
+            continue
+        if ch in ('"', "'"):
+            in_q = ch
+            continue
+        for op in _OP_SEQ:
+            if term[i:i + len(op)] == op:
+                field = term[:i].strip()
+                value = term[i + len(op):].strip()
+                if not field or not value:
+                    raise ValueError("无法解析过滤条件: %s" % term)
+                return FilterTerm(field, _OP_MAP[op], _parse_value(value))
+    raise ValueError("无法解析过滤条件: %s" % term)
+
+
+def build_filter(filter_arg: str) -> Optional[FilterExpr]:
+    """把 --filter 参数列表(每个可含 | 分隔的多个 term)解析为 FilterExpr。"""
+    if not filter_arg:
+        return None
+    term_strs = _split_terms(filter_arg)
+    if not term_strs:
+        return None
+    
+    if Config.debug:
+        print(f"DEBUG: term_strs={term_strs}")
+        
+    return FilterExpr([parse_filter_term(t) for t in term_strs])
+
+
+def match_filter(obj, filter_obj: FilterExpr) -> bool:
+    """对单个对象执行过滤(过滤结构已预先解析好)。"""
+    return filter_obj.match(obj)
 
 
 def extract_segments(text: str):
@@ -152,11 +316,33 @@ class JsonFormatter:
         return json.dumps(value, ensure_ascii=False, sort_keys=self.sort_keys,
                           indent=indent)
 
-    def format_text(self, text: str):
-        """提取并格式化输出 JSON。"""
+    def format_text(self, text: str, filter_obj=None):
+        """提取并格式化输出 JSON。若指定 filter_obj(已解析的过滤结构)则只输出匹配的对象。"""
         segments = extract_segments(text)
         if not segments:
             raise ValueError("未从输入中解析出任何 JSON")
+
+        if filter_obj is not None:
+            out_blocks = []
+            for kind, value in segments:
+                if kind != "json":
+                    continue
+                if isinstance(value, list) and not self.split:
+                    # 顶层数组: 过滤元素后整体作为一个数组输出
+                    kept = [item for item in value
+                            if match_filter(item, filter_obj)]
+                    if kept:
+                        out_blocks.append(self.dumps(kept))
+                else:
+                    candidates = value if (self.split
+                                           and isinstance(value, list)) else [value]
+                    for item in candidates:
+                        if match_filter(item, filter_obj):
+                            out_blocks.append(self.dumps(item))
+            if out_blocks:
+                joiner = "\n" if self.compact else "\n\n"
+                print(joiner.join(out_blocks))
+            return
 
         # 每个 json 片段对应的若干 json 块(数组拆分时一个片段对应多块)
         blocks_per_segment = []
@@ -209,8 +395,14 @@ def format_json():
     parser.add_argument("-F", "--fields", default="",
                         help="仅输出指定字段, 多个用逗号分隔, 支持点号嵌套路径, "
                              "如 -F name,meta.id")
+    parser.add_argument("--filter", default=None,
+                        help="按条件过滤对象: 字段 运算符 值(如 name=\"test\" / age > 10)。"
+                             "可多次使用(各条件为或关系); 单次内多个条件用 | 分隔(或关系), "
+                             "如 --filter 'name=\"test\" | age > 10'")
+    parser.add_argument("--debug", action="store_true", help="显示调试信息")
     args = parser.parse_args()
-
+    Config.debug = args.debug
+    
     if args.filename:
         with open(args.filename, encoding="utf-8") as fp:
             text = fp.read()
@@ -223,7 +415,15 @@ def format_json():
     ctx = JsonFormatter(compact=args.compact, sort_keys=args.sort_keys,
                         keep_text=args.keep_text, flat=args.flat,
                         split=args.split, fields=fields)
-    ctx.format_text(text)
+    try:
+        # 先解析 --filter 参数, 构造过滤结构(仅一次, 不在循环里解析)
+        filter_obj = build_filter(args.filter)
+        if Config.debug:
+            print(f"DEBUG: filter_obj={filter_obj}")
+        ctx.format_text(text, filter_obj=filter_obj)
+    except ValueError as e:
+        sys.stderr.write("duck-json: %s\n" % e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
