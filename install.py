@@ -278,9 +278,9 @@ def install_for_unix():
     def get_start_code(fpath, ext):
         """构建启动脚本"""
         if ext == ".py":
-            return f"{sys.executable} %r $*" % fpath
+            return f"{sys.executable} %r \"$@\"" % fpath
         if ext == ".sh":
-            return "sh %r $*" % fpath
+            return "sh %r \"$@\"" % fpath
         return ""
 
     # 第1步：收集所有当前应生成的脚本名
