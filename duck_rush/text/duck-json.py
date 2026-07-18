@@ -13,6 +13,7 @@ import sys
 import json
 import argparse
 import operator
+from collections import OrderedDict
 from typing import Optional, List
 
 
@@ -386,6 +387,137 @@ class JsonFormatter:
                 out.append(value)
         print("".join(out))
 
+    def _collect_records(self, text: str, filter_obj=None) -> List[dict]:
+        """从输入中提取所有记录(dict 对象)并应用过滤, 顶层数组会被展开为多个记录。"""
+        segments = extract_segments(text)
+        records: List[dict] = []
+        for kind, value in segments:
+            if kind != "json":
+                continue
+            items = value if isinstance(value, list) else [value]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                if filter_obj is None or match_filter(item, filter_obj):
+                    records.append(item)
+        return records
+
+    def _discover_numeric_fields(self, records: List[dict]) -> List[str]:
+        """自动发现记录中所有顶层数值型字段。"""
+        fields: List[str] = []
+        seen = set()
+        for rec in records:
+            if not isinstance(rec, dict):
+                continue
+            for k, v in rec.items():
+                if k in seen:
+                    continue
+                if _coerce_numeric(v) is not None:
+                    seen.add(k)
+                    fields.append(k)
+        return fields
+
+    @staticmethod
+    def _fmt_num(v) -> str:
+        """数值格式化为字符串: 整数去小数点, 浮点数最多保留 4 位小数。"""
+        if isinstance(v, float):
+            if v.is_integer():
+                return str(int(v))
+            return ("%.4f" % v).rstrip("0").rstrip(".")
+        return str(v)
+
+    def group_stats(self, text: str, group_by: str,
+                    filter_obj=None, stat_fields: Optional[list] = None,
+                    as_json: bool = False):
+        """按 group_by 指定的顶层属性分组, 对各数值属性统计 count/avg/max/min。
+
+        - group_by: 分组依据的顶层字段名
+        - stat_fields: 需要统计的顶层数值字段列表;
+          为 None 时自动对所有顶层数值字段统计
+        - as_json: 为 True 时默认以 JSONL 输出(每行一个
+          ``{"group": 分组值, "count": N, "stats": {...}}`` 对象),
+          为 False 时输出对齐的表格
+        """
+        records = self._collect_records(text, filter_obj)
+        if not records:
+            if not as_json:
+                print("无数据")
+            return
+
+        fields = stat_fields or self._discover_numeric_fields(records)
+
+        groups = OrderedDict()
+        for rec in records:
+            key = _get_field(rec, group_by)
+            if key is None:
+                continue
+            groups.setdefault(key, []).append(rec)
+
+        result = []
+        for key, recs in groups.items():
+            group: dict = {"group": key, "count": len(recs)}
+            stats: dict = {}
+            for field in fields:
+                vals = []
+                for rec in recs:
+                    n = _coerce_numeric(_get_field(rec, field))
+                    if n is not None:
+                        vals.append(n)
+                if vals:
+                    stats[field] = {
+                        "avg": sum(vals) / len(vals),
+                        "max": max(vals),
+                        "min": min(vals),
+                    }
+            if stats:
+                group["stats"] = stats
+            result.append(group)
+
+        if as_json:
+            for group in result:
+                print(json.dumps(group, ensure_ascii=False, sort_keys=self.sort_keys))
+            return
+
+        self._print_group_table(result, fields)
+
+    def _print_group_table(self, result: list, fields: list):
+        """把分组统计结果打印为对齐的纯文本表格。"""
+        headers = ["group", "count"]
+        for field in fields:
+            headers += ["%s.avg" % field, "%s.max" % field, "%s.min" % field]
+
+        rows = []
+        for group in result:
+            row = [str(group["group"]), str(group["count"])]
+            stats = group.get("stats", {})
+            for field in fields:
+                s = stats.get(field)
+                if s:
+                    row += [self._fmt_num(s["avg"]),
+                            self._fmt_num(s["max"]),
+                            self._fmt_num(s["min"])]
+                else:
+                    row += ["-", "-", "-"]
+            rows.append(row)
+
+        widths = [len(h) for h in headers]
+        for row in rows:
+            for i, cell in enumerate(row):
+                widths[i] = max(widths[i], len(cell))
+
+        def render(cells):
+            out = []
+            for i, cell in enumerate(cells):
+                if i == 0:
+                    out.append(cell.ljust(widths[i]))
+                else:
+                    out.append(cell.rjust(widths[i]))
+            return " ".join(out)
+
+        print(render(headers))
+        for row in rows:
+            print(render(row))
+
 
 def format_json():
     """格式化json并展示: 默认美化, 可用 --compact 改为一行一个json"""
@@ -399,8 +531,10 @@ def format_json():
                         help="按 key 排序输出(默认不排序, 与美化保持一致)")
     parser.add_argument("-k", "--keep-text", action="store_true",
                         help="保留并原样输出 JSON 之间的非 JSON 文本内容")
-    parser.add_argument("-f", "--flat", action="store_true",
-                        help="将嵌套 JSON 拍平为点号连接的单层 dict 再输出")
+    parser.add_argument("-f", "--flat", nargs="?", const=".", default=False,
+                        metavar="SEP",
+                        help="将嵌套 JSON 拍平为单层 dict 再输出; 可指定连接符, "
+                             "如 -f _ 用下划线连接, 省略则默认用点号(.)连接")
     parser.add_argument("-S", "--split", action="store_true",
                         help="顶层为数组时, 将每个元素拆成独立的 JSON 输出")
     parser.add_argument("-F", "--fields", default="",
@@ -410,6 +544,14 @@ def format_json():
                         help="按条件过滤对象: 字段 运算符 值(如 name=\"test\" / age > 10)。"
                              "可多次使用(各条件为或关系); 单次内多个条件用 | 分隔(或关系), "
                              "如 --filter 'name=\"test\" | age > 10'")
+    parser.add_argument("--group-by", default=None,
+                        help="按指定顶层属性分组, 如 --group-by category。"
+                             "配合 --stats 对各数值属性统计 count/avg/max/min")
+    parser.add_argument("--stats", default="",
+                        help="分组时统计的顶层数值属性, 多个用逗号分隔, "
+                             "如 --stats price,score; 省略则对所有顶层数值属性统计")
+    parser.add_argument("--table", action="store_true",
+                        help="分组统计结果以对齐表格输出(默认输出为 JSONL)")
     parser.add_argument("--debug", action="store_true", help="显示调试信息")
     args = parser.parse_args()
     Config.debug = args.debug
@@ -423,15 +565,24 @@ def format_json():
     fields = [f.strip() for f in args.fields.split(",") if f.strip()] \
         if args.fields else []
 
+    flat = args.flat is not False
+    sep = args.flat if flat else "."
     ctx = JsonFormatter(compact=args.compact, sort_keys=args.sort_keys,
-                        keep_text=args.keep_text, flat=args.flat,
+                        keep_text=args.keep_text, flat=flat, sep=sep,
                         split=args.split, fields=fields)
     try:
         # 先解析 --filter 参数, 构造过滤结构(仅一次, 不在循环里解析)
         filter_obj = build_filter(args.filter)
         if Config.debug:
             print(f"DEBUG: filter_obj={filter_obj}")
-        ctx.format_text(text, filter_obj=filter_obj)
+        if args.group_by:
+            stat_fields = [f.strip() for f in args.stats.split(",") if f.strip()] \
+                if args.stats else None
+            ctx.group_stats(text, group_by=args.group_by,
+                            filter_obj=filter_obj, stat_fields=stat_fields,
+                            as_json=not args.table)
+        else:
+            ctx.format_text(text, filter_obj=filter_obj)
     except ValueError as e:
         sys.stderr.write("duck-json: %s\n" % e)
         sys.exit(1)
