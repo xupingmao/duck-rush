@@ -1,6 +1,11 @@
 # encoding=utf-8
 import os
-from duck_rush.utils import fs_util
+import sys
+try:
+    from duck_utils import fs_util
+except ImportError:
+    sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
+    sys.exit(1)
 
 class XnotePack:
     def __init__(self, root_dir=""):

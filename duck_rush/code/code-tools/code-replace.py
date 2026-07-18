@@ -13,7 +13,11 @@ duck_rush_dir = os.environ.get("DUCK_RUSH_DIR", "")
 if duck_rush_dir not in sys.path:
     sys.path.append(duck_rush_dir)
 
-from duck_rush.utils.os_util import set_console_font_color
+try:
+    from duck_utils.os_util import set_console_font_color
+except ImportError:
+    sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
+    sys.exit(1)
 
 CODE_EXT_SET = set([
     ".txt", 

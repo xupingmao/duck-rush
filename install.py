@@ -351,6 +351,15 @@ def install_duck_rush_package():
         shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
     print("duck_rush模块安装完成")
 
+def install_duck_utils_package():
+    """安装独立的 duck_utils 工具包到本地(用户目录, 无需管理员权限), 使脚本可 `import duck_utils`"""
+    print("安装 duck_utils 模块 ...")
+    os.system(f"{sys.executable} \"{os.path.join(DIR_PATH, 'duck_utils', 'setup.py')}\" sdist install --user")
+    print("清理临时文件...")
+    for d in ("build", "dist", "duck_utils.egg-info"):
+        shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
+    print("duck_utils模块安装完成")
+
 def do_install():
     if sys.version_info < (3,6):
         sys.stderr.write("require python >= 3.6")
@@ -358,6 +367,7 @@ def do_install():
 
     install_requirements()
     install_duck_rush_package()
+    install_duck_utils_package()
 
     env = check_environment()
 

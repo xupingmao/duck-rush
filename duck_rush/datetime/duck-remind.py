@@ -16,8 +16,9 @@
     绝对: 14:30 / 2026-07-15 14:30 / 2026-07-15 14:30:00 / 2026/07/15 14:30 ...
 
 说明:
-    - add 仅把提醒写入数据库并立即返回, 后台守护进程到期自动弹出 GUI
-    - 弹窗使用 tkinter, 置顶悬浮, 含「关闭」和「稍后提醒」两个按钮
+    - add 仅把提醒写入数据库并立即返回, 后台守护进程到期自动弹出提醒
+    - Windows 使用 Tkinter 悬浮弹窗; Linux 使用 libnotify(notify-send), macOS 使用系统通知
+    - 提醒支持「关闭」与「稍后提醒」交互
     - 同一时刻最多只展示一个弹窗(守护进程单实例 + 顺序弹窗 + 弹窗锁)
 '''
 import os
@@ -31,13 +32,10 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 try:
-    from duck_rush.utils.os_util import is_windows
+    from duck_utils.os_util import is_windows, is_mac, is_linux
 except ImportError:
-    try:
-        from utils.os_util import is_windows
-    except ImportError:
-        def is_windows() -> bool:
-            return sys.platform.startswith("win")
+    sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # 路径 & 常量
@@ -323,10 +321,40 @@ dao = ReminderDao()
 
 
 # ---------------------------------------------------------------------------
-# GUI 弹窗 (tkinter)
+# 提醒展示 (Windows 用 Tkinter 弹窗, Linux/macOS 用系统原生通知)
 # ---------------------------------------------------------------------------
+NOTIFY_TITLE = "提醒"
+
+# --- macOS ---------------------------------------------------------------
+def _ask_macos(message: str, snooze_min: int) -> str:
+    """macOS: 通知中心无操作按钮, 用原生 Aqua 对话框获取选择(非 tkinter)"""
+    snooze_label = "稍后提醒(%d分)" % snooze_min
+    text = message.replace("\\", "\\\\").replace('"', '\\"')
+    script = ('display dialog "%s" with title "%s" '
+              'buttons {"关闭", "%s"} default button "%s" '
+              'giving up after 3600' % (text, NOTIFY_TITLE, snooze_label, snooze_label))
+    proc = subprocess.run(["osascript", "-e", script],
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    out = proc.stdout.decode("utf-8", "ignore")
+    return "snooze" if snooze_label in out else "close"
+
+
+# --- Linux ---------------------------------------------------------------
+def _ask_linux(message: str, snooze_min: int) -> str:
+    """Linux: libnotify 通知 + 操作按钮(notify-send --action)"""
+    snooze_label = "稍后提醒(%d分)" % snooze_min
+    proc = subprocess.run(
+        ["notify-send", "--action=close=关闭",
+         "--action=snooze=" + snooze_label,
+         "--expire-time=60000", NOTIFY_TITLE, message],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    out = proc.stdout.decode("utf-8", "ignore").strip()
+    return "snooze" if out == "snooze" else "close"
+
+
+# --- Windows -------------------------------------------------------------
 class RemindWindow:
-    """置顶悬浮提醒弹窗, 返回 'close' 或 'snooze'"""
+    """置顶悬浮提醒弹窗(Tkinter), 返回 'close' 或 'snooze'"""
 
     def __init__(self, message: str, snooze_min: int) -> None:
         import tkinter as tk
@@ -401,18 +429,47 @@ class RemindWindow:
         return self.result or "close"
 
 
-def show_reminder(message: str, snooze_min: int) -> str:
-    """弹出提醒窗口, 返回用户选择。GUI 不可用时回退到命令行确认"""
+def _ask_windows(message: str, snooze_min: int) -> str:
+    """Windows: 使用 Tkinter 悬浮弹窗获取选择(关闭 / 稍后提醒)"""
     try:
         return RemindWindow(message, snooze_min).run()
-    except Exception as e:  # pragma: no cover - tkinter 异常兜底
-        print("[提醒] %s" % message)
-        print("  (GUI 不可用: %s) 输入 s 稍后提醒, 其他键关闭:" % e, end=" ", flush=True)
+    except Exception as e:  # pragma: no cover - Tkinter 异常兜底
+        print("[提醒] %s" % message, file=sys.stderr)
+        print("  (Tkinter 不可用: %s)" % e, file=sys.stderr)
+        # 兜底: 命令行确认
+        print("  输入 s 稍后提醒, 其他键关闭:", end=" ", flush=True)
         try:
             ans = input().strip().lower()
         except EOFError:
             return "close"
         return "snooze" if ans == "s" else "close"
+
+
+
+def show_reminder(message: str, snooze_min: int) -> str:
+    """弹出提醒并获取用户选择('close' / 'snooze')。
+
+    Windows 使用 Tkinter 弹窗, Linux 使用 libnotify, macOS 使用系统通知;
+    对应 UI 不可用时回退到命令行确认。
+    """
+    try:
+        if is_mac():
+            return _ask_macos(message, snooze_min)
+        if is_linux():
+            return _ask_linux(message, snooze_min)
+        if is_windows():
+            return _ask_windows(message, snooze_min)
+    except Exception as e:  # pragma: no cover - 系统通知异常兜底
+        print("[提醒] %s" % message, file=sys.stderr)
+        print("  (系统通知不可用: %s)" % e, file=sys.stderr)
+    # 兜底: 命令行确认
+    print("[提醒] %s" % message)
+    print("  输入 s 稍后提醒, 其他键关闭:", end=" ", flush=True)
+    try:
+        ans = input().strip().lower()
+    except EOFError:
+        return "close"
+    return "snooze" if ans == "s" else "close"
 
 
 # ---------------------------------------------------------------------------
@@ -557,11 +614,30 @@ def cmd_remove(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="命令行提醒工具")
+    parser = argparse.ArgumentParser(
+        description="命令行提醒工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=("示例:\n"
+                "  duck-remind.py add +5m 开会            # 5 分钟后提醒\n"
+                "  duck-remind.py add 14:30 喝水           # 今天 14:30 提醒\n"
+                "  duck-remind.py add 2026-07-15 14:30 提交周报 --snooze 10\n"
+                "  duck-remind.py list                     # 列出待提醒(含 ID)\n"
+                "  duck-remind.py remove 3                 # 删除 ID 为 3 的提醒\n"
+                "各子命令加 -h 可查看详细时间格式与参数, 如: duck-remind.py add -h"))
     sub = parser.add_subparsers(dest="command")
 
-    p_add = sub.add_parser("add", help="设置提醒")
-    p_add.add_argument("time", help="提醒时间, 如 +5m / 14:30 / 2026-07-15 14:30")
+    p_add = sub.add_parser(
+        "add", help="设置提醒",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=("设置提醒。\n"
+                     "时间格式:\n"
+                     "  相对: +10s / +5m / +1h / +1d          (数字+单位)\n"
+                     "  绝对: 14:30 / 2026-07-15 14:30 / 2026/07/15 14:30 / 2026-07-15T14:30\n"
+                     "示例:\n"
+                     "  duck-remind.py add +5m 开会\n"
+                     "  duck-remind.py add 14:30 喝水\n"
+                     "  duck-remind.py add 2026-07-15 14:30 提交周报 --snooze 10"))
+    p_add.add_argument("time", help="提醒时间(支持相对 +5m / 绝对 14:30 等, 详见命令说明)")
     p_add.add_argument("message", help="提醒文案")
     p_add.add_argument("--snooze", type=int, default=DEFAULT_SNOOZE_MIN,
                        help="稍后提醒推迟分钟数(默认 %d)" % DEFAULT_SNOOZE_MIN)
@@ -570,8 +646,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_list = sub.add_parser("list", help="列出提醒")
     p_list.set_defaults(func=cmd_list)
 
-    p_rm = sub.add_parser("remove", help="删除提醒")
-    p_rm.add_argument("id", type=int, help="提醒 ID")
+    p_rm = sub.add_parser(
+        "remove", help="删除提醒",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=("删除指定 ID 的提醒。\n"
+                     "示例:\n"
+                     "  duck-remind.py list     # 先查看提醒列表与 ID\n"
+                     "  duck-remind.py remove 3  # 删除 ID 为 3 的提醒"))
+    p_rm.add_argument("id", type=int, help="提醒 ID(可用 list 命令查看)")
     p_rm.set_defaults(func=cmd_remove)
 
     p_daemon = sub.add_parser("daemon", help="后台调度(内部)")

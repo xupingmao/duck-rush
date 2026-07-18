@@ -17,7 +17,7 @@ setuptools.setup(
     description  = "Python函数库",
     long_description = long_description,
     long_description_content_type = "text/markdown",
-    packages = setuptools.find_packages(),
+    packages = setuptools.find_packages(exclude=["duck_utils", "duck_utils.*"]),
     classifiers = [
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
