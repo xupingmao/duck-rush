@@ -163,6 +163,13 @@ def parse_filter_term(term_str: str) -> FilterTerm:
             continue
         for op in _OP_SEQ:
             if term[i:i + len(op)] == op:
+                # 字母型操作符(ge/gt/le/lt/eq/ne)不能匹配字段名内部的子串,
+                # 如 "age" 中的 "ge"; 需前后都不是字母才算边界匹配
+                if op.isalpha():
+                    prev = term[i - 1] if i > 0 else ""
+                    nxt = term[i + len(op)] if i + len(op) < len(term) else ""
+                    if (prev and prev.isalpha()) or (nxt and nxt.isalpha()):
+                        continue
                 field = term[:i].strip()
                 value = term[i + len(op):].strip()
                 if not field or not value:
@@ -185,7 +192,7 @@ def build_filter(filter_arg: str) -> Optional[FilterExpr]:
     return FilterExpr([parse_filter_term(t) for t in term_strs])
 
 
-def match_filter(obj, filter_obj: FilterExpr) -> bool:
+def match_filter(obj, filter_obj: Optional[FilterExpr] = None) -> bool:
     """对单个对象执行过滤(过滤结构已预先解析好)。"""
     return filter_obj.match(obj)
 
@@ -235,28 +242,26 @@ def extract_segments(text: str):
     return segments
 
 
-class JsonFormatter:
-    """管理格式化的上下文选项, 并提供拍平/序列化/输出等能力。
+class JsonRenderer:
+    """格式化/序列化上下文: 负责把单条 JSON 记录渲染为字符串(支持拍平/
+    fields 筛选), 以及把分组统计结果渲染为对齐表格。
 
-    各选项含义:
-    - compact: 一行展示一个 JSON(否则美化, 每个 JSON 之间空一行)
+    - compact  : 一行展示一个 JSON(否则美化, 每个 JSON 之间空一行)
     - sort_keys: 按 key 排序输出
     - keep_text: 保留并原样输出 JSON 之间的非 JSON 文本
-    - flat: 将嵌套 JSON 拍平为用 ``sep`` 连接的单层 dict 再输出
-    - sep: 拍平时连接 key 的分隔符, 默认 ``.``
-    - split: 顶层 JSON 为数组时, 将每个元素拆成独立的 JSON 输出
-    - fields: 仅输出指定的字段(支持用 ``sep`` 连接的嵌套路径, 多个用逗号分隔)
+    - flat    : 将嵌套 JSON 拍平为用 ``sep`` 连接的单层 dict 再输出
+    - sep     : 拍平时连接 key 的分隔符, 默认 ``.``
+    - fields  : 仅输出指定的字段(支持用 ``sep`` 连接的嵌套路径, 多个用逗号分隔)
     """
 
     def __init__(self, compact: bool = False, sort_keys: bool = False,
                  keep_text: bool = False, flat: bool = False, sep: str = ".",
-                 split: bool = False, fields: list = None):
+                 fields: Optional[list] = None):
         self.compact = compact
         self.sort_keys = sort_keys
         self.keep_text = keep_text
         self.flat = flat
         self.sep = sep
-        self.split = split
         self.fields = fields or []
 
     def _build_wanted(self) -> dict:
@@ -272,7 +277,7 @@ class JsonFormatter:
                 cur = cur.setdefault(part, {})
         return wanted
 
-    def pick(self, obj: object, wanted: dict = None) -> object:
+    def pick(self, obj: object, wanted: Optional[dict] = None) -> object:
         """按 wanted 结构从 obj 中挑选出指定字段, 保留原有嵌套层级。
 
         - 仅挑选 dict 中命中的 key, 其它 key 丢弃
@@ -291,7 +296,7 @@ class JsonFormatter:
             return [self.pick(item, wanted) for item in obj]
         return obj
 
-    def flatten(self, obj: object, prefix: str = "", result: dict = None):
+    def flatten(self, obj: object, prefix: str = "", result: Optional[dict] = None):
         """将嵌套的 dict/list 拍平为单层 dict, key 用 ``sep`` 连接。
 
         - dict 的嵌套值用分隔符连接, 如 ``{"a": {"b": 1}}`` -> ``{"a.b": 1}``
@@ -328,95 +333,6 @@ class JsonFormatter:
         return json.dumps(value, ensure_ascii=False, sort_keys=self.sort_keys,
                           indent=indent)
 
-    def format_text(self, text: str, filter_obj=None):
-        """提取并格式化输出 JSON。若指定 filter_obj(已解析的过滤结构)则只输出匹配的对象。"""
-        segments = extract_segments(text)
-        if not segments:
-            raise ValueError("未从输入中解析出任何 JSON")
-
-        if filter_obj is not None:
-            out_blocks = []
-            for kind, value in segments:
-                if kind != "json":
-                    continue
-                if isinstance(value, list) and not self.split:
-                    # 顶层数组: 过滤元素后整体作为一个数组输出
-                    kept = [item for item in value
-                            if match_filter(item, filter_obj)]
-                    if kept:
-                        out_blocks.append(self.dumps(kept))
-                else:
-                    candidates = value if (self.split
-                                           and isinstance(value, list)) else [value]
-                    for item in candidates:
-                        if match_filter(item, filter_obj):
-                            out_blocks.append(self.dumps(item))
-            if out_blocks:
-                joiner = "\n" if self.compact else "\n\n"
-                print(joiner.join(out_blocks))
-            return
-
-        # 每个 json 片段对应的若干 json 块(数组拆分时一个片段对应多块)
-        blocks_per_segment = []
-        for kind, value in segments:
-            if kind != "json":
-                continue
-            if self.split and isinstance(value, list):
-                blocks = [self.dumps(item) for item in value]
-            else:
-                blocks = [self.dumps(value)]
-            blocks_per_segment.append(blocks)
-
-        json_blocks = [b for blocks in blocks_per_segment for b in blocks]
-        if not json_blocks:
-            raise ValueError("未从输入中解析出任何 JSON")
-
-        if not self.keep_text:
-            joiner = "\n" if self.compact else "\n\n"
-            print(joiner.join(json_blocks))
-            return
-
-        # keep_text=True: 按原文顺序, 将格式化后的 JSON 与原始文本交织输出
-        out = []
-        seg_idx = 0
-        for kind, value in segments:
-            if kind == "json":
-                out.extend(blocks_per_segment[seg_idx])
-                seg_idx += 1
-            else:
-                out.append(value)
-        print("".join(out))
-
-    def _collect_records(self, text: str, filter_obj=None) -> List[dict]:
-        """从输入中提取所有记录(dict 对象)并应用过滤, 顶层数组会被展开为多个记录。"""
-        segments = extract_segments(text)
-        records: List[dict] = []
-        for kind, value in segments:
-            if kind != "json":
-                continue
-            items = value if isinstance(value, list) else [value]
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                if filter_obj is None or match_filter(item, filter_obj):
-                    records.append(item)
-        return records
-
-    def _discover_numeric_fields(self, records: List[dict]) -> List[str]:
-        """自动发现记录中所有顶层数值型字段。"""
-        fields: List[str] = []
-        seen = set()
-        for rec in records:
-            if not isinstance(rec, dict):
-                continue
-            for k, v in rec.items():
-                if k in seen:
-                    continue
-                if _coerce_numeric(v) is not None:
-                    seen.add(k)
-                    fields.append(k)
-        return fields
-
     @staticmethod
     def _fmt_num(v) -> str:
         """数值格式化为字符串: 整数去小数点, 浮点数最多保留 4 位小数。"""
@@ -426,69 +342,20 @@ class JsonFormatter:
             return ("%.4f" % v).rstrip("0").rstrip(".")
         return str(v)
 
-    def group_stats(self, text: str, group_by: str,
-                    filter_obj=None, stat_fields: Optional[list] = None,
-                    as_json: bool = False):
-        """按 group_by 指定的顶层属性分组, 对各数值属性统计 count/avg/max/min。
+    # 分组/过滤/排序逻辑已重构为 Volcano 算子(见文件下方)
 
-        - group_by: 分组依据的顶层字段名
-        - stat_fields: 需要统计的顶层数值字段列表;
-          为 None 时自动对所有顶层数值字段统计
-        - as_json: 为 True 时默认以 JSONL 输出(每行一个
-          ``{"group": 分组值, "count": N, "stats": {...}}`` 对象),
-          为 False 时输出对齐的表格
-        """
-        records = self._collect_records(text, filter_obj)
-        if not records:
-            if not as_json:
-                print("无数据")
-            return
-
-        fields = stat_fields or self._discover_numeric_fields(records)
-
-        groups = OrderedDict()
-        for rec in records:
-            key = _get_field(rec, group_by)
-            if key is None:
-                continue
-            groups.setdefault(key, []).append(rec)
-
-        result = []
-        for key, recs in groups.items():
-            group: dict = {"group": key, "count": len(recs)}
-            stats: dict = {}
-            for field in fields:
-                vals = []
-                for rec in recs:
-                    n = _coerce_numeric(_get_field(rec, field))
-                    if n is not None:
-                        vals.append(n)
-                if vals:
-                    stats[field] = {
-                        "avg": sum(vals) / len(vals),
-                        "max": max(vals),
-                        "min": min(vals),
-                    }
-            if stats:
-                group["stats"] = stats
-            result.append(group)
-
-        if as_json:
-            for group in result:
-                print(json.dumps(group, ensure_ascii=False, sort_keys=self.sort_keys))
-            return
-
-        self._print_group_table(result, fields)
-
-    def _print_group_table(self, result: list, fields: list):
+    def _print_group_table(self, result: list, group_fields: List[str], fields: list):
         """把分组统计结果打印为对齐的纯文本表格。"""
-        headers = ["group", "count"]
+        headers = list(group_fields) + ["count"]
         for field in fields:
             headers += ["%s.avg" % field, "%s.max" % field, "%s.min" % field]
 
         rows = []
         for group in result:
-            row = [str(group["group"]), str(group["count"])]
+            gval = group["group"]
+            gvals = [gval] if isinstance(gval, str) else \
+                [gval.get(f, "") for f in group_fields]
+            row = [str(v) for v in gvals] + [str(group["count"])]
             stats = group.get("stats", {})
             for field in fields:
                 s = stats.get(field)
@@ -508,7 +375,7 @@ class JsonFormatter:
         def render(cells):
             out = []
             for i, cell in enumerate(cells):
-                if i == 0:
+                if i < len(group_fields):
                     out.append(cell.ljust(widths[i]))
                 else:
                     out.append(cell.rjust(widths[i]))
@@ -517,6 +384,240 @@ class JsonFormatter:
         print(render(headers))
         for row in rows:
             print(render(row))
+
+
+# ===========================================================================
+# Volcano 执行模型
+# 每个算子实现 __iter__, 通过迭代从上游算子逐行拉取数据:
+#   - ScanOp    : 步骤1, 解析输入, 每次 yield ('json', obj) 或 ('text', str)
+#   - FilterOp  : 应用 --filter 条件
+#   - GroupByOp : 阻塞式聚合, 按字段分组并统计
+#   - SortOp    : 阻塞式, 对上游结果排序(在 group-by 之后执行)
+# 步骤3(组装输出)在 format_json 中根据模式选择对应的输出函数。
+# ===========================================================================
+
+
+class Operator:
+    """Volcano 算子基类: 每个算子通过``source``持有唯一的上游迭代器,
+    线性串联成流水线(非多子节点, 故用单数 source 而非 children)。"""
+    def __init__(self, source: Optional['Operator'] = None):
+        self.source = source
+
+    def __iter__(self):
+        raise NotImplementedError
+
+
+class ScanOp(Operator):
+    """步骤1: 从文本解析出片段, 每次 yield 一个 ('json', obj) 或 ('text', str)。"""
+    def __init__(self, text: str):
+        super().__init__()
+        self.text = text
+
+    def __iter__(self):
+        for kind, value in extract_segments(self.text):
+            yield (kind, value)
+
+
+class FilterOp(Operator):
+    """应用 --filter 条件。顶层数组默认整体作为一个 json 行(可用 SplitOp 展开)。"""
+    def __init__(self, source: Operator, filter_obj: Optional[FilterExpr] = None):
+        super().__init__(source)
+        self.filter_obj = filter_obj
+
+    def __iter__(self):
+        for kind, value in self.source:
+            if kind != "json":
+                yield (kind, value)
+                continue
+            if isinstance(value, list):
+                kept = [it for it in value
+                        if self.filter_obj is None or match_filter(it, self.filter_obj)]
+                if kept:
+                    yield ("json", kept)
+            else:
+                if self.filter_obj is None or match_filter(value, self.filter_obj):
+                    yield ("json", value)
+
+
+class SplitOp(Operator):
+    """将顶层数组展开为独立的 json 行(对应 --split 参数)。"""
+    def __iter__(self):
+        for kind, value in self.source:
+            if kind == "json" and isinstance(value, list):
+                for it in value:
+                    yield ("json", it)
+            else:
+                yield (kind, value)
+
+
+def _discover_numeric_fields(records: List[dict]) -> List[str]:
+    """自动发现记录中所有顶层数值型字段。"""
+    fields: List[str] = []
+    seen = set()
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        for k, v in rec.items():
+            if k in seen:
+                continue
+            if _coerce_numeric(v) is not None:
+                seen.add(k)
+                fields.append(k)
+    return fields
+
+
+class GroupByOp(Operator):
+    """阻塞式聚合: 收集所有 json 记录(顶层数组展开), 按字段分组并统计。"""
+    def __init__(self, source: Operator, group_by: List[str],
+                 stat_fields: Optional[list] = None, count_only: bool = False):
+        super().__init__(source)
+        self.group_by = group_by
+        self.stat_fields = stat_fields
+        self.count_only = count_only
+        self.fields: List[str] = []  # 实际参与统计的字段(供输出制表用)
+
+    def __iter__(self):
+        # 收集所有 json 记录(dict), 顶层数组展开为多个记录
+        records: List[dict] = []
+        for kind, value in self.source:
+            if kind != "json":
+                continue
+            items = value if isinstance(value, list) else [value]
+            for it in items:
+                if isinstance(it, dict):
+                    records.append(it)
+
+        self.fields = [] if self.count_only else (
+            self.stat_fields or _discover_numeric_fields(records))
+
+        groups = OrderedDict()
+        for rec in records:
+            key = tuple(_get_field(rec, f) for f in self.group_by)
+            if any(v is None for v in key):
+                continue
+            groups.setdefault(key, []).append(rec)
+
+        single = len(self.group_by) == 1
+        for key, recs in groups.items():
+            gval = key[0] if single else {f: v for f, v in zip(self.group_by, key)}
+            row: dict = {"group": gval, "count": len(recs)}
+            if not self.count_only:
+                stats: dict = {}
+                for field in self.fields:
+                    vals = []
+                    for rec in recs:
+                        n = _coerce_numeric(_get_field(rec, field))
+                        if n is not None:
+                            vals.append(n)
+                    if vals:
+                        stats[field] = {
+                            "avg": sum(vals) / len(vals),
+                            "max": max(vals),
+                            "min": min(vals),
+                        }
+                if stats:
+                    row["stats"] = stats
+            yield row
+
+
+class SortOp(Operator):
+    """阻塞式: 收集上游所有行, 按 key_fn 排序后输出。"""
+    def __init__(self, source: Operator, key_fn, reverse: bool = False):
+        super().__init__(source)
+        self.key_fn = key_fn
+        self.reverse = reverse
+
+    def __iter__(self):
+        rows = list(self.source)
+        rows.sort(key=self.key_fn, reverse=self.reverse)
+        for row in rows:
+            yield row
+
+
+class JsonOnlyOp(Operator):
+    """过滤掉 text 行, 仅保留 json 行(排序等场景使用)。"""
+    def __iter__(self):
+        for kind, value in self.source:
+            if kind == "json":
+                yield (kind, value)
+
+
+# ---- 排序键构造 -------------------------------------------------------------
+
+
+def _make_group_key_fn(sort_keys: List[str], group_by: List[str]):
+    """为分组结果行构造排序键函数。
+
+    支持的键:
+    - ``count``                 : 按分组记录数排序
+    - 分组字段名               : 按该分组值排序(单字段分组时即 group 标量)
+    - ``字段.avg/max/min``    : 按某数值属性的统计量排序
+    """
+    def fn(row):
+        vals = []
+        g = row.get("group")
+        for key in sort_keys:
+            if key == "count":
+                vals.append(row.get("count", 0))
+            elif "." in key:
+                field, agg = key.split(".", 1)
+                vals.append(row.get("stats", {}).get(field, {}).get(agg, 0))
+            elif isinstance(g, dict):
+                vals.append(g.get(key, ""))
+            elif len(group_by) == 1 and key == group_by[0]:
+                vals.append(g)
+            else:
+                vals.append("")
+        return tuple(vals)
+    return fn
+
+
+def _make_record_key_fn(sort_keys: List[str]):
+    """为普通 json 记录行 (kind, obj) 构造排序键函数。"""
+    def fn(row):
+        _, obj = row
+        vals = []
+        for key in sort_keys:
+            v = _get_field(obj, key) if isinstance(obj, dict) else None
+            n = _coerce_numeric(v)
+            vals.append(n if n is not None else (v if v is not None else ""))
+        return tuple(vals)
+    return fn
+
+
+# ---- 步骤3: 结果组装输出 ---------------------------------------------------
+
+
+def output_group(op: Operator, meta_op: GroupByOp, as_json: bool, sort_keys: bool,
+                 ctx: JsonRenderer):
+    """输出分组统计结果(表格或 JSONL)。meta_op 提供 group_by/fields 元信息。"""
+    rows = list(op)
+    if not rows:
+        if not as_json:
+            print("无数据")
+        return
+    if as_json:
+        for row in rows:
+            print(json.dumps(row, ensure_ascii=False, sort_keys=sort_keys))
+    else:
+        ctx._print_group_table(rows, meta_op.group_by, meta_op.fields)
+
+
+def output_plain(rows, ctx: JsonRenderer):
+    """输出普通(json/text)结果: 应用 fields/flat, 按 keep_text 交织文本。"""
+    items = []
+    for kind, value in rows:
+        if kind == "json":
+            items.append(("json", ctx.dumps(value)))
+        else:
+            items.append(("text", value))
+    if ctx.keep_text:
+        print("".join(s for _, s in items))
+    else:
+        blocks = [s for k, s in items if k == "json"]
+        joiner = "\n" if ctx.compact else "\n\n"
+        if blocks:
+            print(joiner.join(blocks))
 
 
 def format_json():
@@ -544,14 +645,25 @@ def format_json():
                         help="按条件过滤对象: 字段 运算符 值(如 name=\"test\" / age > 10)。"
                              "可多次使用(各条件为或关系); 单次内多个条件用 | 分隔(或关系), "
                              "如 --filter 'name=\"test\" | age > 10'")
-    parser.add_argument("--group-by", default=None,
-                        help="按指定顶层属性分组, 如 --group-by category。"
+    parser.add_argument("--group-by", default="",
+                        help="按指定顶层属性分组, 多个用逗号分隔(组合分组), "
+                             "如 --group-by category,region。"
                              "配合 --stats 对各数值属性统计 count/avg/max/min")
     parser.add_argument("--stats", default="",
                         help="分组时统计的顶层数值属性, 多个用逗号分隔, "
                              "如 --stats price,score; 省略则对所有顶层数值属性统计")
     parser.add_argument("--table", action="store_true",
                         help="分组统计结果以对齐表格输出(默认输出为 JSONL)")
+    parser.add_argument("--count", action="store_true",
+                        help="分组时只统计 count, 不计算 avg/max/min")
+    parser.add_argument("--sort-by", default="",
+                        help="排序键, 多个用逗号分隔; 在 group-by 之后执行。"
+                             "分组模式下可用: count / 分组字段名 / 字段.avg|max|min"
+                             "(如 --sort-by count,price.avg); "
+                             "普通模式下为顶层字段名(如 --sort-by age)。"
+                             "配合 -r/--reverse 倒序")
+    parser.add_argument("-r", "--reverse", action="store_true",
+                        help="排序结果倒序(从大到小)")
     parser.add_argument("--debug", action="store_true", help="显示调试信息")
     args = parser.parse_args()
     Config.debug = args.debug
@@ -567,22 +679,51 @@ def format_json():
 
     flat = args.flat is not False
     sep = args.flat if flat else "."
-    ctx = JsonFormatter(compact=args.compact, sort_keys=args.sort_keys,
+    ctx = JsonRenderer(compact=args.compact, sort_keys=args.sort_keys,
                         keep_text=args.keep_text, flat=flat, sep=sep,
-                        split=args.split, fields=fields)
+                        fields=fields)
     try:
         # 先解析 --filter 参数, 构造过滤结构(仅一次, 不在循环里解析)
         filter_obj = build_filter(args.filter)
         if Config.debug:
             print(f"DEBUG: filter_obj={filter_obj}")
+
+        # 步骤1: 解析输入为片段迭代器
+        scan = ScanOp(text)
+
+        sort_keys = [s.strip() for s in args.sort_by.split(",") if s.strip()] \
+            if args.sort_by else None
+
         if args.group_by:
+            group_by = [f.strip() for f in args.group_by.split(",") if f.strip()]
             stat_fields = [f.strip() for f in args.stats.split(",") if f.strip()] \
                 if args.stats else None
-            ctx.group_stats(text, group_by=args.group_by,
-                            filter_obj=filter_obj, stat_fields=stat_fields,
-                            as_json=not args.table)
+            # 组装算子链: scan -> filter -> group-by
+            op = FilterOp(scan, filter_obj)
+            group_op = GroupByOp(op, group_by, stat_fields, args.count)
+            final = group_op
+            if sort_keys:
+                # 排序在 group-by 之后执行
+                final = SortOp(final,
+                               _make_group_key_fn(sort_keys, group_by),
+                               args.reverse)
+            # 步骤3: 组装输出(表格 / JSONL)
+            output_group(final, group_op, as_json=not args.table,
+                        sort_keys=args.sort_keys, ctx=ctx)
         else:
-            ctx.format_text(text, filter_obj=filter_obj)
+            if sort_keys:
+                # 排序时把顶层数组展开为独立记录, 并丢弃文本行
+                op = SplitOp(scan)
+                op = FilterOp(op, filter_obj)
+                op = JsonOnlyOp(op)
+                op = SortOp(op, _make_record_key_fn(sort_keys), args.reverse)
+            else:
+                op = FilterOp(scan, filter_obj)
+                if args.split:
+                    op = SplitOp(scan)
+                    op = FilterOp(op, filter_obj)
+            # 步骤3: 组装输出(美化 / 紧凑 / 保留文本)
+            output_plain(list(op), ctx)
     except ValueError as e:
         sys.stderr.write("duck-json: %s\n" % e)
         sys.exit(1)
