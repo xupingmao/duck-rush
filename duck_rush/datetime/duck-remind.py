@@ -509,14 +509,95 @@ def write_daemon_pid() -> None:
         f.write(str(os.getpid()))
 
 
-def _get_python_exe() -> str:
-    """优先使用 pythonw(无控制台窗口), 回退到当前解释器"""
-    exe = sys.executable
+def _remove_pid_file(path: str) -> None:
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
+
+
+def kill_process(pid: int) -> bool:
+    """向指定进程发送终止信号, 成功返回 True。跨平台实现。"""
+    if pid <= 0:
+        return False
     if is_windows():
-        base, _ = os.path.splitext(exe)
-        pythonw = base + "w.exe"
-        if os.path.exists(pythonw):
-            return pythonw
+        # Windows 下 os.kill(SIGTERM) 不可靠, 用 taskkill 强杀(含子进程树)
+        proc = subprocess.run(
+            ["taskkill", "/PID", str(pid), "/F", "/T"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        return proc.returncode == 0
+    try:
+        import signal
+        os.kill(pid, signal.SIGTERM)
+        return True
+    except OSError:
+        return False
+
+
+def stop_daemon() -> bool:
+    """关闭后台守护进程(若存在)。返回是否真正发起了终止。"""
+    pid = read_pid_file(DAEMON_PID_PATH)
+    if pid is None:
+        print("守护进程未运行(无 pid 文件)")
+        return False
+    if not is_process_alive(pid):
+        print("守护进程已退出(pid=%d), 清理残留 pid 文件" % pid)
+        _remove_pid_file(DAEMON_PID_PATH)
+        return False
+    if kill_process(pid):
+        # 等待退出(最长约 5 秒)
+        for _ in range(25):
+            if not is_process_alive(pid):
+                break
+            time.sleep(0.2)
+        _remove_pid_file(DAEMON_PID_PATH)
+        print("已关闭守护进程(pid=%d)" % pid)
+        return True
+    print("无法关闭守护进程(pid=%d), 请手动结束该进程" % pid)
+    return False
+
+
+def _resolve_real_python_exe() -> str:
+    """返回当前进程真实加载的解释器路径(避开 Windows Store 别名)。
+
+    Microsoft Store 安装的 Python 在 WindowsApps 下放置的是 App Execution
+    Alias(python.exe/pythonw.exe 占位文件, 实为控制台子系统桩), 用它后台拉起
+    进程会额外弹出一个终端窗口。GetModuleFileName(0) 能拿到真正被加载的二进制
+    (如 C:\\Program Files\\WindowsApps\\...\\python3.11.exe), 从而绕开别名。
+    """
+    if not is_windows():
+        return sys.executable
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(1024)
+        n = ctypes.windll.kernel32.GetModuleFileNameW(0, buf, 1024)
+        if n > 0 and os.path.exists(buf.value):
+            return buf.value
+    except Exception:
+        pass
+    return sys.executable
+
+
+def _get_python_exe() -> str:
+    """返回用于拉起守护进程的解释器, 优先无控制台窗口的 pythonw。
+
+    必须避开 Microsoft Store 的 App Execution Alias: 其 WindowsApps 下的
+    pythonw.exe 占位文件本身是控制台子系统, 会弹出终端窗口; 改用真实安装目录里
+    的 pythonw.exe 即无此问题。
+    """
+    if not is_windows():
+        return sys.executable
+    exe = _resolve_real_python_exe()
+    d = os.path.dirname(exe)
+    stem, _ = os.path.splitext(os.path.basename(exe))
+    if stem.endswith("w"):
+        # 当前已是 pythonw(无控制台), 直接复用
+        return exe
+    for candidate in ("pythonw.exe", stem + "w.exe"):
+        p = os.path.join(d, candidate)
+        if os.path.exists(p):
+            return p
     return exe
 
 
@@ -613,6 +694,10 @@ def cmd_remove(args: argparse.Namespace) -> None:
         print("未找到提醒 #%d" % args.id)
 
 
+def cmd_stop(args: argparse.Namespace) -> None:
+    stop_daemon()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="命令行提醒工具",
@@ -623,6 +708,7 @@ def build_parser() -> argparse.ArgumentParser:
                 "  duck-remind.py add 2026-07-15 14:30 提交周报 --snooze 10\n"
                 "  duck-remind.py list                     # 列出待提醒(含 ID)\n"
                 "  duck-remind.py remove 3                 # 删除 ID 为 3 的提醒\n"
+                "  duck-remind.py stop                     # 关闭后台守护进程\n"
                 "各子命令加 -h 可查看详细时间格式与参数, 如: duck-remind.py add -h"))
     sub = parser.add_subparsers(dest="command")
 
@@ -658,6 +744,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_daemon = sub.add_parser("daemon", help="后台调度(内部)")
     p_daemon.set_defaults(func=lambda a: run_daemon())
+
+    p_stop = sub.add_parser("stop", help="关闭后台守护进程")
+    p_stop.set_defaults(func=cmd_stop)
 
     return parser
 
