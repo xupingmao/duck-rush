@@ -6,6 +6,12 @@ import sys
 import platform
 import shutil
 import json
+import subprocess
+
+
+def run_cmd(args):
+    """以参数列表形式执行命令，避免 os.system 在 Windows 下因首尾引号被 cmd 吞掉而导致路径解析失败的问题。"""
+    return subprocess.run(args, shell=False).returncode
 
 try:
     from termcolor import colored
@@ -26,6 +32,34 @@ HOME_PATH  = get_user_home_path()
 DIR_PATH   = os.path.dirname(FILE_PATH)
 SRC_PATH   = os.path.join(DIR_PATH, "duck_rush")
 LOCAL_PATH = os.path.join(DIR_PATH, "local")
+VENV_DIR   = os.path.join(LOCAL_PATH, "venv")
+
+
+def get_venv_python() -> str:
+    """返回虚拟环境中的Python可执行文件路径"""
+    if os.name == "nt":
+        return os.path.join(VENV_DIR, "Scripts", "python.exe")
+    return os.path.join(VENV_DIR, "bin", "python")
+
+
+def ensure_venv() -> str:
+    """确保虚拟环境存在，返回虚拟环境中的python路径。
+
+    所有依赖与模块都安装进该虚拟环境，生成的命令包装脚本也指向它，
+    从而避免污染系统Python环境。
+    """
+    venv_python = get_venv_python()
+    if os.path.exists(venv_python):
+        print("虚拟环境已存在: %s" % VENV_DIR)
+        return venv_python
+
+    print("创建Python虚拟环境: %s" % VENV_DIR)
+    makedirs(LOCAL_PATH)
+    rc = run_cmd([sys.executable, "-m", "venv", VENV_DIR])
+    if rc != 0 or not os.path.exists(venv_python):
+        sys.stderr.write("创建虚拟环境失败，请确认当前Python支持 venv 模块\n")
+        sys.exit(1)
+    return venv_python
 
 
 class InstallConfig:
@@ -160,13 +194,14 @@ def is_script_file(fpath):
 
 class WindowsInstaller:
 
-    BAT_SCRIPT_TEMPLATE = "\r\n@echo off\r\nset DUCK_RUSH_DIR={duck_rush_dir}\r\n{python} \"{fpath}\" %*\r\n"
+    BAT_SCRIPT_TEMPLATE = "\r\n@echo off\r\nset DUCK_RUSH_DIR={duck_rush_dir}\r\n\"{python}\" \"{fpath}\" %*\r\n"
     
     NON_CODE_EXT_SET = InstallConfig.not_code_file_set
 
 
-    def __init__(self, dirname):
+    def __init__(self, dirname, python):
         self.dirname = dirname
+        self.python = python
         self.debug = False
         self.count = 0
         self.expected_names = set()
@@ -187,7 +222,7 @@ class WindowsInstaller:
         
         # 只支持Python
         self.expected_names.add(fname_base + ".bat")
-        content = self.BAT_SCRIPT_TEMPLATE.format(python = sys.executable, fpath = fpath.replace("\\", "\\\\"), duck_rush_dir=DIR_PATH)
+        content = self.BAT_SCRIPT_TEMPLATE.format(python = self.python, fpath = fpath.replace("\\", "\\\\"), duck_rush_dir=DIR_PATH)
         bat_path = os.path.join(self.dirname, fname_base + ".bat")
 
         # 检查文件是否存在且内容一致
@@ -238,14 +273,14 @@ class WindowsInstaller:
         self.create_bat_files()
         self.remove_stale_files()
 
-def install_for_windows():
+def install_for_windows(python):
     import termcolor
     print("准备安装duck_rush (windows平台) ...")
     user_profile_path = os.environ["USERPROFILE"]
 
     duck_bin_dir = os.path.join(user_profile_path, "duck_rush")
 
-    installer = WindowsInstaller(duck_bin_dir)
+    installer = WindowsInstaller(duck_bin_dir, python)
     installer.install()
 
     print("")
@@ -269,7 +304,7 @@ def install_for_windows():
         os.system("SystemPropertiesAdvanced.exe")
 
 
-def install_for_unix():
+def install_for_unix(python):
     log_info("准备安装duck_rush ... ")
 
     local_bin_path = os.path.join(LOCAL_PATH, "bin")
@@ -278,7 +313,7 @@ def install_for_unix():
     def get_start_code(fpath, ext):
         """构建启动脚本"""
         if ext == ".py":
-            return f"{sys.executable} %r \"$@\"" % fpath
+            return f"{python} %r \"$@\"" % fpath
         if ext == ".sh":
             return "sh %r \"$@\"" % fpath
         return ""
@@ -333,28 +368,28 @@ def install_for_unix():
     # 必须在最后添加并且标记为执行文件
     add_shell_path(local_bin_path)
 
-def install_leveldb():
+def install_leveldb(python):
     print("安装 duck_leveldb 模块 ...")
-    os.system(f"{sys.executable} -m pip install duck_leveldb")
+    run_cmd([python, "-m", "pip", "install", "duck_leveldb"])
 
-def install_requirements():
+def install_requirements(python):
     print("安装依赖包...")
-    os.system(f"pip install -r \"{os.path.join(DIR_PATH, 'config', 'requirements.txt')}\"")
-    install_leveldb()
+    run_cmd([python, "-m", "pip", "install", "-r", os.path.join(DIR_PATH, "config", "requirements.txt")])
+    install_leveldb(python)
     print("依赖包安装完成")
 
-def install_duck_rush_package():
+def install_duck_rush_package(python):
     print("安装 duck_rush 模块 ...")
-    os.system(f"{sys.executable} \"{os.path.join(DIR_PATH, 'setup.py')}\" sdist install")
+    run_cmd([python, os.path.join(DIR_PATH, "setup.py"), "sdist", "install"])
     print("清理临时文件...")
     for d in ("build", "dist", "duck_rush.egg-info"):
         shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
     print("duck_rush模块安装完成")
 
-def install_duck_utils_package():
-    """安装独立的 duck_utils 工具包到本地(用户目录, 无需管理员权限), 使脚本可 `import duck_utils`"""
+def install_duck_utils_package(python):
+    """安装独立的 duck_utils 工具包到虚拟环境, 使脚本可 `import duck_utils`"""
     print("安装 duck_utils 模块 ...")
-    os.system(f"{sys.executable} \"{os.path.join(DIR_PATH, 'duck_utils', 'setup.py')}\" sdist install --user")
+    run_cmd([python, os.path.join(DIR_PATH, "duck_utils", "setup.py"), "sdist", "install"])
     print("清理临时文件...")
     for d in ("build", "dist", "duck_utils.egg-info"):
         shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
@@ -365,16 +400,18 @@ def do_install():
         sys.stderr.write("require python >= 3.6")
         sys.exit(1)
 
-    install_requirements()
-    install_duck_rush_package()
-    install_duck_utils_package()
+    venv_python = ensure_venv()
+
+    install_requirements(venv_python)
+    install_duck_rush_package(venv_python)
+    install_duck_utils_package(venv_python)
 
     env = check_environment()
 
     if env == "nt":
-        install_for_windows()
+        install_for_windows(venv_python)
     else:
-        install_for_unix()
+        install_for_unix(venv_python)
     
     # 收集并保存命令列表
     print("\n收集命令列表...")
@@ -390,6 +427,7 @@ def do_install():
     print("=" * 40)
     print("  操作系统: %s" % platform.platform())
     print("  Python版本: %s" % sys.version.split()[0])
+    print("  虚拟环境: %s" % VENV_DIR)
     print("  脚本总数: %d" % len(commands))
     print("=" * 40)
 
