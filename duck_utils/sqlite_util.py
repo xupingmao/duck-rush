@@ -11,6 +11,8 @@ logging.basicConfig(
     format='%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d|%(message)s')
 
 class SqliteTableManager:
+    debug = False
+    
     """检查数据库字段，如果不存在就自动创建"""
     def __init__(self, filename, tablename, pkName=None, pkType=None, no_pk=False):
         self.filename = filename
@@ -33,12 +35,12 @@ class SqliteTableManager:
     def __exit__(self, type, value, traceback):
         self.close()
 
-    def execute(self, sql, silent=False):
+    def execute(self, sql: str, parameters = (), debug = False):
         cursorobj = self.db.cursor()
         try:
-            if not silent:
+            if debug or self.debug:
                 print(sql)
-            cursorobj.execute(sql)
+            cursorobj.execute(sql, parameters)
             kv_result = []
             result = cursorobj.fetchall()
             for single in result:
@@ -62,7 +64,7 @@ class SqliteTableManager:
         sql = "ALTER TABLE `%s` ADD COLUMN `%s` %s" % (self.tablename, colname, coltype)
 
         # MySQL 使用 DESC [表名]
-        columns = self.execute("pragma table_info('%s')" % self.tablename, silent=True)
+        columns = self.execute("pragma table_info('%s')" % self.tablename)
         # print(columns.description)
         # description结构
         for column in columns:
