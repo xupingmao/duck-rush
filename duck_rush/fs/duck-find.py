@@ -1,10 +1,42 @@
 # encoding=utf-8
 import os
+import io
 import hashlib
 import argparse
 import sys
 import re
 import fnmatch
+
+
+def _ensure_unix_newline_stdout():
+    """Windows 下 Python 会把写到 stdout 的 \\n 翻译成 \\r\\n，
+    当通过管道传给 xargs 时，文件名尾部会带上 \\r，导致
+    `xargs grep` 报 `No such file or directory`。
+
+    这里强制 stdout 只输出 \\n，保证 `duck-find | xargs ...` 可用。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        sys.stdout.reconfigure(newline="\n")
+    except (AttributeError, ValueError):
+        # Python < 3.7 回退：重新包装 stdout
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer,
+            encoding=getattr(sys.stdout, "encoding", None),
+            newline="\n",
+        )
+
+
+def _normalize_path_for_shell(fpath: str) -> str:
+    """为管道/Unix 工具（xargs/grep）输出做兼容：
+
+    - Windows 路径分隔符 \\ 在 GNU xargs 中会被当作转义符吃掉，
+      因此统一替换为正斜杠 /，Git Bash 下的 xargs/grep 可直接识别。
+    """
+    if sys.platform == "win32":
+        return fpath.replace("\\", "/")
+    return fpath
 
 CHUNK_SIZE = 8096
 
@@ -144,6 +176,7 @@ class FileFinder:
         self.move_to = ""
         self.print_size = False
         self.print_base_name = False
+        self.print_abspath = False
         self.min_size = -1
         self.max_size = -1
         self.find_empty_files = False
@@ -241,6 +274,7 @@ class FileFinder:
     def execute(self):
         self.check_args()
         print_base_name = self.print_base_name
+        print_abspath = self.print_abspath
 
         count = 0
         
@@ -275,8 +309,12 @@ class FileFinder:
 
                 if print_base_name:
                     path_to_print = fname
+                elif print_abspath:
+                    path_to_print = _normalize_path_for_shell(os.path.abspath(fpath))
                 else:
-                    path_to_print = os.path.abspath(fpath)
+                    # 默认：相对于搜索目录的相对路径
+                    path_to_print = _normalize_path_for_shell(
+                        os.path.relpath(fpath, self.dirname))
 
                 print(path_to_print)
                 self.move_file(fpath)
@@ -287,8 +325,11 @@ class FileFinder:
 
                 if print_base_name:
                     path_to_print = os.path.basename(root)
+                elif print_abspath:
+                    path_to_print = _normalize_path_for_shell(os.path.abspath(root))
                 else:
-                    path_to_print = os.path.abspath(root)
+                    path_to_print = _normalize_path_for_shell(
+                        os.path.relpath(root, self.dirname))
 
                 print(path_to_print)
 
@@ -297,6 +338,8 @@ class FileFinder:
 
 
 def main():
+    _ensure_unix_newline_stdout()
+
     parser = argparse.ArgumentParser()
     # action有很多选项
     # 'store': 默认值，存储选项
@@ -315,6 +358,7 @@ def main():
     parser.add_argument("--move-to", default = "", help = "移动到的目标文件夹")
     parser.add_argument("--hide-size", action = "store_true", help = "隐藏文件大小的信息")
     parser.add_argument("--base-name", action = "store_true", help = "只打印文件名，不打印全路径")
+    parser.add_argument("--abspath", action = "store_true", help = "打印完整(绝对)路径；默认打印相对于搜索目录的相对路径")
     parser.add_argument("--index-file", help = "保存的索引文件名称")
     parser.add_argument("--min-size", default = "", help = "文件大小下限")
     parser.add_argument("--max-size", default = "", help = "文件大小上限")
@@ -334,6 +378,7 @@ def main():
     finder.set_move_to_dir(args.move_to)
     finder.hide_size = args.hide_size
     finder.print_base_name = args.base_name
+    finder.print_abspath = args.abspath
     finder.set_min_size(args.min_size)
     finder.set_max_size(args.max_size)
     finder.find_empty_files = args.empty_files
