@@ -8,7 +8,7 @@ import argparse
 import sys
 
 import pdb
-from typing import List, Optional, Union, Tuple, Dict, Any
+from typing import List, Optional, Union, Tuple, Dict, Any, Callable
 
 from fnmatch import fnmatch
 
@@ -24,7 +24,7 @@ CODE_EXT_SET = set([
 ])
 
 # [[func1, args], [func2, args2]]
-COMMANDS: List[List[Union[callable, List]]] = []
+COMMANDS: List[List[Union[Callable, List]]] = []
 # 5M
 FILE_SIZE_LIMIT = 1024 * 1024 * 5
 
@@ -305,7 +305,7 @@ class Tokenizer:
                 self.add(self.code[self.current_index], self.code[self.current_index])
                 self.current_index += 1
                 return
-            raise "invalid symbol"
+            raise Exception("invalid symbol")
         
         self.add(symbol, symbol)
         if symbol in self.B_BEGIN: 
@@ -396,28 +396,6 @@ class Tokenizer:
                         pass
                 
                 string_value += current_char
-                
-                            
-    def do_comment(self, comment_begin: str = "", comment_end: str = ""):
-        self.current_index += len(comment_begin)
-        comment_value = ""
-        start_index = self.current_index
-        while self.current_index < self.code_length:
-            """
-            原逻辑
-            if s[i] == "\n":
-                break
-            """
-            if self.code[self.current_index] == "\n":
-                self.current_line += 1
-                self.line_start_index = self.current_index + 1
-            if self.code.startswith(comment_end, self.current_index):
-                break
-            self.current_index += 1
-        comment_value = self.code[start_index:self.current_index]
-        self.current_index += len(comment_end)
-        if comment_value.startswith("@debugger"):
-            self.add("@", "debugger")
 
     def is_blank(self, char: str) -> bool:
         return char == ' ' or char == '\t'
