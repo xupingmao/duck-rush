@@ -58,7 +58,7 @@ class SqliteTableManager:
         strval = strval.replace("'", "''")
         return "'%s'" % strval
 
-    def add_column(self, colname, coltype, 
+    def add_column(self, colname: str, coltype: str, 
             default_value = None, not_null = False):
         """添加字段，如果已经存在则跳过，名称相同类型不同抛出异常"""
         sql = "ALTER TABLE `%s` ADD COLUMN `%s` %s" % (self.tablename, colname, coltype)

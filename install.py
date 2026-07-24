@@ -378,14 +378,6 @@ def install_requirements(python):
     install_leveldb(python)
     print("依赖包安装完成")
 
-def install_duck_rush_package(python):
-    print("安装 duck_rush 模块 ...")
-    run_cmd([python, os.path.join(DIR_PATH, "setup.py"), "sdist", "install"])
-    print("清理临时文件...")
-    for d in ("build", "dist", "duck_rush.egg-info"):
-        shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
-    print("duck_rush模块安装完成")
-
 def install_duck_utils_package(python):
     """安装独立的 duck_utils 工具包到虚拟环境, 使脚本可 `import duck_utils`"""
     print("安装 duck_utils 模块 ...")
@@ -403,7 +395,6 @@ def do_install():
     venv_python = ensure_venv()
 
     install_requirements(venv_python)
-    install_duck_rush_package(venv_python)
     install_duck_utils_package(venv_python)
 
     env = check_environment()
