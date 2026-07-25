@@ -56,6 +56,83 @@ def _is_reparse_point(path: str) -> bool:
         return False
 
 
+def _to_extended_path(path: str) -> str:
+    """转换为 Windows 扩展路径（\\?\ 前缀）。仅 Windows 生效，用于操作保留设备名。
+
+    不能用 os.path.abspath：Windows 会把 nul/con 等保留名解析成设备路径
+    （如 \\\\.\\nul），导致前缀错误。这里用 os.getcwd() 手动拼接，避免该转换。
+    """
+    if os.name != "nt":
+        return path
+    if not os.path.isabs(path):
+        path = os.path.join(os.getcwd(), path)
+    path = path.replace("/", "\\")
+    if path.startswith("\\\\"):
+        return path
+    return "\\\\?\\" + path
+
+
+def _is_reserved_name(path: str) -> bool:
+    """判断是否为 Windows 保留设备名（nul/con/prn/aux/com1-9/lpt1-9，不区分大小写）。
+
+    这类名字无法通过常规 API 删除（会被解析成设备），必须用 \\?\ 前缀绕过。
+    """
+    if os.name != "nt":
+        return False
+    base = os.path.basename(path).split(".")[0].lower()
+    if base in ("nul", "con", "prn", "aux"):
+        return True
+    if len(base) == 4 and base[:3] in ("com", "lpt") and base[3].isdigit():
+        return True
+    return False
+
+
+def _try_reserved_unlink(path: str) -> bool:
+    """若 path 是 Windows 保留名且实际为文件，用 \\?\ 前缀重试删除。成功返回 True。"""
+    if not _is_reserved_name(path):
+        return False
+    try:
+        os.unlink(_to_extended_path(path))
+        return True
+    except OSError:
+        return False
+
+
+def _try_reserved_rmdir(path: str) -> bool:
+    """若 path 是 Windows 保留名且实际为目录，用 \\?\ 前缀重试删除。成功返回 True。"""
+    if not _is_reserved_name(path):
+        return False
+    try:
+        os.rmdir(_to_extended_path(path))
+        return True
+    except OSError:
+        return False
+
+
+def _safe_unlink(path: str, verbose: bool) -> None:
+    """删除文件；遇到 Windows 保留名自动用 \\?\ 前缀重试。失败抛出 OSError。"""
+    try:
+        os.unlink(path)
+    except IsADirectoryError:
+        raise
+    except OSError:
+        if not _try_reserved_unlink(path):
+            raise
+    if verbose:
+        print("removed '%s'" % path)
+
+
+def _safe_rmdir(path: str, verbose: bool) -> None:
+    """删除目录；遇到 Windows 保留名自动用 \\?\ 前缀重试。失败抛出 OSError。"""
+    try:
+        os.rmdir(path)
+    except OSError:
+        if not _try_reserved_rmdir(path):
+            raise
+    if verbose:
+        print("removed '%s'" % path)
+
+
 def _prompt(path: str, kind: str) -> bool:
     try:
         ans = input("rm: remove %s '%s'? " % (kind, path))
@@ -96,12 +173,17 @@ def _remove_link(path: str, mode: str, verbose: bool) -> bool:
         return False
     _clear_readonly(path)
     try:
-        os.unlink(path)
+        _safe_unlink(path, verbose)
     except IsADirectoryError:
         # 目录符号链接 / junction 需用 rmdir 移除链接本身
-        os.rmdir(path)
-    if verbose:
-        print("removed '%s'" % path)
+        try:
+            _safe_rmdir(path, verbose)
+        except OSError as e:
+            error("cannot remove '%s': %s" % (path, e.strerror))
+            return False
+    except OSError as e:
+        error("cannot remove '%s': %s" % (path, e.strerror))
+        return False
     return True
 
 
@@ -110,12 +192,13 @@ def _remove_file(path: str, mode: str, verbose: bool) -> bool:
         return False
     _clear_readonly(path)
     try:
-        os.unlink(path)
+        _safe_unlink(path, verbose)
     except IsADirectoryError:
         error("cannot remove '%s': Is a directory" % path)
         return False
-    if verbose:
-        print("removed '%s'" % path)
+    except OSError as e:
+        error("cannot remove '%s': %s" % (path, e.strerror))
+        return False
     return True
 
 
@@ -146,8 +229,9 @@ def _remove_dir(path: str, mode: str, verbose: bool, recursive: bool) -> bool:
     try:
         os.rmdir(path)
     except OSError as e:
-        error("cannot remove '%s': %s" % (path, e.strerror))
-        return False
+        if not _try_reserved_rmdir(path):
+            error("cannot remove '%s': %s" % (path, e.strerror))
+            return False
 
     if verbose and all_ok:
         print("removed directory '%s'" % path)
