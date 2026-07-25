@@ -2,3 +2,5 @@ termcolor
 chardet
 xlwt
 xlrd
+textual
+
