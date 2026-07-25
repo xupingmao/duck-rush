@@ -227,9 +227,12 @@ class WindowsInstaller:
 
         # 检查文件是否存在且内容一致
         if os.path.exists(bat_path):
-            with open(bat_path) as fp:
+            # newline="" 关闭文本模式的换行符转换；比较时再忽略 \r 差异，
+            # 否则 Windows 上写入会把 \n 转成 \r\n（旧文件甚至变成 \r\r\n），
+            # 读回又被规整，导致每次比较都不等、脚本被反复更新。
+            with open(bat_path, newline="") as fp:
                 old_content = fp.read()
-            if old_content == content:
+            if old_content.replace("\r", "") == content.replace("\r", ""):
                 self.count += 1
                 print("[%03d] 跳过(无变化): %s" % (self.count, bat_path))
                 return
@@ -241,7 +244,7 @@ class WindowsInstaller:
             print("")
             return
 
-        with open(bat_path, "w") as fp:
+        with open(bat_path, "w", newline="") as fp:
             fp.write(content)
 
 
