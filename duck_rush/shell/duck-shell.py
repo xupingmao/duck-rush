@@ -16,6 +16,7 @@ duck-shell —— 基于 Textual 的双栏终端工具。
 - 默认最多保留 5000 行，可用 --max-lines 调整；长输出 / 长时间运行的命令不会无限占用内存
 """
 import os
+import re
 import sys
 import asyncio
 import argparse
@@ -275,6 +276,8 @@ class DuckShellApp(App):
         self.history: list = []
         self._hist_idx: Optional[int] = None
         self._draft: str = ""
+        # 命令输出行缓冲（跨多次读取累积不完整行）
+        self._out_buf: bytes = b""
         # 命令历史持久化到 data/duck-shell/history.jsonl（与收藏夹同处 duck-shell 目录）
         self._history_store: JsonlStore = JsonlStore(
             os.path.join(os.path.dirname(self.dao.dir), "history.jsonl")
@@ -529,41 +532,126 @@ class DuckShellApp(App):
             self.busy = False
             self.query_one("#cmdline", Input).focus()
 
+    # 这些命令支持 --color 参数。由于 duck-shell 通过管道捕获输出（非 TTY），
+    # 这类命令默认 --color=auto 不会上色；这里强制为 always 以保留高亮。
+    _COLOR_COMMANDS = frozenset({
+        "grep", "ls", "diff", "tree", "git", "du", "vdir", "watch",
+    })
+
+    @staticmethod
+    def _force_color_cmd(cmd: str) -> str:
+        """强制命令输出 ANSI 颜色。
+
+        duck-shell 经管道(非 TTY)捕获输出，grep/ls 等的 --color=auto 默认不上色。
+        这里把 `--color` / `--colour`（含 =auto，但不动 =always/=never）升级为
+        --color=always；若首个命令是已知上色工具且仍无 --color=always，则追加之。
+        其余不支持的命令行不受影响。
+        """
+        stages = cmd.split("|")
+        out = []
+        for stage in stages:
+            stage = stage.strip()
+            # 升级已有的 --color / --color=auto（英式拼写 --colour 同理）；
+            # 负向预查保证不改动已经 =always 或 =never 的情况
+            stage = re.sub(
+                r"--colou?r(?!=(?:always|never))(?:=auto)?", "--color=always", stage)
+            m = re.match(r"\s*(\S+)", stage)
+            if m:
+                name = os.path.basename(m.group(1).strip('"').strip("'"))
+                name = name.split(".")[0]
+                if name in DuckShellApp._COLOR_COMMANDS and \
+                        "--color=always" not in stage and "--color=never" not in stage:
+                    stage = stage + " --color=always"
+            out.append(stage)
+        return "|".join(out)
+
     async def _run_shell(self, cmd: str) -> None:
         self.busy = True
+        self._out_buf = b""
         try:
-            proc = await asyncio.create_subprocess_shell(
-                cmd,
-                cwd=self.cwd,
-                env=self.env,
-                # 关键：子进程必须完全脱离本应用的终端，否则会继承 stdin 与
-                # Textual 抢夺终端输入，导致整个界面（两侧滚动条）卡死、命令也像卡住。
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            assert proc.stdout is not None
-            buffer = b""
-            while True:
-                raw = await proc.stdout.read(_READ_CHUNK)
-                if not raw:
-                    if buffer:
-                        self._write(decode_bytes(buffer))
-                    break
-                buffer += raw
-                # 仅解码完整行，保留末尾可能不完整的分片，避免多字节字符被截断
-                parts = buffer.split(b"\n")
-                buffer = parts.pop()
-                for line in parts:
-                    self._write(decode_bytes(line) + "\n")
-            await proc.wait()
-            if proc.returncode not in (0, None):
-                self._write("[退出码 %s]" % proc.returncode)
+            # 强制上色：管道(非 TTY)下让 grep/ls 等输出 ANSI 颜色码（RichLog 会渲染）
+            run_cmd = self._force_color_cmd(cmd)
+            run_env = dict(self.env)
+            # 部分工具（BSD ls、Node 程序等）认这些环境变量来强制上色
+            run_env["CLICOLOR_FORCE"] = "1"
+            run_env["FORCE_COLOR"] = "1"
+            # 可选 ConPTY 伪终端模式（DUCK_SHELL_PTY=1）：让原生工具获得 TTY 行为；
+            # 失败则自动回退到普通管道。默认走管道（更稳定，已通过 --color=always 上色）。
+            if os.environ.get("DUCK_SHELL_PTY") == "1":
+                try:
+                    await self._run_shell_pty(run_cmd, run_env)
+                except Exception:
+                    await self._run_shell_pipe(run_cmd, run_env)
+            else:
+                await self._run_shell_pipe(run_cmd, run_env)
         except Exception as e:  # 任意异常都不应让界面崩溃
             self._write("执行失败: %s\n" % e)
         finally:
             self.busy = False
             self.query_one("#cmdline", Input).focus()
+
+    def _consume_bytes(self, raw: bytes) -> None:
+        """把二进制输出按行切分并写出；保留行尾不完整的分片，避免多字节字符被截断。
+
+        去掉 Windows 行尾的 \r（\r\n 切分后 \n 被去掉，残留 \r），否则 RichLog
+        会把残留的 \r 渲染成额外空行。
+        """
+        self._out_buf += raw
+        parts = self._out_buf.split(b"\n")
+        self._out_buf = parts.pop()
+        for line in parts:
+            self._write(decode_bytes(line).rstrip("\r") + "\n")
+
+    def _flush_out_buf(self) -> None:
+        """写出末尾残留的、不含完整换行的内容（EOF 时调用）。"""
+        if self._out_buf:
+            self._write(decode_bytes(self._out_buf).rstrip("\r"))
+            self._out_buf = b""
+
+    async def _run_shell_pipe(self, run_cmd: str, run_env: dict) -> None:
+        """默认运行方式：普通管道捕获输出（配合 --color=always 强制上色）。"""
+        proc = await asyncio.create_subprocess_shell(
+            run_cmd,
+            cwd=self.cwd,
+            env=run_env,
+            # 关键：子进程必须完全脱离本应用的终端，否则会继承 stdin 与
+            # Textual 抢夺终端输入，导致整个界面（两侧滚动条）卡死、命令也像卡住。
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        assert proc.stdout is not None
+        while True:
+            raw = await proc.stdout.read(_READ_CHUNK)
+            if not raw:
+                self._flush_out_buf()
+                break
+            self._consume_bytes(raw)
+        await proc.wait()
+        if proc.returncode not in (0, None):
+            self._write("[退出码 %s]" % proc.returncode)
+
+    async def _run_shell_pty(self, run_cmd: str, run_env: dict) -> None:
+        """可选 ConPTY 伪终端模式：子进程以为连着真实终端。"""
+        from duck_rush.shell.pty_util import PtyProcess
+        proc = PtyProcess(run_cmd, self.cwd, run_env)
+        await proc.start()
+        while True:
+            raw = await proc.read_chunk(_READ_CHUNK)
+            if raw is None:
+                # Windows 下当前无可读数据且进程仍在运行，稍后重试
+                if proc.returncode is not None:
+                    break
+                await asyncio.sleep(0.01)
+                continue
+            if not raw:
+                self._flush_out_buf()
+                break
+            self._consume_bytes(raw)
+        rc = await proc.wait()
+        proc.close()
+        if rc not in (0, None):
+            self._write("[退出码 %s]" % rc)
 
     # ------------------------------------------------------------------ #
     # 动作
