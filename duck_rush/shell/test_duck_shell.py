@@ -9,7 +9,9 @@ import importlib.util
 import os
 import sys
 
-from textual.widgets import Input, RichLog, DirectoryTree
+import tempfile
+
+from textual.widgets import Input, RichLog, DirectoryTree, Button
 
 
 # 通过文件路径加载带连字符的模块（duck-shell.py 无法用普通 import）
@@ -43,6 +45,16 @@ async def _wait_cwd(app, pilot, expected):
     return False
 
 
+async def _wait_for(pilot, predicate, times=100):
+    """轮询等待 predicate() 为真（容错异步消息分发的时序不确定性）。"""
+    for _ in range(times):
+        await asyncio.sleep(0.02)
+        await pilot.pause()
+        if predicate():
+            return True
+    return False
+
+
 async def test_startup_and_echo():
     app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
     captured = []
@@ -72,31 +84,89 @@ async def test_cd_changes_cwd_and_tree():
         assert os.path.normcase(str(app.query_one("#tree", DirectoryTree).path)) == os.path.normcase(parent)
 
 
-async def test_up_via_tree():
-    # 点击目录树首行的虚拟「返回上级目录」节点 = 返回上级目录
-    # 通过 select_node 走真实的选择事件路径（Tree.NodeSelected -> DirectoryTree 处理）
+async def test_up_via_button():
+    # 点击按钮组中的「返回上级目录」= 返回上级目录
     start = os.getcwd()
     parent = os.path.dirname(start)
     app = DuckShellApp(start_path=start, max_lines=500)
     async with app.run_test() as pilot:
-        tree = app.query_one("#tree", duck_shell_mod.DuckDirTree)
-        # 等待虚拟「返回上级目录」节点出现在首行
-        up_node = None
-        for _ in range(100):
-            await pilot.pause()
-            for child in tree.root.children:
-                if isinstance(child.data, duck_shell_mod._UpEntry):
-                    up_node = child
-                    break
-            if up_node is not None:
-                break
-        assert up_node is not None, "目录树未注入[返回上级目录]虚拟节点"
-        # 首行即该虚拟节点
-        assert tree.root.children[0] is up_node, "虚拟节点不在首行"
-        # 模拟点击：移动到该节点并触发 NodeSelected 事件
-        tree.select_node(up_node)
-        await pilot.pause()
+        btn = app.query_one("#up_entry", Button)
+        btn.post_message(Button.Pressed(btn))
         assert await _wait_cwd(app, pilot, parent)
+
+
+async def test_bookmark_dao():
+    # 收藏夹 DAO：JSONL 持久化 + toggle + 路径规范化
+    with tempfile.TemporaryDirectory() as tmp:
+        dao = duck_shell_mod.BookmarkDao(root=tmp)
+        p1 = os.path.join(tmp, "a")
+        p2 = os.path.join(tmp, "b")
+        os.makedirs(p1)
+        os.makedirs(p2)
+        assert dao.all() == []
+        assert dao.has(p1) is False
+        dao.add(p1)
+        assert dao.has(p1) is True
+        # 重复 add 不重复
+        dao.add(p1)
+        assert len(dao.all()) == 1
+        # 路径规范化后重复（尾部斜杠）不重复
+        dao.add(p1 + os.sep)
+        assert len(dao.all()) == 1
+        # toggle 关闭
+        assert dao.toggle(p1) is False
+        assert dao.has(p1) is False
+        # toggle 开启
+        assert dao.toggle(p2) is True
+        assert dao.has(p2) is True
+        # JSONL 格式：每行一个 JSON 对象
+        with open(os.path.join(tmp, "bookmarks.jsonl"), "r", encoding="utf-8") as f:
+            lines = [ln for ln in f.read().splitlines() if ln.strip()]
+        assert len(lines) == 1, "JSONL 行数不符: %r" % lines
+        import json as _json
+        obj = _json.loads(lines[0])
+        assert obj["path"] == p2
+
+
+async def test_fav_toggle_button():
+    # 点击「收藏/取消收藏」按钮：文案切换 + 持久化
+    with tempfile.TemporaryDirectory() as tmp:
+        app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+        app.dao = duck_shell_mod.BookmarkDao(root=tmp)
+        async with app.run_test() as pilot:
+            btn = app.query_one("#fav_toggle", Button)
+            assert btn.label == "收藏"
+            assert app.dao.has(app.cwd) is False
+            btn.post_message(Button.Pressed(btn))
+            assert await _wait_for(pilot, lambda: btn.label == "取消收藏")
+            assert app.dao.has(app.cwd) is True
+            # 再点一次取消
+            btn.post_message(Button.Pressed(btn))
+            assert await _wait_for(pilot, lambda: btn.label == "收藏")
+            assert app.dao.has(app.cwd) is False
+
+
+async def test_bookmark_pick():
+    # 打开收藏夹弹窗，点击某项可跳转到该目录
+    with tempfile.TemporaryDirectory() as tmp:
+        target = os.path.join(tmp, "go")
+        os.makedirs(target)
+        app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+        app.dao = duck_shell_mod.BookmarkDao(root=tmp)
+        app.dao.add(target)
+        async with app.run_test() as pilot:
+            app.push_screen(duck_shell_mod.BookmarkScreen(app.dao), app._on_bookmark_picked)
+            await pilot.pause()
+            # 找到跳转按钮并点击
+            screen = app.screen
+            goto = None
+            for b in screen.query(Button):
+                if getattr(b, "bm_path", None) == target and b.id == "bm_goto":
+                    goto = b
+                    break
+            assert goto is not None, "收藏夹未列出目标目录"
+            goto.post_message(Button.Pressed(goto))
+            assert await _wait_for(pilot, lambda: os.path.normcase(app.cwd) == os.path.normcase(target))
 
 
 async def test_context_limit():
@@ -164,6 +234,18 @@ async def test_scroll_binding():
         assert term.scroll_y > after_up, "PageDown 未向下滚动"
 
 
+async def test_ansi_color():
+    # 命令输出的 ANSI 颜色转义应被解析为富文本样式，而非以原始控制字符显示
+    app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+    async with app.run_test() as pilot:
+        term = app.query_one("#terminal", RichLog)
+        await pilot.pause()
+        app._write("\x1b[31mhello\x1b[0m")
+        await pilot.pause()
+        last = term.lines[-1]
+        assert last.text == "hello", "ANSI 转义未被解析，仍残留控制字符: %r" % last.text
+
+
 async def test_subprocess_stdin_isolated():
     # 子进程必须断开 stdin，否则会继承本应用终端输入、与 Textual 抢夺，
     # 导致界面两侧滚动条卡死。这里用「读取 stdin」的命令验证其能立即得到 EOF 并完成。
@@ -210,12 +292,16 @@ def _run(coro):
 if __name__ == "__main__":
     _run(test_startup_and_echo)
     _run(test_cd_changes_cwd_and_tree)
-    _run(test_up_via_tree)
+    _run(test_up_via_button)
+    _run(test_bookmark_dao)
+    _run(test_fav_toggle_button)
+    _run(test_bookmark_pick)
     _run(test_context_limit)
     _run(test_terminal_scrollable)
     _run(test_is_attach)
     _run(test_no_extra_blank_lines)
     _run(test_scroll_binding)
+    _run(test_ansi_color)
     _run(test_subprocess_stdin_isolated)
     _run(test_nonzero_exit)
     sys.exit(1 if FAILED else 0)

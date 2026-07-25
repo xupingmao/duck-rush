@@ -17,59 +17,123 @@ duck-shell —— 基于 Textual 的双栏终端工具。
 """
 import os
 import sys
+import json
 import asyncio
 import argparse
 import subprocess
+from dataclasses import dataclass
 
 from rich.text import Text
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
-from textual.widgets import DirectoryTree, RichLog, Input, Static, Header, Footer
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import ModalScreen
+from textual import on
+from textual.widgets import (
+    DirectoryTree,
+    RichLog,
+    Input,
+    Static,
+    Header,
+    Footer,
+    Button,
+    Label,
+)
 
 
 DEFAULT_MAX_LINES = 5000
 
 # ------------------------------------------------------------------ #
-# 目录树扩展：在首行注入虚拟「返回上级目录」节点
+# 收藏夹 DAO 层：data class（实体）+ dao class（持久化）
 # ------------------------------------------------------------------ #
-class _UpEntry:
-    """虚拟「返回上级目录」节点的数据：携带上层目录路径，使 DirectoryTree
-    的现有逻辑把它当作普通目录处理（选择即触发 cd 到上层）。"""
+@dataclass
+class Bookmark:
+    """收藏夹中的一条收藏：一个目录路径。"""
 
-    def __init__(self, path) -> None:
-        self.path = path
+    path: str
+
+
+class BookmarkDao:
+    """收藏夹数据访问层，使用 JSONL（每行一个 JSON 对象）持久化。
+
+    存储位置：<项目根>/data/bookmark/bookmarks.jsonl（data/ 已被 gitignore）。
+    """
+
+    def __init__(self, root: str = None) -> None:
+        if root is None:
+            # duck_rush/shell/duck-shell.py -> 项目根 = 上溯两级
+            here = os.path.dirname(os.path.abspath(__file__))
+            root = os.path.join(os.path.dirname(os.path.dirname(here)), "data", "bookmark")
+        self.dir: str = root
+        self.file: str = os.path.join(root, "bookmarks.jsonl")
+        os.makedirs(self.dir, exist_ok=True)
+
+    # ---- 内部读写 ----
+    def _read_all(self) -> list:
+        if not os.path.exists(self.file):
+            return []
+        out = []
+        with open(self.file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                p = obj.get("path")
+                if p:
+                    out.append(Bookmark(path=p))
+        return out
+
+    def _write_all(self, items: list) -> None:
+        os.makedirs(self.dir, exist_ok=True)
+        with open(self.file, "w", encoding="utf-8") as f:
+            for bm in items:
+                f.write(json.dumps({"path": bm.path}, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _norm(path: str) -> str:
+        return os.path.normcase(os.path.abspath(path))
+
+    # ---- 对外接口 ----
+    def all(self) -> list:
+        """返回全部收藏（Bookmark 列表）。"""
+        return self._read_all()
+
+    def has(self, path: str) -> bool:
+        """指定目录是否已被收藏（按规范化绝对路径比较）。"""
+        norm = self._norm(path)
+        return any(self._norm(b.path) == norm for b in self._read_all())
+
+    def add(self, path: str) -> None:
+        if self.has(path):
+            return
+        items = self._read_all()
+        items.append(Bookmark(path=path))
+        self._write_all(items)
+
+    def remove(self, path: str) -> None:
+        norm = self._norm(path)
+        items = [b for b in self._read_all() if self._norm(b.path) != norm]
+        self._write_all(items)
+
+    def toggle(self, path: str) -> bool:
+        """切换收藏状态，返回切换后的「是否已收藏」。"""
+        if self.has(path):
+            self.remove(path)
+            return False
+        self.add(path)
+        return True
 
 
 class DuckDirTree(DirectoryTree):
-    """在标准目录树顶部（首行）注入一个虚拟的「返回上级目录」节点。
-
-    该节点携带上层目录路径，点击后由 DirectoryTree 内置的目录选择逻辑触发
-    DirectorySelected（上层目录），应用层据此 cd ..；其余行为与 DirectoryTree 完全一致。
-    """
+    """目录树：隐藏根节点自身，直接展示当前工作目录内容。"""
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # 隐藏根目录自身，使目录项（含虚拟节点）直接作为首行展示
         self.show_root = False
-
-    def _populate_node(self, node: "TreeNode", content) -> None:  # noqa: F821
-        # 先填充真实目录项
-        super()._populate_node(node, content)
-        # 仅在根节点（当前工作目录）的首行插入虚拟「返回上级目录」
-        # 其数据携带上层目录路径，故会被当作普通目录处理 -> 触发 cd ..
-        if node is self.root:
-            parent = self.PATH(os.path.dirname(str(self.path)))
-            node.add_leaf("[返回上级目录]", data=_UpEntry(parent), before=0)
-
-    def render_label(self, node: "TreeNode", base_style, style) -> Text:  # noqa: F821
-        if isinstance(node.data, _UpEntry):
-            t = Text()
-            t.append("↩ ", style="bold")
-            t.append("[返回上级目录]", style="bold")
-            t.stylize(base_style)
-            return t
-        return super().render_label(node, base_style, style)
 
 # subprocess 输出按行流式读取时的块大小
 _READ_CHUNK = 4096
@@ -106,10 +170,21 @@ class DuckShellApp(App):
     CSS = """
     #sidebar {
         width: 32%;
+        height: 1fr;
+        border: round $accent;
+        padding: 0 1;
+    }
+    #btnbar {
+        height: auto;
+        width: 100%;
+    }
+    #btnbar > Button {
+        width: 1fr;
+        min-width: 0;
+        margin: 0 1 0 0;
     }
     #tree {
         height: 1fr;
-        border: round $accent;
     }
     #rightcol {
         height: 1fr;
@@ -145,6 +220,8 @@ class DuckShellApp(App):
         self.env: dict = dict(os.environ)
         self.max_lines: int = max_lines
         self.busy: bool = False
+        # 收藏夹数据访问层
+        self.dao: BookmarkDao = BookmarkDao()
 
     # ------------------------------------------------------------------ #
     # 布局
@@ -153,7 +230,12 @@ class DuckShellApp(App):
         yield Header()
         with Horizontal():
             with Vertical(id="sidebar"):
-                # 目录树首行即虚拟「返回上级目录」节点（由 DuckDirTree 注入）
+                # 按钮组（同一行）：返回上级目录 / 收藏(或取消收藏) / 收藏夹
+                # 文字过长时缩写，鼠标悬浮通过 tooltip 展示完整文字
+                with Horizontal(id="btnbar"):
+                    yield Button("[↑上级]", id="up_entry", variant="default")
+                    yield Button("[收藏]", id="fav_toggle", variant="default")
+                    yield Button("[收藏夹]", id="fav_open", variant="default")
                 yield DuckDirTree(self.cwd, id="tree")
             with Vertical(id="rightcol"):
                 yield RichLog(id="terminal",
@@ -178,15 +260,26 @@ class DuckShellApp(App):
     def _write(self, text: str) -> None:
         # RichLog 每调用一次 write 即为独立一行，故去掉调用方可能附带的多余换行，
         # 避免行间出现多余空行（行间距）。
+        # 用 Text.from_ansi 解析命令输出的 ANSI 转义颜色（同时不影响本应用的普通文本）。
         if text.endswith("\n"):
             text = text[:-1]
-        self._term().write(text)
+        self._term().write(Text.from_ansi(text))
 
     def on_mount(self) -> None:
         self._write("duck-shell 已启动。")
-        self._write("左侧点击目录可切换右侧工作目录；点击目录树首行的 [返回上级目录] 可回到上层目录；")
-        self._write("输入 exit 退出；Ctrl+L 清屏；PageUp/PageDown 滚动终端；交互式命令（python/vim/top…）自动交接屏幕控制权。")
+        self._write("左侧点击目录可切换右侧工作目录；按钮组可「返回上级目录 / 收藏当前目录 / 打开收藏夹」；")
+        self._write("输入 exit 退出；Ctrl+L 清屏；PageUp/PageDown 滚动面板；交互式命令（python/vim/top…）自动交接屏幕控制权。")
+        # 按钮组悬浮提示（缩写按钮展示完整含义）
+        self.query_one("#up_entry", Button).tooltip = "返回上级目录"
+        self.query_one("#fav_toggle", Button).tooltip = "收藏 / 取消收藏 当前目录"
+        self.query_one("#fav_open", Button).tooltip = "打开收藏夹"
+        self._refresh_fav_button()
         self.query_one("#cmdline", Input).focus()
+
+    def _refresh_fav_button(self) -> None:
+        """根据当前目录是否已被收藏，刷新 [收藏]/[取消收藏] 按钮文案。"""
+        btn = self.query_one("#fav_toggle", Button)
+        btn.label = "取消收藏" if self.dao.has(self.cwd) else "收藏"
 
     # ------------------------------------------------------------------ #
     # 目录树联动
@@ -198,6 +291,21 @@ class DuckShellApp(App):
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         self._write("[文件] %s\n" % str(event.path))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id
+        if bid == "up_entry":
+            self._change_dir("..")
+        elif bid == "fav_toggle":
+            self.dao.toggle(self.cwd)
+            self._refresh_fav_button()
+        elif bid == "fav_open":
+            self.push_screen(BookmarkScreen(self.dao), self._on_bookmark_picked)
+
+    def _on_bookmark_picked(self, path) -> None:
+        """收藏夹弹窗选中某项后回调：跳转到该目录。"""
+        if path:
+            self._change_dir(path)
 
     def _change_dir(self, target: str) -> None:
         if not target:
@@ -213,6 +321,8 @@ class DuckShellApp(App):
         self.query_one("#prompt", Static).update(self._prompt_text())
         # 重新设定目录树根节点，使左侧始终展示当前工作目录内容
         self.query_one("#tree", DirectoryTree).path = new
+        # 切换目录后，当前目录的收藏状态可能变化
+        self._refresh_fav_button()
 
     # ------------------------------------------------------------------ #
     # 命令输入与执行
@@ -360,6 +470,120 @@ class DuckShellApp(App):
             term.scroll_page_up()
         else:
             term.scroll_page_down()
+
+
+class BookmarkScreen(ModalScreen):
+    """收藏夹弹窗：居中对话框，列出已收藏目录，可点击跳转或删除。
+
+    设计为带边框的居中对话框（而非铺满全屏的 ModalScreen），避免空列表时
+    整屏只剩被压暗的背景而看起来像「黑屏」。
+    """
+
+    CSS = """
+    BookmarkScreen {
+        align: center middle;
+    }
+    #bm_dialog {
+        width: 80%;
+        height: auto;
+        max-height: 80%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #bm_title {
+        height: auto;
+        text-style: bold;
+        padding: 0 0 1 0;
+    }
+    #bm_list {
+        height: auto;
+        max-height: 20;
+        border: round $panel;
+        padding: 0 1;
+    }
+    #bm_list > Horizontal {
+        height: 3;
+        margin: 0 0 1 0;
+    }
+    #bm_goto {
+        width: 1fr;
+        min-width: 0;
+        text-align: left;
+        content-align: left middle;
+    }
+    #bm_del {
+        width: 10;
+        margin-left: 1;
+    }
+    #bm_empty {
+        height: auto;
+        color: $text-muted;
+        padding: 1 0;
+    }
+    #bm_close {
+        width: 100%;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "关闭"),
+    ]
+
+    def __init__(self, dao: BookmarkDao) -> None:
+        super().__init__()
+        self.dao = dao
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="bm_dialog"):
+            yield Label("收藏夹", id="bm_title")
+            yield VerticalScroll(id="bm_list")
+            yield Label("（暂无收藏，可在主界面点击「收藏」添加）", id="bm_empty")
+            yield Button("关闭", id="bm_close", variant="primary")
+
+    def on_mount(self) -> None:
+        self._refresh()
+
+    @staticmethod
+    def _ellipsize(text: str, width: int = 50) -> str:
+        """路径过长时截断并加省略号，避免按钮换行导致列表项过高。"""
+        if len(text) <= width:
+            return text
+        return text[: width - 1] + "…"
+
+    def _refresh(self) -> None:
+        list_view = self.query_one("#bm_list", VerticalScroll)
+        list_view.remove_children()
+        items = self.dao.all()
+        # 无收藏时显示提示，避免整块空白被误认为黑屏
+        self.query_one("#bm_empty", Label).display = not bool(items)
+        for bm in items:
+            # 按钮显示省略后的路径，完整路径仍保存在 bm_path 供跳转使用；
+            # 跳转按钮占满剩余宽度（width: 1fr），删除按钮自然靠右对齐
+            goto = Button(self._ellipsize(bm.path), id="bm_goto")
+            goto.bm_path = bm.path
+            delete = Button("删除", id="bm_del", variant="error")
+            delete.bm_path = bm.path
+            list_view.mount(Horizontal(goto, delete))
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+    @on(Button.Pressed)
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        btn = event.button
+        if btn.id == "bm_close":
+            self.dismiss(None)
+            return
+        path = getattr(btn, "bm_path", None)
+        if btn.id == "bm_goto" and path is not None:
+            event.stop()
+            self.dismiss(path)
+        elif btn.id == "bm_del" and path is not None:
+            event.stop()
+            self.dao.remove(path)
+            self._refresh()
 
 
 def main() -> None:
