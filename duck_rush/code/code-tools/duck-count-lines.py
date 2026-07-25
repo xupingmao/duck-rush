@@ -146,8 +146,6 @@ class MyPrinter:
 class CodeCounter:
 
     def __init__(self, dirname_list, exclude_dirname = None, debug=False):
-        if debug:
-            print(f"dirname_list:{dirname_list}, exclude_dirname:{exclude_dirname}")
         self.dirname_list = dirname_list
         self.exclude_dirname = exclude_dirname
         self.blank_lines_dict = dict()
@@ -264,6 +262,9 @@ def main():
     parser.add_argument("--debug", help="是否开启调试", default=False, action="store_true")
     args = parser.parse_args()
 
+    if args.debug:
+        print(f"[DEBUG] args={args}")
+        
     counter = CodeCounter(args.dirname, debug=args.debug)
     counter.set_exclude_dirs(args.exclude)    
     counter.count()
