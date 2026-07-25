@@ -130,6 +130,53 @@ async def test_is_attach():
     assert app._is_attach("ls") is False
 
 
+async def test_no_extra_blank_lines():
+    # 每条输出应占独立一行，不应因多余换行产生空行（去掉行间距）
+    app = DuckShellApp(start_path=os.getcwd(), max_lines=1000)
+    async with app.run_test(size=(100, 40)) as pilot:
+        term = app.query_one("#terminal", RichLog)
+        await pilot.pause()
+        for i in range(100):
+            app._write("line-%d" % i)
+        await pilot.pause()
+        # 不含任何纯空行（行间距）
+        blanks = sum(1 for ln in term.lines if ln.text == "")
+        assert blanks == 0, "存在多余空行（行间距）: %d" % blanks
+
+
+async def test_scroll_binding():
+    # PageUp/PageDown 绑定可在输入框聚焦时滚动右侧终端
+    app = DuckShellApp(start_path=os.getcwd(), max_lines=1000)
+    async with app.run_test(size=(100, 40)) as pilot:
+        term = app.query_one("#terminal", RichLog)
+        await pilot.pause()
+        for i in range(120):
+            app._write("line-%d" % i)
+        await pilot.pause()
+        assert term.max_scroll_y > 0
+        # 先 PageUp 离开底部，再 PageDown 应能向下滚动
+        await pilot.press("pageup")
+        await pilot.pause()
+        after_up = term.scroll_y
+        assert after_up < term.max_scroll_y, "PageUp 未改变滚动位置"
+        await pilot.press("pagedown")
+        await pilot.pause()
+        assert term.scroll_y > after_up, "PageDown 未向下滚动"
+
+
+async def test_subprocess_stdin_isolated():
+    # 子进程必须断开 stdin，否则会继承本应用终端输入、与 Textual 抢夺，
+    # 导致界面两侧滚动条卡死。这里用「读取 stdin」的命令验证其能立即得到 EOF 并完成。
+    app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+    async with app.run_test() as pilot:
+        # 该命令若继承了终端 stdin 会一直阻塞等待输入（界面卡死）；
+        # 使用 DEVNULL 时应立即读到 EOF 并退出。
+        await _submit(app, pilot, "python -c \"import sys; print('stdin_bytes=%d' % len(sys.stdin.read()))\"")
+        assert not app.busy, "命令疑似因 stdin 继承而卡死"
+        captured = "".join(l.text for l in app.query_one("#terminal", RichLog).lines)
+        assert "stdin_bytes=0" in captured, "子进程未正确隔离 stdin: %s" % captured
+
+
 async def test_nonzero_exit():
     app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
     captured = []
@@ -167,5 +214,8 @@ if __name__ == "__main__":
     _run(test_context_limit)
     _run(test_terminal_scrollable)
     _run(test_is_attach)
+    _run(test_no_extra_blank_lines)
+    _run(test_scroll_binding)
+    _run(test_subprocess_stdin_isolated)
     _run(test_nonzero_exit)
     sys.exit(1 if FAILED else 0)

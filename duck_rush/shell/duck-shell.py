@@ -134,6 +134,8 @@ class DuckShellApp(App):
     BINDINGS = [
         ("ctrl+l", "clear_screen", "清屏"),
         ("ctrl+q", "quit", "退出"),
+        ("pageup", "scroll_terminal(-1)", "终端上滚"),
+        ("pagedown", "scroll_terminal(1)", "终端下滚"),
     ]
 
     def __init__(self, start_path: str = ".", max_lines: int = DEFAULT_MAX_LINES):
@@ -174,12 +176,16 @@ class DuckShellApp(App):
         return self.query_one("#terminal", RichLog)
 
     def _write(self, text: str) -> None:
+        # RichLog 每调用一次 write 即为独立一行，故去掉调用方可能附带的多余换行，
+        # 避免行间出现多余空行（行间距）。
+        if text.endswith("\n"):
+            text = text[:-1]
         self._term().write(text)
 
     def on_mount(self) -> None:
-        self._write("duck-shell 已启动。\n")
-        self._write("左侧点击目录可切换右侧工作目录；点击目录树首行的 [返回上级目录] 可回到上层目录；\n")
-        self._write("输入 exit 退出；Ctrl+L 清屏；交互式命令（python/vim/top…）自动交接屏幕控制权。\n\n")
+        self._write("duck-shell 已启动。")
+        self._write("左侧点击目录可切换右侧工作目录；点击目录树首行的 [返回上级目录] 可回到上层目录；")
+        self._write("输入 exit 退出；Ctrl+L 清屏；PageUp/PageDown 滚动终端；交互式命令（python/vim/top…）自动交接屏幕控制权。")
         self.query_one("#cmdline", Input).focus()
 
     # ------------------------------------------------------------------ #
@@ -298,6 +304,9 @@ class DuckShellApp(App):
                 cmd,
                 cwd=self.cwd,
                 env=self.env,
+                # 关键：子进程必须完全脱离本应用的终端，否则会继承 stdin 与
+                # Textual 抢夺终端输入，导致整个界面（两侧滚动条）卡死、命令也像卡住。
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -317,7 +326,7 @@ class DuckShellApp(App):
                     self._write(decode_bytes(line) + "\n")
             await proc.wait()
             if proc.returncode not in (0, None):
-                self._write("\n[退出码 %d]\n" % proc.returncode)
+                self._write("[退出码 %d]" % proc.returncode)
         except Exception as e:  # 任意异常都不应让界面崩溃
             self._write("执行失败: %s\n" % e)
         finally:
@@ -332,6 +341,25 @@ class DuckShellApp(App):
 
     def action_quit(self) -> None:
         self.exit()
+
+    def action_scroll_terminal(self, direction: int) -> None:
+        """按页滚动面板（PageUp/PageDown）。
+
+        若当前焦点在左侧目录树上，则滚动目录树；否则滚动右侧终端。
+        两者都不受输入框焦点影响。
+        """
+        focused = self.focused
+        if isinstance(focused, DirectoryTree):
+            if direction < 0:
+                focused.scroll_page_up()
+            else:
+                focused.scroll_page_down()
+            return
+        term = self._term()
+        if direction < 0:
+            term.scroll_page_up()
+        else:
+            term.scroll_page_down()
 
 
 def main() -> None:
