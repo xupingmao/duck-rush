@@ -1,0 +1,3 @@
+- https://github.com/x-cmd/x-cmd star 4.5K
+- https://github.com/pnguyen215/shell  star 1
+- https://github.com/Open-Agent-Tools/coding-open-agent-tools star 2
