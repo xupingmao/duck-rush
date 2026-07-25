@@ -332,6 +332,16 @@ class DuckShellApp(App):
             text = text[:-1]
         self._term().write(Text.from_ansi(text))
 
+    def _write_hint(self, text: str) -> None:
+        """写一条系统提示（如强制上色提示）到终端 RichLog。
+
+        与命令管线输出区分：以暗色样式单独成行，且由应用直接写入 RichLog，
+        绝不经过子进程管道，因此不会污染命令执行过程中的输出数据。
+        """
+        if text.endswith("\n"):
+            text = text[:-1]
+        self._term().write(Text(text, style="dim"))
+
     def on_mount(self) -> None:
         self._write("duck-shell 已启动。")
         self._write("左侧点击目录可切换右侧工作目录；按钮组可「返回上级目录 / 收藏当前目录 / 打开收藏夹」；")
@@ -575,6 +585,13 @@ class DuckShellApp(App):
             # 部分工具（BSD ls、Node 程序等）认这些环境变量来强制上色
             run_env["CLICOLOR_FORCE"] = "1"
             run_env["FORCE_COLOR"] = "1"
+            # 仅在确实改动了命令（注入了 --color=always）时，于 RichLog 给出提示；
+            # 提示由应用直接写入终端，不进入子进程管道，不会污染命令输出数据。
+            if run_cmd != cmd:
+                self._write_hint(
+                    "» 强制上色：已为命令注入 --color=always 并设 "
+                    "CLICOLOR_FORCE=1/FORCE_COLOR=1（管道非 TTY）"
+                )
             # 可选 ConPTY 伪终端模式（DUCK_SHELL_PTY=1）：让原生工具获得 TTY 行为；
             # 失败则自动回退到普通管道。默认走管道（更稳定，已通过 --color=always 上色）。
             if os.environ.get("DUCK_SHELL_PTY") == "1":
