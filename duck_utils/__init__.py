@@ -4,3 +4,4 @@
 # @modified 2020/12/06 16:42:50
 
 from duck_utils.sqlite_util import SqliteTableManager
+from duck_utils.jsonl_util import JsonlStore

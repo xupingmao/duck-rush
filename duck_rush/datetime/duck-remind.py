@@ -24,7 +24,6 @@
 import os
 import sys
 import time
-import json
 import subprocess
 import argparse
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from typing import Optional, List, Dict, Any
 
 try:
     from duck_utils.os_util import is_windows, is_mac, is_linux
+    from duck_utils.jsonl_util import JsonlStore
 except ImportError:
     sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
     sys.exit(1)
@@ -230,31 +230,21 @@ class ReminderDao:
 
     def __init__(self, path: str = REMINDERS_PATH) -> None:
         self.path = path
+        self.store = JsonlStore(path)
 
     def _read_all(self) -> List[Reminder]:
         """读取全部提醒, 跳过空行与损坏行"""
-        if not os.path.exists(self.path):
-            return []
         result: List[Reminder] = []
-        with open(self.path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    result.append(Reminder.from_dict(json.loads(line)))
-                except (json.JSONDecodeError, TypeError):
-                    continue
+        for rec in self.store.read_all():
+            try:
+                result.append(Reminder.from_dict(rec))
+            except (AttributeError, TypeError):
+                continue
         return result
 
     def _write_all(self, items: List[Reminder]) -> None:
-        """整体重写文件(先写临时文件再原子替换, 避免半写损坏)"""
-        ensure_remind_dir()
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            for it in items:
-                f.write(json.dumps(it.to_dict(), ensure_ascii=False) + "\n")
-        os.replace(tmp, self.path)
+        """整体重写文件(原子替换, 避免半写损坏)"""
+        self.store.write_all([it.to_dict() for it in items], atomic=True)
 
     def add(self, remind_time: float, message: str, snooze_min: int) -> Reminder:
         items = self._read_all()

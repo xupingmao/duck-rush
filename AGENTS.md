@@ -44,6 +44,11 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 - **Python版本**: >= 3.6
 - **类型注解**: 默认加上类型注解；默认值为 `None` 的参数必须标注为
   `Optional[...]`（如 `fields: Optional[list] = None`、`result: Optional[dict] = None`）
+- **mypy 类型检查**: **增量代码必须通过 mypy 检查**（按 mypy 1.x 默认规则，无配置文件）。
+  提交/合并前，对本次改动的 `.py` 文件运行：
+  `python -m mypy <改动文件1> <改动文件2> ...`，确保输出 `Success: no issues found`。
+  新增或修改的函数/方法需补齐类型注解；动态设置的属性（如 `setattr(obj, "x", v)`）
+  或 `importlib` 加载等无法静态推断处，用 `assert xxx is not None` 收窄类型而非 `# type: ignore`。
 - **代码组织**: 避免过深的嵌套函数调用（如 `SortOp(JsonOnlyOp(FilterOp(...)))`），
   应拆成多行逐步构造，提升可读性
 - **算子/流水线**: 数据处理类脚本可采用 Volcano 模型——`ScanOp` 产出

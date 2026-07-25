@@ -18,10 +18,14 @@ from textual.widgets import Input, RichLog, DirectoryTree, Button
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SPEC = importlib.util.spec_from_file_location(
     "duck_shell_mod", os.path.join(_HERE, "duck-shell.py"))
+assert _SPEC is not None
+assert _SPEC.loader is not None
 duck_shell_mod = importlib.util.module_from_spec(_SPEC)
 sys.modules["duck_shell_mod"] = duck_shell_mod
 _SPEC.loader.exec_module(duck_shell_mod)
 DuckShellApp = duck_shell_mod.DuckShellApp
+# duck-shell 已导入 duck_utils，直接复用其 JsonlStore
+JsonlStore = duck_shell_mod.JsonlStore
 
 
 async def _submit(app, pilot, cmd):
@@ -274,6 +278,61 @@ async def test_nonzero_exit():
         assert "[退出码 3]" in "".join(captured)
 
 
+async def test_tab_completion():
+    # 输入命令前缀时给出补全建议，Tab 接受
+    with tempfile.TemporaryDirectory() as tmp:
+        app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+        app._history_store = JsonlStore(os.path.join(tmp, "h.jsonl"))
+        async with app.run_test() as pilot:
+            inp = app.query_one("#cmdline")
+            inp.focus()
+            await pilot.pause()
+            inp.value = "cl"
+            # 补全建议由 worker 异步计算，轮询等待
+            ok = await _wait_for(pilot, lambda: inp._suggestion == "clear", times=50)
+            assert ok, "未产生补全建议: %r" % inp._suggestion
+            await pilot.press("tab")
+            await pilot.pause()
+            assert inp.value == "clear", "Tab 补全失败: %r" % inp.value
+
+
+async def test_history_navigation():
+    # 上下方向键在已执行命令间切换
+    with tempfile.TemporaryDirectory() as tmp:
+        app = DuckShellApp(start_path=os.getcwd(), max_lines=500)
+        app._history_store = JsonlStore(os.path.join(tmp, "h.jsonl"))
+        async with app.run_test() as pilot:
+            await _submit(app, pilot, "echo first")
+            await _submit(app, pilot, "echo second")
+            await _submit(app, pilot, "echo third")
+            inp = app.query_one("#cmdline")
+            inp.focus()
+            await pilot.pause()
+            assert app.history[-3:] == ["echo first", "echo second", "echo third"], app.history
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.value == "echo third", inp.value
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.value == "echo second", inp.value
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.value == "echo first", inp.value
+            # 顶部继续上翻应被夹住
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.value == "echo first", inp.value
+            await pilot.press("down")
+            await pilot.pause()
+            assert inp.value == "echo second", inp.value
+            # 下翻越过末尾应回到空草稿
+            await pilot.press("down")
+            await pilot.pause()
+            await pilot.press("down")
+            await pilot.pause()
+            assert inp.value == "", inp.value
+
+
 FAILED = 0
 
 
@@ -304,4 +363,6 @@ if __name__ == "__main__":
     _run(test_ansi_color)
     _run(test_subprocess_stdin_isolated)
     _run(test_nonzero_exit)
+    _run(test_tab_completion)
+    _run(test_history_navigation)
     sys.exit(1 if FAILED else 0)
