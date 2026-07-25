@@ -22,9 +22,10 @@ import asyncio
 import argparse
 import subprocess
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 from rich.text import Text
+from rich.style import Style
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -43,6 +44,7 @@ from textual.widgets import (
     Button,
     Label,
 )
+from textual.widgets._tree import TreeNode
 
 
 DEFAULT_MAX_LINES = 5000
@@ -121,11 +123,30 @@ class BookmarkDao:
 
 
 class DuckDirTree(DirectoryTree):
-    """目录树：隐藏根节点自身，直接展示当前工作目录内容。"""
+    """目录树：隐藏根节点自身，直接展示当前工作目录内容。
+
+    目录节点在名称后附加「直接子文件数量」（灰色），与文件名区分；
+    仅统计直接子文件，不递归遍历，开销很低。
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.show_root = False
+
+    def render_label(
+        self, node: TreeNode, base_style: Style, style: Style
+    ) -> Text:
+        label = super().render_label(node, base_style, style)
+        # 目录节点：附加直接子文件数量（灰色，与文件名区分）；不递归统计
+        if node._allow_expand and node.data is not None:
+            try:
+                count = sum(
+                    1 for e in os.scandir(node.data.path) if e.is_file()
+                )
+            except OSError:
+                count = 0
+            label.append_text(Text("  (%d)" % count, style="#808080"))
+        return label
 
 # subprocess 输出按行流式读取时的块大小
 _READ_CHUNK = 4096
@@ -173,21 +194,50 @@ class ShellInput(Input):
 
 
 class CommandSuggester(Suggester):
-    """根据已输入的首个 token（命令名）给出补全建议；Tab 即可接受。
+    """命令输入框的补全建议。
 
-    候选来源：内置命令 + 历史命令的首个 token，方便召回常用命令。
+    - 首个 token（命令名）：优先命令名补全（内置命令 + 历史命令首 token）。
+    - 路径形式的 token（含分隔符 / 或以 ~ 开头）或任意参数位置的普通词：
+      在当前工作目录下做文件名 / 目录名补全。
+
+    Textual 在按 Tab 接受建议时，会把整个输入框的值替换为返回的完整字符串，
+    因此本 suggester 始终返回「补全后的完整命令行」，且必须以当前 value 为前缀
+    （目录补全会在末尾补上分隔符，便于继续下钻）。
     """
 
-    def __init__(self, commands: list, history_provider) -> None:
-        # 历史会变化，关闭缓存以保证建议实时
+    def __init__(
+        self,
+        commands: list,
+        history_provider: Callable[[], list],
+        cwd_provider: Callable[[], str],
+    ) -> None:
+        # 候选会变化（历史、目录内容），关闭缓存以保证建议实时
         super().__init__(case_sensitive=False, use_cache=False)
         self._commands = sorted(set(commands))
         self._history_provider = history_provider
+        self._cwd_provider = cwd_provider
 
     async def get_suggestion(self, value: str) -> "str | None":
         # value 已被 casefold（case_sensitive=False）
-        if not value or value.endswith(" ") or " " in value:
+        if not value or value.endswith(" "):
             return None
+        # 取出「当前正在输入的词」= 最后一个空白之后的部分
+        last_space = value.rfind(" ")
+        prefix_before = value[:last_space + 1] if last_space >= 0 else ""
+        word = value[last_space + 1:]
+
+        # 首个 token：优先命令名补全（内置 + 历史）
+        if last_space < 0:
+            cmd = self._complete_command(word)
+            if cmd is not None:
+                return cmd
+        # 文件名 / 目录名补全（首个 token 退化为当前目录文件，或任意参数位置）
+        completed = self._complete_path(word)
+        if completed is None:
+            return None
+        return prefix_before + completed
+
+    def _complete_command(self, word: str) -> "str | None":
         candidates = list(self._commands)
         for hist in self._history_provider():
             token = hist.strip().split(" ", 1)[0]
@@ -201,16 +251,67 @@ class CommandSuggester(Suggester):
             if cf not in seen:
                 seen.add(cf)
                 unique.append(c)
-        matches = [c for c in unique if c.casefold().startswith(value)]
+        matches = [c for c in unique if c.casefold().startswith(word.casefold())]
         if not matches:
             return None
         if len(matches) == 1:
             return matches[0]
         # 多个候选：补全到最长公共前缀；若已无进展则给出第一个
         prefix = os.path.commonprefix(matches)
-        if prefix and prefix != value:
+        if prefix and prefix.casefold() != word.casefold():
             return prefix
         return matches[0]
+
+    def _complete_path(self, word: str) -> "str | None":
+        """对路径片段做文件名 / 目录名补全，返回补全后的「完整词」（不含词前内容）。"""
+        # 兼容 Windows 的 \ 与 Unix 的 /
+        if "\\" in word:
+            sep = "\\"
+        elif "/" in word:
+            sep = "/"
+        else:
+            sep = None
+        if sep is not None:
+            dir_part, _, prefix = word.rpartition(sep)
+        else:
+            dir_part, prefix = "", word
+
+        # 计算待检索目录的绝对路径
+        if word.startswith("~"):
+            base = os.path.expanduser("~")
+            rel = dir_part[1:] if dir_part.startswith("~") else dir_part
+            rel = rel.strip("/\\")
+            directory = os.path.join(base, rel) if rel else base
+        elif sep is not None and (os.path.isabs(dir_part) or re.match(r"^[A-Za-z]:$", dir_part)):
+            directory = dir_part
+        else:
+            directory = os.path.join(self._cwd_provider(), dir_part) if dir_part else self._cwd_provider()
+        if not os.path.isdir(directory):
+            return None
+        try:
+            entries = os.listdir(directory)
+        except OSError:
+            return None
+        # 排除 . 与 ..；隐藏文件仅在已输入前缀以 . 开头时才纳入（类 bash 行为）
+        entries = [e for e in entries if e not in (".", "..")]
+        if not prefix.startswith("."):
+            entries = [e for e in entries if not e.startswith(".")]
+        matches = [e for e in entries if e.lower().startswith(prefix.lower())]
+        if not matches:
+            return None
+        matches.sort()
+        if len(matches) == 1:
+            name = matches[0]
+            full = os.path.join(directory, name)
+            # 目录补上分隔符以便继续下钻；文件直接补全
+            if os.path.isdir(full):
+                return (dir_part + sep if dir_part else "") + name + (sep or os.sep)
+            return (dir_part + sep if dir_part else "") + name
+        # 多个匹配：补全到最长公共前缀；无进展则不补全
+        lcp = os.path.commonprefix(matches)
+        if lcp and lcp.lower() != prefix.lower():
+            return (dir_part + sep if dir_part else "") + lcp
+        return None
 
 
 class DuckShellApp(App):
@@ -310,7 +411,7 @@ class DuckShellApp(App):
                         placeholder="输入命令，回车执行（Tab 补全 / ↑↓ 历史）",
                         history=self.history,
                         suggester=CommandSuggester(
-                            BUILTIN_COMMANDS, lambda: self.history
+                            BUILTIN_COMMANDS, lambda: self.history, lambda: self.cwd
                         ),
                     )
         yield Footer()

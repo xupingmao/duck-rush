@@ -43,11 +43,11 @@ def set_console_font_color(color: str) -> None:
     if color == "blue":
         sys.stdout.write("\033[34m")
     if color == "highlight":
-        # 黄色背景，白色前景
-        sys.stdout.write("\033[43;37m")
+        # 红色前景
+        sys.stdout.write("\033[31m")
     if color == "file_name":
-        # 蓝色背景，白色前景
-        sys.stdout.write("\033[44;37m")
+        # 蓝色前景
+        sys.stdout.write("\033[34m")
     if color == "default":
         sys.stdout.write("\033[0m")
 

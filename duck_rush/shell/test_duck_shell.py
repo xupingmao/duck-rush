@@ -11,6 +11,7 @@ import sys
 
 import tempfile
 
+from rich.style import Style
 from textual.widgets import Input, RichLog, DirectoryTree, Button
 
 
@@ -348,6 +349,101 @@ def _run(coro):
         traceback.print_exc()
 
 
+async def test_dir_child_file_count():
+    # 左侧目录树：目录节点在名称后附加「直接子文件数量」（灰色），不递归统计
+    with tempfile.TemporaryDirectory() as tmp:
+        # 顶层放一个目录 sub（含 3 个文件 + 1 个子目录）与一个普通文件
+        sub = os.path.join(tmp, "sub")
+        os.makedirs(os.path.join(sub, "nested"))
+        for i in range(3):
+            open(os.path.join(sub, "f%d.txt" % i), "w").close()
+        open(os.path.join(tmp, "top.txt"), "w").close()
+
+        app = DuckShellApp(start_path=tmp, max_lines=500)
+        async with app.run_test(size=(40, 20)) as pilot:
+            tree = app.query_one("#tree", DirectoryTree)
+            # 等待子节点异步加载完成
+            for _ in range(60):
+                await pilot.pause()
+                if tree.root.children:
+                    break
+            assert tree.root.children, "目录树未加载子节点"
+
+            sub_node = None
+            file_node = None
+            for child in tree.root.children:
+                name = os.path.basename(str(child.data.path))
+                if name == "sub" and child._allow_expand:
+                    sub_node = child
+                elif name == "top.txt" and not child._allow_expand:
+                    file_node = child
+            assert sub_node is not None, "未找到 sub 目录节点"
+            assert file_node is not None, "未找到 top.txt 文件节点"
+
+            rendered = tree.render_label(sub_node, Style(), Style())
+            # 只统计直接子文件（3 个文件，nested 子目录不计入）
+            assert "  (3)" in rendered.plain, "目录子文件数量不正确: %r" % rendered.plain
+            # 数量部分使用灰色样式（有效灰色 #808080），与文件名区分
+            assert any("808080" in str(s.style) for s in rendered.spans), \
+                "数量未使用灰色样式: %r" % rendered.spans
+            # 普通文件节点不应附加数量
+            file_rendered = tree.render_label(file_node, Style(), Style())
+            assert "  (" not in file_rendered.plain, \
+                "文件节点不应附加数量: %r" % file_rendered.plain
+
+
+async def test_filename_completion():
+    # 命令输入框支持文件名/目录名补全（任意参数位置），Tab 接受
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "subdir"))
+        open(os.path.join(tmp, "hello_world.txt"), "w").close()
+        open(os.path.join(tmp, "subdir", "inner.txt"), "w").close()
+        app = DuckShellApp(start_path=tmp, max_lines=500)
+        async with app.run_test() as pilot:
+            inp = app.query_one("#cmdline")
+            inp.focus()
+            await pilot.pause()
+
+            # 1) 参数位置的文件名补全
+            inp.value = "cat he"
+            inp.cursor_position = len(inp.value)
+            ok = await _wait_for(
+                pilot,
+                lambda: inp._suggestion == "cat hello_world.txt",
+                times=50,
+            )
+            assert ok, "未产生文件名补全: %r" % inp._suggestion
+            await pilot.press("tab")
+            await pilot.pause()
+            assert inp.value == "cat hello_world.txt", inp.value
+
+            # 2) 目录补全：末尾补平台分隔符，便于继续下钻
+            inp.value = "cat sub"
+            inp.cursor_position = len(inp.value)
+            ok = await _wait_for(
+                pilot,
+                lambda: inp._suggestion == "cat subdir" + os.sep,
+                times=50,
+            )
+            assert ok, "未产生目录补全: %r" % inp._suggestion
+            await pilot.press("tab")
+            await pilot.pause()
+            assert inp.value == "cat subdir" + os.sep, inp.value
+
+            # 3) 已进入子目录后继续补全内部文件
+            inp.value = "cat " + "subdir" + os.sep + "in"
+            inp.cursor_position = len(inp.value)
+            ok = await _wait_for(
+                pilot,
+                lambda: inp._suggestion == "cat subdir" + os.sep + "inner.txt",
+                times=50,
+            )
+            assert ok, "子目录内文件名补全失败: %r" % inp._suggestion
+            await pilot.press("tab")
+            await pilot.pause()
+            assert inp.value == "cat subdir" + os.sep + "inner.txt", inp.value
+
+
 if __name__ == "__main__":
     _run(test_startup_and_echo)
     _run(test_cd_changes_cwd_and_tree)
@@ -358,11 +454,13 @@ if __name__ == "__main__":
     _run(test_context_limit)
     _run(test_terminal_scrollable)
     _run(test_is_attach)
+    _run(test_dir_child_file_count)
     _run(test_no_extra_blank_lines)
     _run(test_scroll_binding)
     _run(test_ansi_color)
     _run(test_subprocess_stdin_isolated)
     _run(test_nonzero_exit)
     _run(test_tab_completion)
+    _run(test_filename_completion)
     _run(test_history_navigation)
     sys.exit(1 if FAILED else 0)
