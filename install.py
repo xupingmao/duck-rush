@@ -122,6 +122,9 @@ class InstallConfig:
     def is_skip_file(cls, fname=""):
         if fname in cls.skip_file_set:
             return True
+        if fname.startswith("test_"):
+            # 跳过测试文件, 不生成命令包装
+            return True
         if fname.endswith("_util.py"):
             # 跳过 *_util.py 工具类
             return True
