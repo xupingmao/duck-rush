@@ -220,6 +220,57 @@ def save_commands(commands):
     print(f"命令列表已保存到: {output_file}")
     print(f"共收集到 {len(commands)} 个命令")
 
+def generate_command_desc(python: str) -> None:
+    """安装时生成命令简介缓存 (data/install/command_desc.jsonl)。
+
+    直接执行每个命令的 -h, 取首行非空内容作为简介; 超时(3秒)或失败则忽略。
+    子进程强制 UTF-8 输出, 避免 Windows 下 GBK 管道导致的中文乱码。
+    """
+    import subprocess as _sp
+
+    commands = collect_commands()
+    if not commands:
+        return
+
+    cache_dir = os.path.join(DIR_PATH, "data", "install")
+    makedirs(cache_dir)
+    cache_file = os.path.join(cache_dir, "command_desc.jsonl")
+
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["LC_ALL"] = "C.UTF-8"
+    env["LANG"] = "C.UTF-8"
+
+    total = len(commands)
+    with open(cache_file, "w", encoding="utf-8") as fp:
+        for index, cmd in enumerate(commands):
+            name = cmd["name"]
+            ext = cmd["extension"]
+            fpath = cmd["path"]
+            if ext not in (".py", ".sh"):
+                continue
+            log_info("[%03d/%03d] 生成命令简介: %s", index + 1, total, name)
+            desc = ""
+            try:
+                cmdline = [python, fpath, "-h"] if ext == ".py" else ["bash", fpath, "-h"]
+                proc = _sp.run(
+                    cmdline,
+                    stdout=_sp.PIPE,
+                    stderr=_sp.PIPE,
+                    env=env,
+                    timeout=3,
+                )
+                out = proc.stdout.decode("utf-8", errors="replace")
+                for line in out.splitlines():
+                    line = line.strip()
+                    if line:
+                        desc = line
+                        break
+            except Exception:
+                desc = ""
+            fp.write(json.dumps({"name": name, "desc": desc}, ensure_ascii=False) + "\n")
+    print("命令简介缓存已生成: %s" % cache_file)
+
 def check_environment():
     if os.name == "nt":
         # windows
@@ -458,6 +509,10 @@ def do_install():
     print("\n收集命令列表...")
     commands = collect_commands()
     save_commands(commands)
+
+    # 生成命令简介缓存 (供 duck list 使用)
+    print("\n生成命令简介缓存...")
+    generate_command_desc(venv_python)
     
     print(colored("安装完成!", "green"))
 

@@ -7,6 +7,8 @@ import argparse
 import os
 import time
 import traceback
+import json
+import subprocess
 
 EXECTABLE_FILE_EXT_SET = set([
     ".py", 
@@ -69,22 +71,108 @@ def is_executable_file(fpath):
     name, ext = os.path.splitext(fpath)
     return ext in EXECTABLE_FILE_EXT_SET
 
-def get_command_list():
-    duck_dir = os.path.dirname(__file__)
-    src_dir  = os.path.join(duck_dir, "src")
+COMMAND_EXT_SET = {".py", ".sh"}
+SKIP_DIRS_FOR_LIST = {"web-tools", "gui-tools", "lib", "data", "local", "__pycache__"}
+
+
+def get_command_list() -> list:
+    duck_dir = os.path.dirname(os.path.abspath(__file__))
     command_list = []
-    for root, dirs, files in os.walk(src_dir):
+    for root, dirs, files in os.walk(duck_dir):
+        # 原地修剪, 跳过非命令目录(Web工具/GUI/第三方库/数据/构建产物)
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS_FOR_LIST]
         for fname in files:
-            if is_executable_file(fname):
-                fpath = os.path.join(root, fname)
-                command_list.append(DuckCommand(fpath))
+            if fname == "duck.py" or fname.startswith("__") or fname.startswith("test_"):
+                continue
+            name, ext = os.path.splitext(fname)
+            if ext not in COMMAND_EXT_SET:
+                continue
+            if fname.endswith("_util.py"):
+                # 跳过工具类模块
+                continue
+            fpath = os.path.join(root, fname)
+            command_list.append(DuckCommand(fpath))
     return command_list
 
 
-def list_command_func(args):
+def load_desc_cache() -> dict:
+    """读取安装时生成的命令简介缓存 (data/install/command_desc.jsonl)。"""
+    cache_file = os.path.join(get_project_root(), "data", "install", "command_desc.jsonl")
+    cache: dict = {}
+    if not os.path.exists(cache_file):
+        return cache
+    try:
+        with open(cache_file, "r", encoding="utf-8") as fp:
+            for line in fp:
+                line = line.strip()
+                if not line:
+                    continue
+                obj = json.loads(line)
+                cache[obj.get("name", "")] = obj.get("desc", "")
+    except Exception:
+        return {}
+    return cache
+
+
+def save_desc_cache(cache: dict) -> None:
+    """把简介缓存写回 data/install/command_desc.jsonl。"""
+    cache_file = os.path.join(get_project_root(), "data", "install", "command_desc.jsonl")
+    try:
+        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+        with open(cache_file, "w", encoding="utf-8") as fp:
+            for name, desc in cache.items():
+                fp.write(json.dumps({"name": name, "desc": desc}, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def get_desc_by_help(cmd: "DuckCommand", timeout: int = 3) -> str:
+    """运行 {cmd} -h 提取首行非空内容作为简介; 超时或失败返回空串。"""
+    if cmd.ext == ".py":
+        cmdline = [sys.executable, cmd.fpath, "-h"]
+    elif cmd.ext == ".sh":
+        cmdline = ["bash", cmd.fpath, "-h"]
+    else:
+        return ""
+    try:
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["LC_ALL"] = "C.UTF-8"
+        env["LANG"] = "C.UTF-8"
+        proc = subprocess.run(
+            cmdline,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            timeout=timeout,
+        )
+        out = proc.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+    for line in out.splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return ""
+
+
+def list_command_func(args: argparse.Namespace) -> None:
+    short = bool(args.short)
     commands = get_command_list()
+    cache = load_desc_cache()
+    need_save = False
     for cmd in commands:
-        print(cmd.fpath)
+        desc = cache.get(cmd.name)
+        if desc is None:
+            desc = get_desc_by_help(cmd)
+            cache[cmd.name] = desc
+            need_save = True
+        if short:
+            print(cmd.name)
+        else:
+            print("%s - %s" % (cmd.name, desc))
+    if need_save:
+        save_desc_cache(cache)
 
 def install_func(args):
     install_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "install.py")
@@ -140,9 +228,32 @@ ACTION_FUNC_DICT = {
     "help": help_func,
 }
 
-PARSER = argparse.ArgumentParser(description = "工具集入口")
-PARSER.add_argument("action", nargs = "?", help = "操作", default = "help")
+ACTION_DESC = {
+    "list": "列出所有已注册命令 (支持 -s/--short 只打印命令名称)",
+    "install": "安装全部工具: 装依赖 -> 安装 duck_utils -> 生成命令包装脚本 -> 生成命令简介缓存",
+    "upgrade": "拉取最新代码 (git pull) 并重新安装",
+    "dir": "打印 duck-rush 项目根目录的绝对路径",
+    "help": "显示本帮助信息",
+}
+
+EPILOG = (
+    "可用操作 (action):\n"
+    + "\n".join("  %-8s %s" % (name, ACTION_DESC.get(name, "")) for name in ACTION_FUNC_DICT)
+    + "\n\n示例:\n"
+    + "  duck list          列出所有命令\n"
+    + "  duck list -s       只打印命令名称\n"
+    + "  duck <命令>         执行某个命令 (如: duck duck-json -h)\n"
+    + "  duck dir           打印项目根目录\n"
+)
+
+PARSER = argparse.ArgumentParser(
+    description = "duck-rush 工具集入口",
+    epilog = EPILOG,
+    formatter_class = argparse.RawDescriptionHelpFormatter,
+)
+PARSER.add_argument("action", nargs = "?", help = "操作 (list/install/upgrade/dir/help)", default = "help")
 PARSER.add_argument("args", nargs = "*", help = "参数")
+PARSER.add_argument("-s", "--short", action = "store_true", help = "list 模式: 只打印命令名称, 不打印简介")
 
 def main():
     args   = PARSER.parse_args()
