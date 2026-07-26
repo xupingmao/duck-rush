@@ -13,10 +13,57 @@ def run_cmd(args):
     """以参数列表形式执行命令，避免 os.system 在 Windows 下因首尾引号被 cmd 吞掉而导致路径解析失败的问题。"""
     return subprocess.run(args, shell=False).returncode
 
+
+# pip 镜像源列表（官方源用空字符串占位）。安装失败时会依次回退尝试，
+# 任一源成功即返回。macOS 等网络环境下官方源(pypi.org)经常超时，
+# 依次尝试国内镜像可显著提升安装成功率。
+_PIP_INDEX_URLS = [
+    "",  # 官方源（不设 -i）
+    "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "https://mirrors.aliyun.com/pypi/simple",
+    "https://pypi.mirrors.ustc.edu.cn/simple",
+    "https://mirrors.cloud.tencent.com/pypi/simple",
+    "https://repo.huaweicloud.com/repository/pypi/simple",
+]
+
+
+def pip_install(python: str, pip_args: list) -> int:
+    """使用 pip 安装，依次尝试多个镜像源，任一成功即返回。
+
+    pip_args: 除 `python -m pip install` 之外的参数列表，
+              例如 ["textual"] 或 ["-r", "requirements.txt"]。
+    返回最终退出码（0 表示成功）。
+    """
+    for index_url in _PIP_INDEX_URLS:
+        label = index_url or "官方源(pypi.org)"
+        args = [
+            python, "-m", "pip", "install",
+            "--disable-pip-version-check",
+            "--timeout", "60",
+            "--retries", "5",
+        ]
+        if index_url:
+            args += ["-i", index_url]
+        args += pip_args
+        log_info("尝试 pip 源安装: %s", label)
+        rc = subprocess.run(args, shell=False).returncode
+        if rc == 0:
+            log_info("pip 安装成功（源: %s）", label)
+            return 0
+        log_info("pip 源失败，尝试下一个: %s", label)
+    sys.stderr.write(
+        "所有 pip 源均安装失败，请检查网络或手动安装: %s\n"
+        % " ".join(pip_args)
+    )
+    return 1
+
 try:
     from termcolor import colored
-except:
-    def colored(msg, color):
+except Exception:
+    # fallback：termcolor 缺失时（极少见）退化为无颜色输出。
+    # termcolor.colored 的签名带有大量 Literal 字面量约束，fallback
+    # 无法、也无需与之完全一致，故忽略条件分支签名一致性检查。
+    def colored(msg: str, color: str) -> str:  # type: ignore[misc]
         return msg
 
 def get_user_home_path():
@@ -373,11 +420,11 @@ def install_for_unix(python):
 
 def install_leveldb(python):
     print("安装 duck_leveldb 模块 ...")
-    run_cmd([python, "-m", "pip", "install", "duck_leveldb"])
+    pip_install(python, ["duck_leveldb"])
 
 def install_requirements(python):
     print("安装依赖包...")
-    run_cmd([python, "-m", "pip", "install", "-r", os.path.join(DIR_PATH, "config", "requirements.txt")])
+    pip_install(python, ["-r", os.path.join(DIR_PATH, "config", "requirements.txt")])
     install_leveldb(python)
     print("依赖包安装完成")
 

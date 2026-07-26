@@ -350,7 +350,7 @@ def _run(coro):
 
 
 async def test_dir_child_file_count():
-    # 左侧目录树：目录节点在名称后附加「直接子文件数量」（灰色），不递归统计
+    # 左侧目录树：目录节点在名称后附加「直接子项数量」（文件+文件夹，灰色），不递归统计
     with tempfile.TemporaryDirectory() as tmp:
         # 顶层放一个目录 sub（含 3 个文件 + 1 个子目录）与一个普通文件
         sub = os.path.join(tmp, "sub")
@@ -381,8 +381,8 @@ async def test_dir_child_file_count():
             assert file_node is not None, "未找到 top.txt 文件节点"
 
             rendered = tree.render_label(sub_node, Style(), Style())
-            # 只统计直接子文件（3 个文件，nested 子目录不计入）
-            assert "  (3)" in rendered.plain, "目录子文件数量不正确: %r" % rendered.plain
+            # 统计直接子项（3 个文件 + 1 个子目录 = 4），不递归
+            assert "  (4)" in rendered.plain, "目录子项数量不正确: %r" % rendered.plain
             # 数量部分使用灰色样式（有效灰色 #808080），与文件名区分
             assert any("808080" in str(s.style) for s in rendered.spans), \
                 "数量未使用灰色样式: %r" % rendered.spans

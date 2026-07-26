@@ -125,8 +125,8 @@ class BookmarkDao:
 class DuckDirTree(DirectoryTree):
     """目录树：隐藏根节点自身，直接展示当前工作目录内容。
 
-    目录节点在名称后附加「直接子文件数量」（灰色），与文件名区分；
-    仅统计直接子文件，不递归遍历，开销很低。
+    目录节点在名称后附加「直接子项数量」（文件与文件夹，灰色），与文件名区分；
+    仅统计直接子项，不递归遍历，开销很低。
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -137,12 +137,10 @@ class DuckDirTree(DirectoryTree):
         self, node: TreeNode, base_style: Style, style: Style
     ) -> Text:
         label = super().render_label(node, base_style, style)
-        # 目录节点：附加直接子文件数量（灰色，与文件名区分）；不递归统计
+        # 目录节点：附加直接子项数量（文件+文件夹，灰色，与文件名区分）；不递归统计
         if node._allow_expand and node.data is not None:
             try:
-                count = sum(
-                    1 for e in os.scandir(node.data.path) if e.is_file()
-                )
+                count = sum(1 for _ in os.scandir(node.data.path))
             except OSError:
                 count = 0
             label.append_text(Text("  (%d)" % count, style="#808080"))
