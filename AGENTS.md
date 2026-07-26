@@ -61,6 +61,13 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
   或 `importlib` 加载等无法静态推断处，用 `assert xxx is not None` 收窄类型而非 `# type: ignore`。
 - **代码组织**: 避免过深的嵌套函数调用（如 `SortOp(JsonOnlyOp(FilterOp(...)))`），
   应拆成多行逐步构造，提升可读性
+- **参数数量**: 一个函数/类构造器的**位置参数（positional argument）数量最多为 5**。
+  超过时，应将相关参数封装成一个对象（如 `dataclass`/`NamedTuple`/`dict`），或改用
+  关键字参数（`kwarg`）传递。目的：避免调用处出现难以辨认的长参数列表，提升可读性。
+  - 反面：`def f(a, b, c, d, e, f, g): ...` —— 7 个位置参数，调用 `f(1,2,3,4,5,6,7)` 不易理解。
+  - 正面（封装对象）：`@dataclass class Opts: a; b; c; d; e; f; g` 然后 `def f(opts: Opts): ...`
+  - 正面（关键字参数）：`def f(*, a, b, c, d, e, f, g): ...` 调用 `f(a=1, b=2, ...)` 含义清晰。
+  - 说明：`self`/`cls` 及 `*args`/`**kwargs` 不计入位置参数上限。
 - **算子/流水线**: 数据处理类脚本可采用 Volcano 模型——`ScanOp` 产出
   `('json', obj)`/`('text', str)` 行，后续 `FilterOp`/`SplitOp`/`GroupByOp`/`SortOp`
   等依次消费上游 `source` 迭代器，最后组装输出
