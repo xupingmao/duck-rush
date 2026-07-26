@@ -20,7 +20,6 @@ from duck_utils.syntax_util import (  # noqa: E402
     SyntaxTokenizer,
     Token,
     TOKEN_KINDS,
-    build_tokenizer,
     detect_lang,
     tokenize,
 )
@@ -89,6 +88,26 @@ class TestTokenize(unittest.TestCase):
         self.assertIn("symbol", kinds)
         self.assertIn("number", kinds)
 
+    def test_single_quoted_containing_triple(self):
+        # 修复: 普通字符串内部的 """ 不应被误判为三引号边界
+        toks = list(tokenize("'\"\"\"'", "python"))
+        self.assertEqual([(t.kind, t.text) for t in toks], [("string", "'\"\"\"'")])
+
+    def test_triple_inside_double_string_not_split(self):
+        # 双引号字符串内部用转义包含三个双引号, 整体应是一个 string 而非被拆成三引号边界
+        s = '"' + '\\"' * 3 + '"'  # 形如 "\"\""\"
+        toks = list(tokenize(s, "python"))
+        self.assertEqual([(t.kind, t.text) for t in toks], [("string", s)])
+
+    def test_block_comment_spanning_lines(self):
+        tk = SyntaxTokenizer("c")
+        out = []
+        for line in ["/* a\n", "b */ x = 1\n"]:
+            out.extend((t.kind, t.text) for t in tk.tokenize(line))
+        self.assertIn(("comment", "/* a\n"), out)
+        self.assertIn(("comment", "b */"), out)
+        self.assertIn(("number", "1"), out)
+
     def test_default_lang_no_keyword_or_comment(self):
         # default 规则不识别关键字/注释, 但仍切分字符串/数字/符号
         kinds = [t.kind for t in tokenize('def x = "hi" # note', "default")]
@@ -108,10 +127,6 @@ class TestTokenize(unittest.TestCase):
     def test_roundtrip_c_block_comment(self):
         text = 'int x = 1; /* block\ncomment */ y = 2;\n'
         self.assertEqual("".join(t.text for t in tokenize(text, "c")), text)
-
-    def test_build_tokenizer_returns_pattern(self):
-        pat = build_tokenizer("python")
-        self.assertTrue(hasattr(pat, "finditer"))
 
     def test_token_kinds_complete(self):
         self.assertEqual(TOKEN_KINDS,
