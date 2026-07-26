@@ -49,6 +49,18 @@ from textual.widgets._tree import TreeNode
 
 DEFAULT_MAX_LINES = 5000
 
+# 视为文本文件、点击左侧文件时默认以 `duck-cat -n ... | head -n 1000` 预览的扩展名白名单
+_TEXT_EXTS = frozenset({
+    ".txt", ".py", ".pyw", ".sh", ".bat", ".cmd", ".ps1", ".md", ".rst",
+    ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".config",
+    ".csv", ".tsv", ".log", ".xml", ".html", ".htm", ".css", ".js", ".mjs",
+    ".ts", ".jsx", ".tsx", ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp",
+    ".java", ".go", ".rs", ".rb", ".php", ".sql", ".pl", ".lua", ".r",
+    ".scala", ".kt", ".swift", ".gradle", ".mk", ".cmake",
+    ".gitignore", ".gitattributes", ".dockerfile", ".editorconfig",
+    ".properties", ".env", ".diff", ".patch", ".po", ".tex", ".adoc",
+})
+
 # ------------------------------------------------------------------ #
 # 收藏夹 DAO 层：data class（实体）+ dao class（持久化）
 # ------------------------------------------------------------------ #
@@ -521,8 +533,50 @@ class DuckShellApp(App):
             return
         self._change_dir(str(event.path))
 
-    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        self._write("[文件] %s\n" % str(event.path))
+    @staticmethod
+    def _is_text_file(path: str) -> bool:
+        """判断文件是否应作为文本预览。
+
+        先用扩展名白名单快速判定；不在白名单或无扩展名时，读取文件头部
+        嗅探是否含 NUL 字节或不可打印字符比例过高，从而识别二进制文件。
+        """
+        ext = os.path.splitext(path)[1].lower()
+        if ext in _TEXT_EXTS:
+            return True
+        try:
+            with open(path, "rb") as f:
+                chunk = f.read(8192)
+        except (OSError, IOError):
+            return False
+        if not chunk:
+            return True
+        if b"\x00" in chunk:
+            return False
+        texty = 0
+        for b in chunk:
+            if b in (9, 10, 13) or 32 <= b <= 126 or 128 <= b <= 255:
+                texty += 1
+        return texty / len(chunk) > 0.7
+
+    @staticmethod
+    def _quote_path(path: str) -> str:
+        """给文件路径加引号，使其在 shell（Windows cmd.exe 或 *nix sh）下正确解析。
+
+        双引号在两种 shell 下都能包裹含空格的路径；若路径本身含双引号则转义。
+        """
+        safe = path.replace('"', '\\"')
+        return '"%s"' % safe
+
+    async def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        path = str(event.path)
+        if self.busy:
+            self._write_hint("命令执行中，已忽略文件预览：%s" % path)
+            return
+        if self._is_text_file(path):
+            cmd = "duck-cat --highlight --max-lines 1000 -n %s" % self._quote_path(path)
+            await self._handle(cmd)
+        else:
+            self._write("[文件] %s\n" % path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
