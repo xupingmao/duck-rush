@@ -32,4 +32,8 @@ def delete_other_branches():
         os_util.exec_cmd(f"git branch -D {line}")
 
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print('删除除当前分支和 master 之外的所有本地分支')
+        sys.exit(0)
     delete_other_branches()

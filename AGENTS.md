@@ -41,6 +41,16 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 - **Git远程**：`github` → github.com/xupingmao/duck-rush，`origin` → gitee.com/xupingmao/duck-rush
 - **跨平台**：使用 `duck_utils/os_util.py` 的 `is_windows/is_mac/is_linux` 判断平台
 - **依赖按需引入**：部分脚本（如图片处理）可能需PIL/numpy等额外包，但 `requirements.txt` 未列出
+- **`-h`/`--help` 必须支持**：每个工具/命令脚本（`.py`/`.sh`）都必须支持 `-h` 与 `--help`，
+  打印用法说明后以退出码 `0` 结束，且**不得产生任何副作用**（不得执行 git 操作、文件写入、网络请求、
+  删除分支、重置代码等）。`duck` 会在安装/列举命令时调用 `{cmd} -h` 获取简介，因此带副作用的脚本一旦
+  被 `-h` 触发就会误执行——`git-pull-force.py` 曾因此被 `-h` 触发 `git reset --hard`。
+  - Python：在 `if __name__ == "__main__":` 块**最开头**判断 `sys.argv[1] in ("-h", "--help")`，
+    打印用法（优先用模块 docstring，其次自述）后 `sys.exit(0)`，再执行原有逻辑；
+    切勿在模块顶层（import 之外）或 `__main__` 中无条件执行有副作用的操作。
+  - Shell：在脚本开头（`#!` 之后）用 `case "$1" in -h|--help) echo "Usage: ..."; exit 0;; esac` 处理。
+  - 例外：`editor/sublime-text/*` 等 Sublime Text 插件、纯 Python 2 第三方库（如 `html2text.py`）
+    不在独立 CLI 环境运行，不受此约束。
 - **Python版本**: >= 3.6
 - **类型注解**: 默认加上类型注解；默认值为 `None` 的参数必须标注为
   `Optional[...]`（如 `fields: Optional[list] = None`、`result: Optional[dict] = None`）

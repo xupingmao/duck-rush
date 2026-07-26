@@ -8,4 +8,10 @@
 @FilePath     : /xnoted:/projects/duck_rush/src/code-template/python/hello.py
 @Description  : 描述
 """
-print("hello,world!")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print("Usage: python hello.py  # 打印 hello,world!")
+        sys.exit(0)
+    print("hello,world!")

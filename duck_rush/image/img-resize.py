@@ -48,4 +48,9 @@ def resize_image(fpath, scale, save = True):
     # plt.show()
 
 
-resize_image("../../data/口袋妖怪.jpg", 3.5, False)
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print("Usage: python img-resize.py  (缩放示例图片)")
+        sys.exit(0)
+    resize_image("../../data/口袋妖怪.jpg", 3.5, False)

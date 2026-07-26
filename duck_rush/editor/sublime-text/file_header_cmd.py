@@ -98,5 +98,11 @@ class FileHeaderCommand(sublime_plugin.TextCommand):
             new_text = "@filename %s" % basename
             if text != new_text:
                 view.replace(edit, region, new_text)
-
-
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        if __doc__ is not None:
+            print(__doc__.strip())
+        else:
+            print("Usage: " + sys.argv[0] + " [options]")
+        sys.exit(0)

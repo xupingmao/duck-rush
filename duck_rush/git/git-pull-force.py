@@ -13,6 +13,7 @@ def popen(cmd) -> str:
                             shell=True,
                             stdout=subprocess.PIPE)
     with proc:
+        assert proc.stdout is not None
         return proc.stdout.read().decode("utf-8")
 
 
@@ -33,4 +34,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print('强制从 origin/master 同步当前分支 (git fetch --all && git reset --hard origin/master)')
+        sys.exit(0)
     main()

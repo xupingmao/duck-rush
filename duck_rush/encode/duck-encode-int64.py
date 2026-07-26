@@ -49,6 +49,14 @@ def decode_int64(encoded_str: str) -> int:
 
 # 示例用法
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        if __doc__ is not None:
+            print(__doc__.strip())
+        else:
+            print("Usage: " + sys.argv[0] + " [options]")
+        sys.exit(0)
+
     test_values = [0, 1, -1, 2**63-1, -2**63, 3567]
 
     test_values = sorted(test_values)

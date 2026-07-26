@@ -3,6 +3,7 @@
 import glob
 import os
 import sys
+from functools import reduce
 
 from PIL import Image
 
@@ -23,9 +24,9 @@ EXTS = 'jpg', 'jpeg', 'JPG', 'JPEG', 'gif', 'GIF', 'png', 'PNG'
 def avhash(im):
     if not isinstance(im, Image.Image):
         im = Image.open(im)
-    im = im.resize((8, 8), Image.ANTIALIAS).convert('L')
+    im = im.resize((8, 8), Image.LANCZOS).convert('L')
     avg = reduce(lambda x, y: x + y, im.getdata()) / 64.
-    return reduce(lambda x, (y, z): x | (z << y),
+    return reduce(lambda x, yz: x | (yz[1] << yz[0]),
                   enumerate(map(lambda i: 0 if i < avg else 1, im.getdata())),
                   0)
 
@@ -37,8 +38,16 @@ def hamming(h1, h2):
     return h
 
 if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        if __doc__ is not None:
+            print(__doc__.strip())
+        else:
+            print("Usage: " + sys.argv[0] + " [options]")
+        sys.exit(0)
+
     if len(sys.argv) <= 1 or len(sys.argv) > 3:
-        print "Usage: %s image.jpg [dir]" % sys.argv[0]
+        print("Usage: %s image.jpg [dir]" % sys.argv[0])
     else:
         im, wd = sys.argv[1], '.' if len(sys.argv) < 3 else sys.argv[2]
         h = avhash(im)
@@ -55,12 +64,11 @@ if __name__ == '__main__':
             if prog:
                 perc = 100. * prog / len(images)
                 x = int(2 * perc / 5)
-                print '\rCalculating... [' + '#' * x + ' ' * (40 - x) + ']',
-                print '%.2f%%' % perc, '(%d/%d)' % (prog, len(images)),
+                print('\rCalculating... [' + '#' * x + ' ' * (40 - x) + '] %.2f%% (%d/%d)' % (perc, prog, len(images)), end=' ')
                 sys.stdout.flush()
                 prog += 1
 
-        if prog: print
+        if prog: print()
         for f, ham in sorted(seq, key=lambda i: i[1]):
-            print "%d\t%s" % (ham, f)
+            print("%d\t%s" % (ham, f))
 

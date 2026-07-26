@@ -13,3 +13,5 @@ id_rsa_github*
 
 *.local.json
 .trae/
+
+duck_rush/gui-tools/

@@ -132,6 +132,14 @@ def usage():
 
 # 主函数
 if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        if __doc__ is not None:
+            print(__doc__.strip())
+        else:
+            print("Usage: " + sys.argv[0] + " [options]")
+        sys.exit(0)
+
     # tcp_mapping("127.0.0.1", 1234, "0.0.0.0", 1081)
     # TODO 使用参数构建
     if len(sys.argv) == 4:

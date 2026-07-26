@@ -1,3 +1,9 @@
+case "$1" in
+  -h|--help)
+    echo "Usage: $(basename "$0") [options]"
+    exit 0
+    ;;
+esac
 ###
  # @Author: xupingmao xupingmao@gmail.com
  # @Date: 2022-06-25 23:49:02

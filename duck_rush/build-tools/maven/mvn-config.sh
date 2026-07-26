@@ -1,3 +1,9 @@
+case "$1" in
+  -h|--help)
+    echo "Usage: $(basename "$0") [options]"
+    exit 0
+    ;;
+esac
 
 
 # 这个小工具可以自动配置maven的shell路径
