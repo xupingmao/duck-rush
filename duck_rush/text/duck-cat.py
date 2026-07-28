@@ -1,6 +1,7 @@
 # encoding=utf-8
 
 import argparse
+import io
 import sys
 from typing import Dict, List, Literal, Optional, Tuple
 
@@ -66,6 +67,35 @@ def cat_stdin(number: bool = False, highlight: bool = False,
     cat_lines(sys.stdin.readlines(), number, highlight, lang, max_lines)
 
 
+def _decode_file(filename: str, encoding: str) -> str:
+    """鲁棒读取文件文本：依次尝试指定编码 / utf-8 / chardet 探测，
+    最终回退为 utf-8 并以 errors='replace' 解码，保证对非 utf-8 文本（如
+    UTF-16/GBK）也能预览，且绝不因解码失败而崩溃。"""
+    with open(filename, "rb") as fb:
+        data = fb.read()
+    if encoding and encoding != "utf-8":
+        try:
+            return data.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            pass
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    try:
+        import chardet
+        result = chardet.detect(data)
+        enc = result.get("encoding") if result else None
+        if enc:
+            try:
+                return data.decode(enc)
+            except (UnicodeDecodeError, LookupError):
+                pass
+    except Exception:  # noqa: chardet 探测失败不应影响预览
+        pass
+    return data.decode("utf-8", errors="replace")
+
+
 def cat_file(filename: str = "", encoding: str = "utf-8", number: bool = False,
              highlight: bool = False, lang: str = "default",
              max_lines: int = 0) -> None:
@@ -74,11 +104,16 @@ def cat_file(filename: str = "", encoding: str = "utf-8", number: bool = False,
         cat_stdin(number, highlight, lang, max_lines)
         return
 
+    # 终端编码（如 Windows GBK）无法表示某些字符时，以替换符兜底，避免打印时崩溃
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(errors="replace")
+
     if highlight and lang == "default":
         lang = detect_lang(filename)
 
-    with open(filename, encoding=encoding) as fp:
-        cat_lines(fp.readlines(), number, highlight, lang, max_lines)
+    text = _decode_file(filename, encoding)
+    cat_lines(io.StringIO(text).readlines(), number, highlight, lang, max_lines)
 
 
 if __name__ == "__main__":

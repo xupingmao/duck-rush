@@ -3,4 +3,5 @@ chardet
 xlwt
 xlrd
 textual
+prompt_toolkit
 
