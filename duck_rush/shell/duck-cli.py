@@ -198,7 +198,7 @@ class DuckCli:
         self.history: List[str] = []
         self._exit_requested: bool = False
 
-        # 数据目录统一用 duck_utils 的 get_command_data_dir，落到 ~/.duck_rush/data/duck-cli
+        # 数据目录统一用 duck_utils 的 get_command_data_dir，落到 ~/.duck-rush/data/duck-cli
         # （跨平台用户级目录，不污染仓库），该方法内部已确保目录存在。
         data_dir = get_command_data_dir("duck-cli")
         self._history_path: str = os.path.join(data_dir, "history")
@@ -295,7 +295,7 @@ class DuckCli:
         if not target:
             new = os.path.expanduser("~")
         else:
-            # 先展开 ~ / ~user（如 cd ~/.duck_rush、cd ~），再区分绝对/相对路径
+            # 先展开 ~ / ~user（如 cd ~/.duck-rush、cd ~），再区分绝对/相对路径
             expanded = os.path.expanduser(target)
             if os.path.isabs(expanded):
                 new = expanded
