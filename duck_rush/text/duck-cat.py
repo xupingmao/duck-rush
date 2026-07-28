@@ -113,6 +113,9 @@ def cat_file(filename: str = "", encoding: str = "utf-8", number: bool = False,
         lang = detect_lang(filename)
 
     text = _decode_file(filename, encoding)
+    # 归一化换行符：Windows 文件多为 \r\n，而 _decode_file 读原始字节不做换行转换，
+    # 否则 print 在 Windows 下会把行尾 \n 再翻译成 \r\n，产生 \r\r\n 双回车（表现为多余空行）
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     cat_lines(io.StringIO(text).readlines(), number, highlight, lang, max_lines)
 
 

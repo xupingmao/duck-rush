@@ -16,7 +16,13 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 - `config/requirements.txt` — Python依赖（termcolor, fire, chardet, xlwt, xlrd）
 - `install.py` — 构建/安装编排脚本（**无其他构建系统**）
 - `lib/` — 第三方库（目前仅jquery-1.12.4）
-- `data/` — 运行时生成，已gitignore
+- `data/` — 运行时生成（命令索引、简介缓存等），已gitignore
+- `~/.duck-rush/` — 用户级安装根目录（跨平台统一，不在仓库内）：
+  - `bin/` — 各命令的包装脚本（Windows: `*.bat`；Unix: 无扩展名），**已加入 PATH**，直接以命令名调用
+  - `data/` — 命令运行时数据存储根目录；每个命令的数据放在 `data/{cmd}/` 子目录下（如 `data/duck-cat/`）
+  - `duck.json` — 安装元数据（安装目录、bin/data 路径、Python 解释器路径等）
+  - 命令需要持久化数据（缓存、状态文件等）时，统一用
+    `duck_utils.os_util.get_command_data_dir("{cmd}")` 获取该命令专属目录，**不要**把数据写到仓库或临时目录
 
 ## 关键命令
 
@@ -36,7 +42,9 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 
 ## 开发注意事项
 
-- **安装后入口**：每个 `.py` 脚本被包装为独立命令（Win: `%USERPROFILE%\duck_rush\*.bat`，Unix: `local/bin/*`）
+- **安装后入口**：每个 `.py` 脚本被包装为独立命令，统一安装到 `~/.duck-rush/bin`
+  （Win: `~/.duck-rush/bin/*.bat`，Unix: `~/.duck-rush/bin/*` 无扩展名），
+  该目录已在安装时加入 PATH，可直接以命令名调用（如 `duck-cat`）。
 - **命令命名规范**：所有独立 CLI 工具脚本的文件名**必须以 `duck-` 前缀开头**（如 `duck-set-op.py`、
   `duck-trim.py`、`duck-cat.py`）。命令名 = 去掉扩展名后的文件名（含 `duck-` 前缀），`duck list`
   会原样展示。新建工具脚本时务必遵循此前缀。

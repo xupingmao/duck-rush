@@ -7,11 +7,15 @@ import platform
 import shutil
 import json
 import subprocess
+from typing import List, Optional
 
 
-def run_cmd(args):
-    """以参数列表形式执行命令，避免 os.system 在 Windows 下因首尾引号被 cmd 吞掉而导致路径解析失败的问题。"""
-    return subprocess.run(args, shell=False).returncode
+def run_cmd(args, cwd: Optional[str] = None):
+    """以参数列表形式执行命令，避免 os.system 在 Windows 下因首尾引号被 cmd 吞掉而导致路径解析失败的问题。
+
+    cwd 不传时继承父进程工作目录；传入则在该目录下执行。
+    """
+    return subprocess.run(args, shell=False, cwd=cwd).returncode
 
 
 # pip 镜像源列表（官方源用空字符串占位）。安装失败时会依次回退尝试，
@@ -81,6 +85,14 @@ SRC_PATH   = os.path.join(DIR_PATH, "duck_rush")
 LOCAL_PATH = os.path.join(DIR_PATH, "local")
 VENV_DIR   = os.path.join(LOCAL_PATH, "venv")
 
+# 用户级安装目录（跨平台统一）：~/.duck-rush
+#   bin/   命令包装脚本（加入 PATH）
+#   data/  命令运行时数据存储（data/{cmd} 每个命令一个子目录）
+#   duck.json  安装元数据
+DUCK_RUSH_HOME = os.path.join(HOME_PATH, ".duck-rush")
+BIN_DIR   = os.path.join(DUCK_RUSH_HOME, "bin")
+DATA_DIR  = os.path.join(DUCK_RUSH_HOME, "data")
+
 
 def get_venv_python() -> str:
     """返回虚拟环境中的Python可执行文件路径"""
@@ -147,11 +159,16 @@ def find_bash_profile_path():
 
 def load_bash_profile():
     fpath = find_bash_profile_path()
+    if not os.path.exists(fpath):
+        return ""
     with open(fpath) as fp:
         return fp.read()
 
 def append_to_bash_profile(cmd):
     fpath = find_bash_profile_path()
+    if not os.path.exists(fpath):
+        # 文件不存在则先创建，避免首次安装（常见于全新环境）写入失败
+        open(fpath, "w").close()
     bash_profile_text = load_bash_profile()
 
     if cmd in bash_profile_text:
@@ -377,42 +394,117 @@ class WindowsInstaller:
         self.create_bat_files()
         self.remove_stale_files()
 
+def _norm_path(s: str) -> str:
+    s = s.replace("\\", "/")
+    while "//" in s:
+        s = s.replace("//", "/")
+    return s.rstrip("/").lower()
+
+
+def _collapse_slashes(s: str) -> str:
+    """把路径里重复的反斜杠折叠成单个（修复旧逻辑用 repr 写入导致的 \\\\ 翻倍）。"""
+    while "\\\\" in s:
+        s = s.replace("\\\\", "\\")
+    return s
+
+
+def _ps_quote(s: str) -> str:
+    """为 PowerShell 单引号字符串安全地包裹并转义（不使用 repr，避免反斜杠翻倍）。"""
+    return "'" + s.replace("'", "''") + "'"
+
+
 def install_for_windows(python):
-    import termcolor
     print("准备安装duck_rush (windows平台) ...")
-    user_profile_path = os.environ["USERPROFILE"]
+    makedirs(DUCK_RUSH_HOME)
+    makedirs(BIN_DIR)
+    makedirs(DATA_DIR)
 
-    duck_bin_dir = os.path.join(user_profile_path, "duck_rush")
-
-    installer = WindowsInstaller(duck_bin_dir, python)
+    installer = WindowsInstaller(BIN_DIR, python)
     installer.install()
 
+    add_path_windows(BIN_DIR)
+
     print("")
-    print("脚本安装完成!")
-    
-    # 检查环境变量是否已经设置
-    path_env = os.environ.get("PATH", "")
-    duck_bin_dir_normalized = duck_bin_dir.replace("\\", "/")
-    path_env_normalized = path_env.replace("\\", "/")
-    
-    if duck_bin_dir_normalized in path_env_normalized:
-        # 环境变量已经设置
-        msg = f"环境变量已经设置: {duck_bin_dir}"
-        print(termcolor.colored(msg, "green"))
-        print("无需再配置环境变量，可直接使用duck_rush工具!")
+    print("脚本安装完成: %s" % BIN_DIR)
+
+
+def _set_user_path(new: str) -> bool:
+    """把 new 写入 Windows 用户级 PATH，成功返回 True。"""
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "[Environment]::SetEnvironmentVariable('PATH', %s, 'User')" % _ps_quote(new)],
+            check=True,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def add_path_windows(bin_dir):
+    """把 bin_dir 加入 Windows 用户级 PATH（通过 powershell 修改用户环境变量）。
+
+    已存在则跳过新增，但**始终把 PATH 中已被旧逻辑污染（反斜杠翻倍）的条目折叠回
+    单个反斜杠并去重后写回**，从而统一修复现有 PATH 里的 \\\\ 问题。
+    修改需重开终端/新窗口才生效。
+    """
+    import termcolor
+    bin_dir = os.path.abspath(bin_dir)
+    try:
+        old = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command",
+             "[Environment]::GetEnvironmentVariable('PATH','User')"],
+            stderr=subprocess.DEVNULL,
+        ).decode("utf-8", "replace").strip()
+    except Exception:
+        old = os.environ.get("PATH", "")
+    paths = [p for p in old.split(";") if p]
+    # 旧逻辑用 repr() 把反斜杠翻倍（\\ -> \\\\），且去重比较时不折叠重复斜杠，
+    # 导致重复安装时条目被反复追加、反斜杠越翻倍越多。这里先折叠每个条目的重复
+    # 反斜杠并去重，得到规范化后的条目列表。
+    norm_existing: List[str] = []
+    for p in paths:
+        fixed = _collapse_slashes(p)
+        if _norm_path(fixed) not in [_norm_path(x) for x in norm_existing]:
+            norm_existing.append(fixed)
+
+    already = any(_norm_path(p) == _norm_path(bin_dir) for p in norm_existing)
+    if not already:
+        norm_existing.append(bin_dir)
+
+    new = ";".join(norm_existing)
+    if new == old:
+        # 无任何变化（无损坏、无重复、已包含且格式正确），无需写入。
+        if already:
+            print(termcolor.colored("PATH 已包含: %s" % bin_dir, "green"))
+        else:
+            if _set_user_path(new):
+                print(termcolor.colored(
+                    "已将 %s 加入用户 PATH（重开终端或新开窗口生效）" % bin_dir, "green"))
+            else:
+                print(termcolor.colored(
+                    "*注意* 自动加入 PATH 失败，请手动将 %s 加入用户 PATH" % bin_dir, "red"))
+        return
+
+    # new != old：要么新增了 bin_dir，要么修复了 PATH 里被污染的条目。
+    if _set_user_path(new):
+        if already:
+            print(termcolor.colored(
+                "已修复 PATH 中损坏的条目（反斜杠翻倍已折叠为单个）", "green"))
+        else:
+            print(termcolor.colored(
+                "已将 %s 加入用户 PATH（重开终端或新开窗口生效）" % bin_dir, "green"))
     else:
-        # 环境变量未设置
-        msg = f"*注意* Windows需要手动配置环境变量 {duck_bin_dir}"
-        print(termcolor.colored(msg, "red"))
-        print("打开SystemPropertiesAdvanced进行配置...")
-        os.system("SystemPropertiesAdvanced.exe")
+        print(termcolor.colored(
+            "*注意* 自动加入 PATH 失败，请手动将 %s 加入用户 PATH" % bin_dir, "red"))
 
 
 def install_for_unix(python):
     log_info("准备安装duck_rush ... ")
 
-    local_bin_path = os.path.join(LOCAL_PATH, "bin")
-    makedirs(local_bin_path)
+    makedirs(DUCK_RUSH_HOME)
+    makedirs(BIN_DIR)
+    makedirs(DATA_DIR)
 
     def get_start_code(fpath, ext):
         """构建启动脚本"""
@@ -437,8 +529,7 @@ def install_for_unix(python):
             expected_names.add(name)
 
             start_code = get_start_code(fpath, ext)
-            start_file = os.path.join(local_bin_path, name)
-            start_file = os.path.abspath(start_file)
+            start_file = os.path.abspath(os.path.join(BIN_DIR, name))
 
             # 检查文件是否存在且内容一致
             if os.path.exists(start_file):
@@ -456,21 +547,33 @@ def install_for_unix(python):
             index += 1
 
     # 第2步：删除不再需要的旧脚本
-    if os.path.exists(local_bin_path):
-        for fname in os.listdir(local_bin_path):
+    if os.path.exists(BIN_DIR):
+        for fname in os.listdir(BIN_DIR):
             if fname in expected_names:
                 continue
-            fpath = os.path.join(local_bin_path, fname)
+            fpath = os.path.join(BIN_DIR, fname)
             if os.path.isfile(fpath):
                 os.remove(fpath)
                 log_info("删除过期脚本: %r", fpath)
 
-    # 本地的一些临时脚本
-    makedirs(LOCAL_PATH)
-    add_shell_path(LOCAL_PATH)
+    # 加入 PATH（写入 ~/.bashrc 等，并赋予可执行权限）
+    add_shell_path(BIN_DIR)
 
-    # 必须在最后添加并且标记为执行文件
-    add_shell_path(local_bin_path)
+
+def write_metadata(venv_python):
+    """写入安装元数据 ~/.duck-rush/duck.json。"""
+    makedirs(DUCK_RUSH_HOME)
+    meta = {
+        "version": "1.0",
+        "install_dir": DUCK_RUSH_HOME,
+        "bin_dir": BIN_DIR,
+        "data_dir": DATA_DIR,
+        "python": os.path.abspath(venv_python),
+    }
+    meta_path = os.path.join(DUCK_RUSH_HOME, "duck.json")
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+    print("元数据已写入: %s" % meta_path)
 
 def install_leveldb(python):
     print("安装 duck_leveldb 模块 ...")
@@ -485,9 +588,16 @@ def install_requirements(python):
 def install_duck_utils_package(python):
     """安装独立的 duck_utils 工具包到虚拟环境, 使脚本可 `import duck_utils`"""
     print("安装 duck_utils 模块 ...")
-    run_cmd([python, os.path.join(DIR_PATH, "duck_utils", "setup.py"), "sdist", "install"])
+    duck_utils_dir = os.path.join(DIR_PATH, "duck_utils")
+    setup_py = os.path.join(duck_utils_dir, "setup.py")
+    # 必须在仓库根目录(DIR_PATH)下执行, 因为 setup.py 用 packages=["duck_utils"] 需要在
+    # 根目录能找到 duck_utils/ 子目录。同时显式传入 egg_info 的 --egg-base duck_utils,
+    # 把 .egg-info 固定写到 duck_utils/ 下, 而不是继承父进程 CWD(否则在 docs/ 等子目录
+    # 运行 install.py 时会把 egg-info 写到那里, 且旧的清理逻辑只删 DIR_PATH 下的副本)。
+    run_cmd([python, setup_py, "egg_info", "--egg-base", "duck_utils", "sdist", "install"], cwd=DIR_PATH)
     print("清理临时文件...")
     for d in ("build", "dist", "duck_utils.egg-info"):
+        shutil.rmtree(os.path.join(duck_utils_dir, d), ignore_errors=True)
         shutil.rmtree(os.path.join(DIR_PATH, d), ignore_errors=True)
     print("duck_utils模块安装完成")
 
@@ -516,7 +626,10 @@ def do_install():
     # 生成命令简介缓存 (供 duck list 使用)
     print("\n生成命令简介缓存...")
     generate_command_desc(venv_python)
-    
+
+    # 写入安装元数据 ~/.duck-rush/duck.json
+    write_metadata(venv_python)
+
     print(colored("安装完成!", "green"))
 
     # 汇总信息

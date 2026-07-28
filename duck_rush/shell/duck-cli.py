@@ -31,7 +31,7 @@ from prompt_toolkit.completion import Completer, Completion, CompleteEvent
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 
-from duck_utils.os_util import is_windows
+from duck_utils.os_util import is_windows, get_command_data_dir
 from duck_utils.jsonl_util import JsonlStore
 
 # 由本文件位置推导 duck-chdir / duck-file / duck-cat 脚本路径
@@ -198,8 +198,9 @@ class DuckCli:
         self.history: List[str] = []
         self._exit_requested: bool = False
 
-        data_dir = os.path.join(os.path.dirname(_HERE), "data", "duck-cli")
-        os.makedirs(data_dir, exist_ok=True)
+        # 数据目录统一用 duck_utils 的 get_command_data_dir，落到 ~/.duck_rush/data/duck-cli
+        # （跨平台用户级目录，不污染仓库），该方法内部已确保目录存在。
+        data_dir = get_command_data_dir("duck-cli")
         self._history_path: str = os.path.join(data_dir, "history")
         # 历史持久化（prompt_toolkit 的 FileHistory 格式）
         self._file_history = FileHistory(self._history_path)
@@ -293,10 +294,13 @@ class DuckCli:
     def _change_dir(self, target: str) -> None:
         if not target:
             new = os.path.expanduser("~")
-        elif os.path.isabs(target):
-            new = target
         else:
-            new = os.path.abspath(os.path.join(self.cwd, target))
+            # 先展开 ~ / ~user（如 cd ~/.duck_rush、cd ~），再区分绝对/相对路径
+            expanded = os.path.expanduser(target)
+            if os.path.isabs(expanded):
+                new = expanded
+            else:
+                new = os.path.abspath(os.path.join(self.cwd, expanded))
         if not os.path.isdir(new):
             sys.stderr.write("cd: 不是有效目录: %s\n" % new)
             return
