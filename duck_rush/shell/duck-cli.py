@@ -6,7 +6,8 @@ duck-cli —— 传统的交互式 shell（单行提示符，非 TUI）。
 - 维持当前工作目录（cwd），`cd` / 相对路径 / 绝对路径均可
 - 基于 prompt_toolkit 的传统行编辑：Tab 触发命令 + 文件补全；↑/↓ 切换历史；Ctrl+C 不退出
 - `cd` 不带参数时，调用 duck-chdir 选择器（TUI），等待其结束并切换到它返回的目录；
-  `cd <路径>` 与普通 cd 行为相同
+  `cd <路径>` 与普通 cd 行为相同；`<路径>` 支持 glob 通配（如 `cd duck*`、`cd */src`、
+  `cd **/test`），匹配到多个目录时切换到第一个并列出全部候选
 - `cd` 选择文件时，调用 duck-file 检查类型；文本文件再用 duck-cat 预览
 - 其余命令直接交给系统 shell 执行（继承终端，vim/less 等交互程序照常工作）
 
@@ -20,6 +21,7 @@ duck-cli —— 传统的交互式 shell（单行提示符，非 TUI）。
 import os
 import re
 import sys
+import glob
 import argparse
 import logging
 import subprocess
@@ -301,10 +303,28 @@ class DuckCli:
                 new = expanded
             else:
                 new = os.path.abspath(os.path.join(self.cwd, expanded))
-        if not os.path.isdir(new):
-            sys.stderr.write("cd: 不是有效目录: %s\n" % new)
-            return
+            # 精确路径不存在时，若含通配符则尝试 glob 匹配目录
+            if not os.path.isdir(new):
+                if self._has_glob(target):
+                    matched = [m for m in glob.glob(new, recursive=True) if os.path.isdir(m)]
+                    if not matched:
+                        sys.stderr.write("cd: 无匹配目录: %s\n" % target)
+                        return
+                    if len(matched) > 1:
+                        sys.stderr.write(
+                            "cd: 多个匹配，切换到第一个: %s\n" % matched[0])
+                        for m in matched:
+                            sys.stderr.write("  %s\n" % m)
+                    new = matched[0]
+                else:
+                    sys.stderr.write("cd: 不是有效目录: %s\n" % new)
+                    return
         self.cwd = new
+
+    @staticmethod
+    def _has_glob(target: str) -> bool:
+        """target 是否包含 glob 通配符（* ? [）。"""
+        return any(c in target for c in ("*", "?", "["))
 
     # ------------------------------------------------------------------ #
     # =公式 -> duck-calc 计算
