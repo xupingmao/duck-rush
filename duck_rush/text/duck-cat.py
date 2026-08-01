@@ -18,7 +18,7 @@ AttrName = Literal["bold", "dark", "underline", "blink", "reverse", "concealed"]
 
 # 各 token 类型的配色(针对黑色背景调校对比度)
 TOKEN_COLORS = {
-    "comment": ("light_grey", []),
+    "comment": ("cyan", []),
     "string": ("green", []),
     "number": ("yellow", []),
     "keyword": ("magenta", ["bold"]),
