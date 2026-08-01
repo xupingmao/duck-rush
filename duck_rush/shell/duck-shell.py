@@ -34,6 +34,7 @@ from textual.screen import ModalScreen
 from textual.suggester import Suggester
 from textual import on
 from duck_utils.jsonl_util import JsonlStore
+from duck_utils.os_util import CommandNameLoader
 from textual.widgets import (
     DirectoryTree,
     RichLog,
@@ -206,7 +207,8 @@ class ShellInput(Input):
 class CommandSuggester(Suggester):
     """命令输入框的补全建议。
 
-    - 首个 token（命令名）：优先命令名补全（内置命令 + 历史命令首 token）。
+    - 首个 token（命令名）：优先命令名补全
+      （内置命令 + 历史命令首 token + 系统命令，优先级依次递减）。
     - 路径形式的 token（含分隔符 / 或以 ~ 开头）或任意参数位置的普通词：
       在当前工作目录下做文件名 / 目录名补全。
 
@@ -220,12 +222,14 @@ class CommandSuggester(Suggester):
         commands: list,
         history_provider: Callable[[], list],
         cwd_provider: Callable[[], str],
+        system_provider: Callable[[], list],
     ) -> None:
         # 候选会变化（历史、目录内容），关闭缓存以保证建议实时
         super().__init__(case_sensitive=False, use_cache=False)
         self._commands = sorted(set(commands))
         self._history_provider = history_provider
         self._cwd_provider = cwd_provider
+        self._system_provider = system_provider
 
     async def get_suggestion(self, value: str) -> "str | None":
         # value 已被 casefold（case_sensitive=False）
@@ -248,11 +252,13 @@ class CommandSuggester(Suggester):
         return prefix_before + completed
 
     def _complete_command(self, word: str) -> "str | None":
+        # 顺序即优先级：内置命令 > 历史命令 > 系统命令
         candidates = list(self._commands)
         for hist in self._history_provider():
             token = hist.strip().split(" ", 1)[0]
             if token:
                 candidates.append(token)
+        candidates.extend(self._system_provider())
         # 去重（大小写不敏感），保持顺序
         seen = set()
         unique = []
@@ -393,6 +399,9 @@ class DuckShellApp(App):
         self._history_store: JsonlStore = JsonlStore(
             os.path.join(os.path.dirname(self.dao.dir), "history.jsonl")
         )
+        # 系统命令（PATH 可执行文件 + shell 内建）后台加载，不阻塞界面
+        self._system_commands: CommandNameLoader = CommandNameLoader()
+        self._system_commands.start()
 
     # ------------------------------------------------------------------ #
     # 布局
@@ -421,7 +430,10 @@ class DuckShellApp(App):
                         placeholder="输入命令，回车执行（Tab 补全 / ↑↓ 历史）",
                         history=self.history,
                         suggester=CommandSuggester(
-                            BUILTIN_COMMANDS, lambda: self.history, lambda: self.cwd
+                            BUILTIN_COMMANDS,
+                            lambda: self.history,
+                            lambda: self.cwd,
+                            self._system_commands.get_names,
                         ),
                     )
         yield Footer()

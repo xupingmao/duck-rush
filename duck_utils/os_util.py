@@ -2,7 +2,11 @@
 import sys
 import subprocess
 import os
+import json
 import platform
+import shutil
+import threading
+from typing import List, NamedTuple, Optional
 
 def popen(cmd):
     proc = subprocess.Popen(cmd,
@@ -64,4 +68,92 @@ def get_command_data_dir(cmd: str) -> str:
     d = os.path.join(get_data_dir(), cmd)
     os.makedirs(d, exist_ok=True)
     return d
+
+
+class CmdInfo(NamedTuple):
+    """系统命令信息。path 为 None 表示 shell 内建命令 / 函数 / 别名。"""
+    name: str
+    path: Optional[str]
+
+
+def list_commands(pattern: Optional[str] = None,
+                  refresh: bool = False) -> List[CmdInfo]:
+    """调用 duck-list-cmd 命令获取系统命令列表。
+
+    Args:
+        pattern: 按名称子串过滤（不区分大小写），None 表示不过滤。
+        refresh: True 时忽略 duck-list-cmd 的缓存，强制重新扫描。
+
+    Returns:
+        CmdInfo 列表；duck-list-cmd 未安装或执行失败时返回空列表。
+    """
+    exe = shutil.which("duck-list-cmd")
+    if not exe:
+        return []
+
+    cmd = [exe, "--jsonl"]
+    if pattern:
+        cmd += ["--name", pattern]
+    if refresh:
+        cmd.append("--refresh")
+
+    env = dict(os.environ)
+    # 子进程按 UTF-8 输出，避免 Windows 默认代码页导致中文路径乱码
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             env=env)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+
+    result = []
+    for line in out.stdout.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        name = record.get("name")
+        if not name:
+            continue
+        result.append(CmdInfo(name=name, path=record.get("path") or None))
+    return result
+
+
+class CommandNameLoader:
+    """在后台线程加载系统命令名，供 shell 类工具的补全使用。
+
+    list_commands 需要启动子进程（首次还可能重建缓存），直接在交互线程调用
+    会造成卡顿。调用 start() 后台加载，get_names() 在加载完成前返回空列表，
+    补全先用内置命令与历史命令兜底。
+    """
+
+    def __init__(self) -> None:
+        self._names: List[str] = []
+        self._started = False
+        self._lock = threading.Lock()
+
+    def start(self) -> None:
+        """启动后台加载（并发/重复调用只会实际加载一次）。"""
+        with self._lock:
+            if self._started:
+                return
+            self._started = True
+        threading.Thread(target=self._load, daemon=True).start()
+
+    def _load(self) -> None:
+        try:
+            names = [cmd.name for cmd in list_commands()]
+        except Exception:
+            names = []
+        # 整体替换引用，读侧无需加锁
+        self._names = sorted(set(names))
+
+    def get_names(self) -> List[str]:
+        """返回已加载的命令名（未加载完成时为空列表）。"""
+        return self._names
 

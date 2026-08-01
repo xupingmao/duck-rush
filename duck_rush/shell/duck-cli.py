@@ -33,7 +33,7 @@ from prompt_toolkit.completion import Completer, Completion, CompleteEvent
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 
-from duck_utils.os_util import is_windows, get_command_data_dir
+from duck_utils.os_util import is_windows, get_command_data_dir, CommandNameLoader
 from duck_utils.jsonl_util import JsonlStore
 
 # 由本文件位置推导 duck-chdir / duck-file / duck-cat 脚本路径
@@ -93,7 +93,7 @@ def _apply_windows_utf8() -> None:
 class DuckCompleter(Completer):
     """命令 + 路径补全（prompt_toolkit 版）。
 
-    - 首个 token（命令名）：内置命令 + 历史命令首 token
+    - 首个 token（命令名）：内置命令 + 历史命令首 token + 系统命令（PATH / shell 内建）
     - 任意位置含路径片段的词：在当前工作目录下做文件名 / 目录名补全
     """
 
@@ -102,11 +102,13 @@ class DuckCompleter(Completer):
         commands: List[str],
         history_provider: Callable[[], List[str]],
         cwd_provider: Callable[[], str],
+        system_provider: Callable[[], List[str]],
     ) -> None:
         super().__init__()
         self._commands = sorted(set(commands))
         self._history_provider = history_provider
         self._cwd_provider = cwd_provider
+        self._system_provider = system_provider
 
     def get_completions(
         self, document: Document, complete_event: CompleteEvent
@@ -131,11 +133,13 @@ class DuckCompleter(Completer):
             yield Completion(cand, start_position=-len(word))
 
     def _cmd_candidates(self, word: str) -> List[str]:
+        # 顺序即优先级：内置命令 > 历史命令 > 系统命令
         cands: List[str] = list(self._commands)
         for hist in self._history_provider():
             tok = hist.strip().split(" ", 1)[0]
             if tok:
                 cands.append(tok)
+        cands.extend(self._system_provider())
         seen = set()
         out: List[str] = []
         for c in cands:
@@ -217,8 +221,14 @@ class DuckCli:
             pass
         self._js_store = JsonlStore(os.path.join(data_dir, "history.jsonl"))
 
+        # 系统命令（PATH 可执行文件 + shell 内建）后台加载，不阻塞启动
+        self._system_commands = CommandNameLoader()
+        self._system_commands.start()
         self.completer = DuckCompleter(
-            BUILTIN_COMMANDS, lambda: self.history, lambda: self.cwd
+            BUILTIN_COMMANDS,
+            lambda: self.history,
+            lambda: self.cwd,
+            self._system_commands.get_names,
         )
         self._session: Optional[PromptSession] = None
 
