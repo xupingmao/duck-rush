@@ -9,6 +9,16 @@ import json
 import subprocess
 from typing import List, Optional
 
+# 确保脚本所在目录 (仓库根) 位于 sys.path 最前。这样即使 duck_utils 尚未安装到
+# 虚拟环境, install.py 也能从本地仓库导入 duck_utils 包 —— install.py 本身只依赖
+# 本地源码, 不依赖 venv 内已安装的 duck_utils。其它命令可假定 duck_utils 已安装最新版,
+# 无需做此处理。
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+
+from duck_utils.duck_meta import InstallMeta
+
 
 def run_cmd(args, cwd: Optional[str] = None):
     """以参数列表形式执行命令，避免 os.system 在 Windows 下因首尾引号被 cmd 吞掉而导致路径解析失败的问题。
@@ -193,37 +203,40 @@ def makedirs(dirname):
     return False
 
 
-def collect_commands():
-    '''收集所有命令并生成命令列表'''
+def collect_commands(extra_roots: Optional[List[str]] = None):
+    '''收集所有命令并生成命令列表(含外部源码目录)。'''
     commands = []
     index = 0
-    
-    for root, dirs, files in os.walk(SRC_PATH):
-        for fname in files:
-            if InstallConfig.is_skip_file(fname):
-                continue
-                
-            name, ext = os.path.splitext(fname)
-            if ext not in InstallConfig.code_ext_set:
-                continue
-                
-            fpath = os.path.join(root, fname)
-            fpath = os.path.abspath(fpath)
-            
-            # 计算相对路径，用于分类
-            rel_path = os.path.relpath(root, SRC_PATH)
-            category = rel_path if rel_path != '.' else 'root'
-            
-            command = {
-                'id': index + 1,
-                'name': name,
-                'path': fpath,
-                'category': category,
-                'extension': ext
-            }
-            commands.append(command)
-            index += 1
-    
+
+    roots = [SRC_PATH] + (extra_roots or [])
+    for src_root in roots:
+        if not os.path.isdir(src_root):
+            continue
+        for root, dirs, files in os.walk(src_root):
+            for fname in files:
+                if InstallConfig.is_skip_file(fname):
+                    continue
+
+                name, ext = os.path.splitext(fname)
+                if ext not in InstallConfig.code_ext_set:
+                    continue
+
+                fpath = os.path.abspath(os.path.join(root, fname))
+
+                # 计算相对路径，用于分类
+                rel_path = os.path.relpath(root, src_root)
+                category = rel_path if rel_path != '.' else 'root'
+
+                command = {
+                    'id': index + 1,
+                    'name': name,
+                    'path': fpath,
+                    'category': category,
+                    'extension': ext
+                }
+                commands.append(command)
+                index += 1
+
     return commands
 
 
@@ -240,15 +253,16 @@ def save_commands(commands):
     print(f"命令列表已保存到: {output_file}")
     print(f"共收集到 {len(commands)} 个命令")
 
-def generate_command_desc(python: str) -> None:
+def generate_command_desc(python: str, extra_roots: Optional[List[str]] = None) -> None:
     """安装时生成命令简介缓存 (data/install/command_desc.jsonl)。
 
     直接执行每个命令的 -h, 取首行非空内容作为简介; 超时(3秒)或失败则忽略。
     子进程强制 UTF-8 输出, 避免 Windows 下 GBK 管道导致的中文乱码。
+    extra_roots: 外部工具源码目录, 用于把外部命令也纳入简介缓存。
     """
     import subprocess as _sp
 
-    commands = collect_commands()
+    commands = collect_commands(extra_roots)
     if not commands:
         return
 
@@ -366,15 +380,18 @@ class WindowsInstaller:
             fp.write(content)
 
 
-    def create_bat_files(self):
-        for root, dirs, files in os.walk(SRC_PATH):
-            for fname in files:
-                if InstallConfig.is_skip_file(fname):
-                    continue
-                fpath = os.path.join(root, fname)
-                fpath = os.path.abspath(fpath)
+    def create_bat_files(self, roots: Optional[List[str]] = None):
+        for src_root in (roots or [SRC_PATH]):
+            if not os.path.isdir(src_root):
+                continue
+            for root, dirs, files in os.walk(src_root):
+                for fname in files:
+                    if InstallConfig.is_skip_file(fname):
+                        continue
+                    fpath = os.path.join(root, fname)
+                    fpath = os.path.abspath(fpath)
 
-                self.create_file(fpath)
+                    self.create_file(fpath)
 
     def remove_stale_files(self):
         if not os.path.exists(self.dirname):
@@ -387,11 +404,11 @@ class WindowsInstaller:
                 os.remove(fpath)
                 print("删除过期脚本: %s" % fpath)
 
-    def install(self):
+    def install(self, extra_roots: Optional[List[str]] = None):
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)
 
-        self.create_bat_files()
+        self.create_bat_files([SRC_PATH] + (extra_roots or []))
         self.remove_stale_files()
 
 def _norm_path(s: str) -> str:
@@ -413,14 +430,14 @@ def _ps_quote(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
-def install_for_windows(python):
+def install_for_windows(python, extra_roots: Optional[List[str]] = None):
     print("准备安装duck_rush (windows平台) ...")
     makedirs(DUCK_RUSH_HOME)
     makedirs(BIN_DIR)
     makedirs(DATA_DIR)
 
     installer = WindowsInstaller(BIN_DIR, python)
-    installer.install()
+    installer.install(extra_roots)
 
     add_path_windows(BIN_DIR)
 
@@ -499,7 +516,7 @@ def add_path_windows(bin_dir):
             "*注意* 自动加入 PATH 失败，请手动将 %s 加入用户 PATH" % bin_dir, "red"))
 
 
-def install_for_unix(python):
+def install_for_unix(python, extra_roots: Optional[List[str]] = None):
     log_info("准备安装duck_rush ... ")
 
     makedirs(DUCK_RUSH_HOME)
@@ -517,34 +534,38 @@ def install_for_unix(python):
     # 第1步：收集所有当前应生成的脚本名
     expected_names = set()
     index = 0
-    for root, dirs, files in os.walk(SRC_PATH):
-        for fname in files:
-            if not is_script_file(fname):
-                continue
-            if InstallConfig.is_skip_file(fname):
-                continue
-            fpath = os.path.join(root, fname)
-            fpath = os.path.abspath(fpath)
-            name, ext = os.path.splitext(fname)
-            expected_names.add(name)
-
-            start_code = get_start_code(fpath, ext)
-            start_file = os.path.abspath(os.path.join(BIN_DIR, name))
-
-            # 检查文件是否存在且内容一致
-            if os.path.exists(start_file):
-                with open(start_file) as fp:
-                    old_code = fp.read()
-                if old_code == start_code:
-                    log_info("[%03d]跳过(无变化)[%r]", index+1, fpath)
-                    index += 1
+    roots = [SRC_PATH] + (extra_roots or [])
+    for src_root in roots:
+        if not os.path.isdir(src_root):
+            continue
+        for root, dirs, files in os.walk(src_root):
+            for fname in files:
+                if not is_script_file(fname):
                     continue
+                if InstallConfig.is_skip_file(fname):
+                    continue
+                fpath = os.path.join(root, fname)
+                fpath = os.path.abspath(fpath)
+                name, ext = os.path.splitext(fname)
+                expected_names.add(name)
 
-            makedirs(os.path.dirname(start_file))
-            with open(start_file, "w") as fp:
-                fp.write(start_code)
-            log_info("[%03d]更新脚本[%r]", index+1, fpath)
-            index += 1
+                start_code = get_start_code(fpath, ext)
+                start_file = os.path.abspath(os.path.join(BIN_DIR, name))
+
+                # 检查文件是否存在且内容一致
+                if os.path.exists(start_file):
+                    with open(start_file) as fp:
+                        old_code = fp.read()
+                    if old_code == start_code:
+                        log_info("[%03d]跳过(无变化)[%r]", index+1, fpath)
+                        index += 1
+                        continue
+
+                makedirs(os.path.dirname(start_file))
+                with open(start_file, "w") as fp:
+                    fp.write(start_code)
+                log_info("[%03d]更新脚本[%r]", index+1, fpath)
+                index += 1
 
     # 第2步：删除不再需要的旧脚本
     if os.path.exists(BIN_DIR):
@@ -560,20 +581,23 @@ def install_for_unix(python):
     add_shell_path(BIN_DIR)
 
 
+def load_meta() -> "InstallMeta":
+    """读取已存在的安装元数据 ~/.duck-rush/duck.json。"""
+    return InstallMeta.load()
+
+
 def write_metadata(venv_python):
-    """写入安装元数据 ~/.duck-rush/duck.json。"""
+    """写入安装元数据 ~/.duck-rush/duck.json，保留已登记的外部源码目录。"""
     makedirs(DUCK_RUSH_HOME)
-    meta = {
-        "version": "1.0",
-        "install_dir": DUCK_RUSH_HOME,
-        "bin_dir": BIN_DIR,
-        "data_dir": DATA_DIR,
-        "python": os.path.abspath(venv_python),
-    }
-    meta_path = os.path.join(DUCK_RUSH_HOME, "duck.json")
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
-    print("元数据已写入: %s" % meta_path)
+    meta = InstallMeta.load()
+    meta.version = "1.0"
+    meta.install_dir = DUCK_RUSH_HOME
+    meta.bin_dir = BIN_DIR
+    meta.data_dir = DATA_DIR
+    meta.python = os.path.abspath(venv_python)
+    meta.src_dir = SRC_PATH
+    meta.save()
+    print("元数据已写入: %s" % InstallMeta.meta_path())
 
 def install_leveldb(python):
     print("安装 duck_leveldb 模块 ...")
@@ -613,19 +637,23 @@ def do_install():
 
     env = check_environment()
 
+    # 读取已记录的外部工具源码目录 (若存在), 用于同时生成外部命令的脚本链接
+    meta = load_meta()
+    external_roots = meta.get_external_src_dirs()
+
     if env == "nt":
-        install_for_windows(venv_python)
+        install_for_windows(venv_python, external_roots)
     else:
-        install_for_unix(venv_python)
-    
-    # 收集并保存命令列表
+        install_for_unix(venv_python, external_roots)
+
+    # 收集并保存命令列表 (含外部源码目录)
     print("\n收集命令列表...")
-    commands = collect_commands()
+    commands = collect_commands(external_roots)
     save_commands(commands)
 
-    # 生成命令简介缓存 (供 duck list 使用)
+    # 生成命令简介缓存 (供 duck list 使用, 含外部命令)
     print("\n生成命令简介缓存...")
-    generate_command_desc(venv_python)
+    generate_command_desc(venv_python, external_roots)
 
     # 写入安装元数据 ~/.duck-rush/duck.json
     write_metadata(venv_python)

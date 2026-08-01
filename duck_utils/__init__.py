@@ -5,3 +5,4 @@
 
 from duck_utils.sqlite_util import SqliteTableManager
 from duck_utils.jsonl_util import JsonlStore
+from duck_utils.duck_meta import InstallMeta

@@ -43,6 +43,7 @@ DUCK_CHDIR_PATH = os.path.normpath(os.path.join(_HERE, "duck-chdir.py"))
 DUCK_FILE_PATH = os.path.normpath(os.path.join(_HERE, "..", "fs", "duck-file.py"))
 DUCK_CAT_PATH = os.path.normpath(os.path.join(_HERE, "..", "text", "duck-cat.py"))
 DUCK_CALC_PATH = os.path.normpath(os.path.join(_HERE, "..", "math-tools", "duck-calc.py"))
+DUCK_FAV_PATH = os.path.normpath(os.path.join(_HERE, "..", "text", "duck-fav.py"))
 
 # 内置命令（可被 Tab 补全的首个 token）
 BUILTIN_COMMANDS = ["cd", "pwd", "clear", "cls", "exit", "quit"]
@@ -282,6 +283,10 @@ class DuckCli:
         if cmd == "cd":
             self._run_chdir()
             return
+        if cmd == "duck-fav select":
+            line = self._run_picker(DUCK_FAV_PATH, "select")
+            self._apply_pick(line)
+            return
         if cmd.startswith("cd ") or cmd.startswith("cd\t"):
             self._change_dir(cmd[2:].strip())
             return
@@ -368,9 +373,15 @@ class DuckCli:
             sys.stderr.write("执行失败: %s\n" % e)
 
     # ------------------------------------------------------------------ #
-    # cd 无参 -> duck-chdir 选择器
+    # 通用选择器握手：交接终端给子命令的 TUI，读取其一行的 dir/file/exit 结果
     # ------------------------------------------------------------------ #
-    def _run_chdir(self) -> None:
+    def _run_picker(self, script_path: str, *extra_args: str) -> str:
+        """把终端交给子命令的 TUI（prompt_toolkit / textual 等），结束后读回结果。
+
+        通过临时结果文件握手（与 duck-chdir 一致）：子命令 `--result-file` 写入
+        一行 `dir <路径>` / `file <路径>` / `exit`，父 shell 解析后切换目录或预览。
+        返回结果行；失败 / 无结果时返回空串。
+        """
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tf:
                 result_file = tf.name
@@ -378,9 +389,10 @@ class DuckCli:
                 os.remove(result_file)
             except OSError:
                 pass
-            # 交接终端给 duck-chdir（Textual TUI），结束后自动恢复
+            # 交接终端给子命令 TUI，结束后自动恢复
             subprocess.run(
-                [sys.executable, DUCK_CHDIR_PATH, self.cwd, "--result-file", result_file],
+                [sys.executable, script_path, *extra_args,
+                 "--result-file", result_file],
                 cwd=self.cwd, env=self.env,
             )
             line = ""
@@ -393,12 +405,15 @@ class DuckCli:
                 os.remove(result_file)
             except OSError:
                 pass
+            return line
         except Exception as e:  # noqa
-            sys.stderr.write("目录切换失败: %s\n" % e)
-            return
+            sys.stderr.write("选择器执行失败: %s\n" % e)
+            return ""
 
+    def _apply_pick(self, line: str) -> None:
+        """解析选择器结果行：dir 切换目录，file 预览，exit/空 取消。"""
         if not line or line == "exit":
-            sys.stderr.write("已取消目录切换\n")
+            sys.stderr.write("已取消\n")
         elif line.startswith("dir "):
             target = line[4:].strip()
             self._change_dir(target)
@@ -408,6 +423,13 @@ class DuckCli:
             self._preview_if_text(target)
         else:
             sys.stderr.write("未知结果: %s\n" % line)
+
+    # ------------------------------------------------------------------ #
+    # cd 无参 -> duck-chdir 选择器
+    # ------------------------------------------------------------------ #
+    def _run_chdir(self) -> None:
+        line = self._run_picker(DUCK_CHDIR_PATH, self.cwd)
+        self._apply_pick(line)
 
     def _preview_if_text(self, path: str) -> None:
         """file 结果：调用 duck-file 检查类型（-i MIME, -b 仅类型）。
