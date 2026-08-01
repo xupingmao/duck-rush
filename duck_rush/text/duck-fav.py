@@ -272,10 +272,10 @@ def cmd_select(store: JsonlStore, result_file: Optional[str] = None) -> int:
         sys.stderr.write("收藏夹为空，没有可选项\n")
         _write_result("exit", result_file)
         return 0
-    app = FavSelectApp(paths, result_file=result_file)
     try:
+        app = FavSelectApp(paths, result_file=result_file)
         app.run()
-    except Exception as e:  # noqa: 异常通过退出码 + stderr 暴露给调用方
+    except Exception as e:  # noqa: 异常（如无终端）通过退出码 + stderr 暴露给调用方
         sys.stderr.write("duck-fav select 异常: %s\n" % e)
         return 1
     line = app.result if app.result is not None else "exit"
