@@ -11,6 +11,10 @@ duck-edit —— 基于 Textual 的双栏文本编辑器（左侧目录树 + 右
   与原换行符（CRLF / LF / CR）
 - 语法高亮由 duck_utils 的 SyntaxTokenizer 完成（按扩展名 detect_lang 推断语言）
 - nano 风格快捷键：Ctrl+S 保存 / Ctrl+O 聚焦文件树 / Ctrl+G 跳转行 / Ctrl+Q 退出
+- 编辑器下方命令框支持搜索（Ctrl+F 聚焦）：
+    f <片段>     在当前目录（含子目录）按文件名搜索，回车打开匹配文件
+    g <内容>     在当前打开的文件中搜索内容，回车跳转到对应行
+    d <内容>     在当前目录（含子目录）的所有文本文件中搜索内容
 
 用法：
   duck-edit [文件] [--path 起始目录] [-h]
@@ -22,7 +26,8 @@ import argparse
 import codecs
 import os
 import sys
-from typing import Optional
+from dataclasses import dataclass
+from typing import Callable, Optional
 
 from rich.style import Style
 from rich.text import Text
@@ -32,7 +37,7 @@ from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DirectoryTree, Footer, Header, Input, Static, TextArea
+from textual.widgets import Button, DirectoryTree, Footer, Header, Input, OptionList, Static, TextArea
 from textual.widgets._tree import TreeNode
 
 from duck_utils.syntax_util import SyntaxTokenizer, detect_lang
@@ -321,6 +326,66 @@ class ConfirmQuit(ModalScreen[str]):
 
 
 # ------------------------------------------------------------------ #
+# 搜索结果弹窗
+# ------------------------------------------------------------------ #
+@dataclass
+class SearchResult:
+    """单条搜索结果：展示文本 + 命中文件 + 命中行（1-based，可为 None）。"""
+    label: str
+    path: str
+    line: Optional[int]
+
+
+class SearchResultScreen(ModalScreen[Optional[SearchResult]]):
+    """居中结果列表：方向键 / 鼠标选择，回车返回所选结果，Esc 返回 None。"""
+
+    CSS = """
+    SearchResultScreen { align: center middle; }
+    #box {
+        width: 80%;
+        height: 80%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 1;
+    }
+    #title { color: $text-muted; padding: 0 0 1 0; }
+    #list { height: 1fr; }
+    """
+
+    def __init__(self, title: str, results: "list[SearchResult]") -> None:
+        super().__init__()
+        self._title = title
+        self._results = results
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="box"):
+            yield Static(self._title, id="title")
+            yield OptionList(id="list")
+
+    def on_mount(self) -> None:
+        opt = self.query_one("#list", OptionList)
+        if not self._results:
+            opt.add_option("（无匹配结果）")
+        else:
+            for r in self._results:
+                opt.add_option(r.label)
+        opt.focus()
+
+    @on(OptionList.OptionSelected, "#list")
+    def on_select(self, event: OptionList.OptionSelected) -> None:
+        if not self._results:
+            self.dismiss(None)
+            return
+        # 选项与结果一一对应（无结果时仅占位项，已在上面拦截）
+        self.dismiss(self._results[event.option_index])
+
+    def on_key(self, event) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
+
+
+# ------------------------------------------------------------------ #
 # 主应用
 # ------------------------------------------------------------------ #
 class DuckEditApp(App):
@@ -347,12 +412,19 @@ class DuckEditApp(App):
         color: $text;
     }
     #editor { height: 1fr; border: round $accent; }
+    #cmd {
+        height: auto;
+        margin-top: 1;
+        border: round $accent;
+    }
+    #cmd:focus { border: round $warning; }
     """
 
     BINDINGS = [
         ("ctrl+s", "save", "保存"),
         ("ctrl+o", "focus_tree", "文件树"),
         ("ctrl+g", "goto", "跳转行"),
+        ("ctrl+f", "focus_cmd", "命令框"),
         ("ctrl+q", "quit", "退出"),
     ]
 
@@ -381,6 +453,10 @@ class DuckEditApp(App):
             with Vertical(id="main"):
                 yield Static("[ 未打开文件 ]", id="status")
                 yield DuckTextArea(id="editor", show_line_numbers=True)
+                yield Input(
+                    id="cmd",
+                    placeholder="命令: f 文件名 | g 文件内容 | d 目录内容  (Ctrl+F 聚焦)",
+                )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -512,6 +588,116 @@ class DuckEditApp(App):
             path = os.path.join(self.start_dir, value)
         self._do_save(path)
         self.exit()
+
+    def action_focus_cmd(self) -> None:
+        self.query_one("#cmd", Input).focus()
+
+    # ------------------------------------------------------------------ #
+    # 命令 / 搜索
+    # ------------------------------------------------------------------ #
+    @on(Input.Submitted, "#cmd")
+    def on_cmd_submitted(self, event: Input.Submitted) -> None:
+        self._run_command(event.value)
+
+    def _run_command(self, raw: str) -> None:
+        """解析并执行命令框命令。
+
+        语法：
+          f <片段> / find <片段>   当前目录（含子目录）按文件名搜索
+          g <内容> / grep <内容>   当前打开文件内搜索内容
+          d <内容> / grepdir <内容> 当前目录（含子目录）文本文件内搜索内容
+        """
+        raw = raw.strip()
+        if not raw:
+            return
+        parts = raw.split(None, 1)
+        cmd = parts[0].lower()
+        arg = parts[1].strip() if len(parts) > 1 else ""
+        if cmd in ("f", "find"):
+            self._search_filenames(arg)
+        elif cmd in ("g", "grep"):
+            self._search_current_file(arg)
+        elif cmd in ("d", "grepdir"):
+            self._search_dir_content(arg)
+        else:
+            self.notify(
+                "未知命令: %s（支持 f/find, g/grep, d/grepdir）" % cmd,
+                severity="warning",
+            )
+
+    def _search_filenames(self, pattern: str) -> None:
+        if not pattern:
+            self.notify("用法: f <文件名片段>", severity="warning")
+            return
+        root = self._tree().path
+        pat = pattern.lower()
+        results: "list[SearchResult]" = []
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for fn in filenames:
+                if pat in fn.lower():
+                    full = os.path.join(dirpath, fn)
+                    rel = os.path.relpath(full, root)
+                    results.append(SearchResult(rel, full, None))
+        self._show_results('文件名搜索: "%s"' % pattern, results)
+
+    def _search_current_file(self, pattern: str) -> None:
+        if not self.current_path:
+            self.notify("当前未打开文件，无法搜索内容", severity="warning")
+            return
+        if not pattern:
+            self.notify("用法: g <内容>", severity="warning")
+            return
+        pat = pattern.lower()
+        text = self._editor().text
+        results: "list[SearchResult]" = []
+        for i, line in enumerate(text.split("\n"), 1):
+            if pat in line.lower():
+                results.append(
+                    SearchResult("%d: %s" % (i, line.rstrip()), self.current_path, i)
+                )
+        self._show_results('当前文件内容搜索: "%s"' % pattern, results)
+
+    def _search_dir_content(self, pattern: str) -> None:
+        if not pattern:
+            self.notify("用法: d <内容>", severity="warning")
+            return
+        root = self._tree().path
+        pat = pattern.lower()
+        # 跳过大概率无意义且耗时的目录
+        _SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__", ".venv", "venv"})
+        results: "list[SearchResult]" = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+            for fn in filenames:
+                full = os.path.join(dirpath, fn)
+                if not _is_text_file(full):
+                    continue
+                try:
+                    text, _enc, _nl = _read_file(full)
+                except (OSError, UnicodeDecodeError):
+                    continue
+                rel = os.path.relpath(full, root)
+                for i, line in enumerate(text.split("\n"), 1):
+                    if pat in line.lower():
+                        results.append(
+                            SearchResult("%s:%d: %s" % (rel, i, line.rstrip()), full, i)
+                        )
+        self._show_results('目录内容搜索: "%s"' % pattern, results)
+
+    def _show_results(self, title: str, results: "list[SearchResult]") -> None:
+        if not results:
+            self.notify("未找到匹配", severity="warning")
+            return
+        self.push_screen(
+            SearchResultScreen(title, results), self._on_search_result
+        )
+
+    def _on_search_result(self, result: Optional[SearchResult]) -> None:
+        if result is None:
+            return
+        self.open_file(result.path)
+        if result.line is not None and self.current_path == result.path:
+            self._editor().move_cursor((result.line - 1, 0), center=True)
 
     # ------------------------------------------------------------------ #
     # 事件

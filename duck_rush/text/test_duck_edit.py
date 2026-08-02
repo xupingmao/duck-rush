@@ -193,5 +193,92 @@ class TestApp(IsolatedAsyncioTestCase):
             ))
 
 
+class TestSearch(IsolatedAsyncioTestCase):
+    """命令框搜索：文件名 / 当前文件内容 / 目录内容。"""
+
+    async def asyncSetUp(self):
+        self.m = load_mod()
+        self.tmp = tempfile.mkdtemp(prefix="duck_edit_search_")
+        # sub/a.py  (子目录，用于验证递归搜索)
+        sub = os.path.join(self.tmp, "sub")
+        os.makedirs(sub)
+        self._write("sub/a.py", 'def alpha():\n    return "apple"\n')
+        # 顶层 b.txt：含目标内容，用于目录内容搜索
+        self._write("b.txt", "hello world\nneedle here\nbye\n")
+
+    def _write(self, name, content, enc="utf-8"):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w", encoding=enc) as fp:
+            fp.write(content)
+        return path
+
+    async def test_filename_search_recursive(self):
+        m = self.m
+        app = m.DuckEditApp(start_dir=self.tmp, open_file=None)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app._search_filenames("a.py")  # 命中 sub/a.py
+            await pilot.pause()
+            self.assertTrue(any(
+                isinstance(s, m.SearchResultScreen) for s in app.screen_stack
+            ))
+            screen = app.screen
+            self.assertIsInstance(screen, m.SearchResultScreen)
+            rels = {r.path for r in screen._results}
+            self.assertIn(os.path.join(self.tmp, "sub", "a.py"), rels)
+
+    async def test_current_file_content_search(self):
+        m = self.m
+        p = self._write("cur.py", 'x = 1\nTARGET_line\ny = 2\n')
+        app = m.DuckEditApp(start_dir=self.tmp, open_file=p)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app._search_current_file("TARGET")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, m.SearchResultScreen)
+            # 第 2 行命中，且跳转目标为当前文件
+            self.assertEqual(len(screen._results), 1)
+            self.assertEqual(screen._results[0].line, 2)
+            self.assertEqual(screen._results[0].path, p)
+
+    async def test_dir_content_search(self):
+        m = self.m
+        app = m.DuckEditApp(start_dir=self.tmp, open_file=None)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app._search_dir_content("needle")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, m.SearchResultScreen)
+            labels = {r.label for r in screen._results}
+            self.assertTrue(any("needle here" in lb for lb in labels))
+
+    async def test_search_result_opens_and_jumps(self):
+        m = self.m
+        p = self._write("jump.py", "a\nJUMP_HERE\nc\n")
+        app = m.DuckEditApp(start_dir=self.tmp, open_file=p)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            # 模拟从结果列表选择第 2 行
+            app._on_search_result(m.SearchResult("2: JUMP_HERE", p, 2))
+            await pilot.pause()
+            self.assertEqual(app.current_path, p)
+            editor = app.query_one("#editor", m.DuckTextArea)
+            self.assertEqual(editor.selection.end[0], 1)  # row 索引 1 = 第 2 行
+
+    async def test_unknown_command_warns(self):
+        m = self.m
+        app = m.DuckEditApp(start_dir=self.tmp, open_file=None)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app._run_command("zzz foo")
+            await pilot.pause()
+            # 未知命令不应弹出搜索结果弹窗
+            self.assertFalse(any(
+                isinstance(s, m.SearchResultScreen) for s in app.screen_stack
+            ))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
