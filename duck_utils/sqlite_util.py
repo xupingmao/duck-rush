@@ -6,8 +6,11 @@ import sqlite3
 import logging
 
 # 配置日志模块
+# 注意: 不要在此把根 logger 设为 DEBUG, 否则会误放 asyncio/prompt_toolkit 等
+# 第三方库的 DEBUG 日志(如 Windows 上 "Using proactor: IocpProactor")。
+# 本模块自身只通过 logging.error 输出, 设为 WARNING 即可, 格式保留。
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format='%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d|%(message)s')
 
 class SqliteTableManager:
