@@ -13,6 +13,7 @@
     duck-vocab add <word> [-m 释义] [-e 例句] [-n 笔记] [-t 标签1,标签2]
     duck-vocab list [-t 标签] [-s 关键词] [--unmastered]
     duck-vocab show <id>
+    duck-vocab find <word>                # 按单词查询 (部分匹配, 区分大小写不敏感)
     duck-vocab update <id> [-w 单词] [-m 释义] [-e 例句] [-n 笔记] [-t 标签]
     duck-vocab remove <id> [-y]           # 按 ID 删除 (别名: delete)
     duck-vocab master <id> [--off]        # 标记/取消掌握
@@ -150,6 +151,13 @@ class VocabDao:
             if e.id == rid:
                 return e
         return None
+
+    def find_by_word(self, word: str) -> List[VocabEntry]:
+        """按单词字段查询 (大小写不敏感, 包含匹配), 返回按 ID 排序的结果。"""
+        q = word.lower()
+        items = [e for e in self._read_all() if q in e.word.lower()]
+        items.sort(key=lambda x: x.id)
+        return items
 
     def search(self, query: str, tag: Optional[str],
                unmastered_only: bool) -> List[VocabEntry]:
@@ -292,6 +300,20 @@ def cmd_show(args: argparse.Namespace) -> None:
     print("状态: %s" % ("已掌握" if e.mastered else "学习中"))
     if e.review_count:
         print("复习次数: %d" % e.review_count)
+
+
+def cmd_find(args: argparse.Namespace) -> None:
+    word = (args.word or "").strip()
+    if not word:
+        sys.stderr.write("单词不能为空\n")
+        sys.exit(1)
+    items = get_dao().find_by_word(word)
+    if not items:
+        print("未找到包含 '%s' 的生词" % word)
+        return
+    for e in items:
+        _print_entry_line(e)
+    print("\n共 %d 条" % len(items))
 
 
 def cmd_remove(args: argparse.Namespace) -> None:
@@ -444,6 +466,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_show = sub.add_parser("show", help="查看生词详情")
     p_show.add_argument("id", type=int, help="生词 ID (可用 list 查看)")
     p_show.set_defaults(func=cmd_show)
+
+    p_find = sub.add_parser(
+        "find", help="按单词查询",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=("按单词字段查询 (大小写不敏感, 部分匹配), 列出所有匹配词条。\n"
+                     "示例:\n"
+                     "  duck-vocab find hello      # 列出单词含 hello 的词条\n"
+                     "  duck-vocab find ell         # 部分匹配也命中"))
+    p_find.add_argument("word", help="要查询的单词/词条 (支持部分匹配)")
+    p_find.set_defaults(func=cmd_find)
 
     p_rm = sub.add_parser(
         "remove", help="按 ID 删除生词",

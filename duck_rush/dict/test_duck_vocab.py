@@ -9,6 +9,7 @@ add / update / remove(delete) / list 的核心逻辑，避免污染用户数据�
 import argparse
 import importlib.util
 import os
+import sys
 import tempfile
 import unittest
 
@@ -86,6 +87,36 @@ class TestVocab(unittest.TestCase):
     def test_remove_missing_id(self):
         self._run(["remove", "42", "-y"])
         self.assertEqual(self.m.get_dao().list_all(), [])
+
+    def test_find_by_word_partial(self):
+        self._run(["add", "hello", "-m", "你好"])
+        self._run(["add", "shell", "-m", "外壳"])
+        self._run(["add", "HELP", "-m", "帮助"])
+        # "llo" 仅命中 hello (shell/HELP 均不含 "llo")
+        out = self._capture(["find", "llo"])
+        self.assertIn("hello", out)
+        self.assertNotIn("shell", out)
+        self.assertNotIn("HELP", out)
+        # 大小写不敏感: "help" 命中 HELP
+        out2 = self._capture(["find", "help"])
+        self.assertIn("HELP", out2)
+        self.assertNotIn("hello", out2)
+        self.assertNotIn("shell", out2)
+
+    def test_find_empty(self):
+        out = self._capture(["find", "nope"])
+        self.assertIn("未找到", out)
+
+    def _capture(self, argv):
+        import io
+        buf = io.StringIO()
+        old = sys.stdout
+        sys.stdout = buf
+        try:
+            self._run(argv)
+        finally:
+            sys.stdout = old
+        return buf.getvalue()
 
 
 if __name__ == "__main__":
