@@ -36,6 +36,28 @@ from textual.widgets import Button, DirectoryTree, Footer, Header, Input, Static
 from textual.widgets._tree import TreeNode
 
 from duck_utils.syntax_util import SyntaxTokenizer, detect_lang
+from duck_utils.os_util import is_windows
+
+
+def _set_terminal_title(title: str) -> None:
+    """设置终端标签页 / 窗口标题（跨平台，失败静默忽略）。
+
+    现代终端（Windows Terminal、iTerm2、gnome-terminal 等）支持 OSC 转义序列
+    （\\x1b]0;TITLE\\x07 同时设置图标名与窗口/标签页标题）；经典 Windows 控制台
+    (conhost) 用 SetConsoleTitleW。退出后标题会保留为所设值。
+    """
+    try:
+        if is_windows():
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleTitleW(title)  # type: ignore
+            except Exception:
+                pass
+        # OSC 0: 设置图标名 + 窗口/标签页标题
+        sys.stdout.write("\x1b]0;%s\x07" % title)
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 # 视为文本文件、点击左侧文件时允许打开的扩展名白名单（参考 duck-shell）
 _TEXT_EXTS = frozenset({
@@ -410,6 +432,7 @@ class DuckEditApp(App):
         self._saved_text = text
         self._encoding = encoding
         self._newline = newline
+        _set_terminal_title("duck-edit - %s" % os.path.basename(path))
         self._update_status()
         editor.focus()
 
@@ -530,6 +553,11 @@ def main() -> None:
 
     start_dir = args.path if os.path.isdir(args.path) else os.getcwd()
     initial = args.file if args.file else None
+    # 启动即修改终端标签页标题（无文件时显示起始目录名）
+    if initial:
+        _set_terminal_title("duck-edit - %s" % os.path.basename(os.path.abspath(initial)))
+    else:
+        _set_terminal_title("duck-edit - %s" % os.path.basename(os.path.abspath(start_dir)))
     DuckEditApp(start_dir=start_dir, open_file=initial).run()
 
 
