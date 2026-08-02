@@ -5,9 +5,13 @@ duck-fav —— 文件收藏夹 CLI（JSONL 存储）。
 子命令:
   add <路径> [路径...]   收藏一个或多个文件 / 目录（按规范化绝对路径去重）
   rm  <路径> [路径...]    取消收藏（按规范化绝对路径匹配）
-  list                   列出全部收藏（每行一个绝对路径）
+  rm  --id <id> [id...]  按记录 id 取消收藏（id 见 list 输出）
+  list                   列出全部收藏（每行 "#id<TAB>路径"，按路径名称排序）
   clear                  清空收藏（-y 跳过确认）
   select                 进入 TUI 选择收藏项（参考 duck-chdir 协议）
+
+无参数直接运行 `duck-fav` 等价于 `duck-fav select`，进入交互式选择模式
+（结果通过 stdout 或 --result-file 输出，供 duck-cli 等调用方解析并切换目录）。
 
 select 结果协议（供调用方 duck-cli 解析，与 duck-chdir 一致）:
     dir  <绝对路径>    选择了一个目录
@@ -18,12 +22,14 @@ select 结果协议（供调用方 duck-cli 解析，与 duck-chdir 一致）:
   由 duck-cli 据此切换当前目录或预览文件。
 
 存储位置: get_command_data_dir("duck-fav")/bookmarks.jsonl，
-每行一个 JSON 对象 {"path": "绝对路径"}。
+每行一个 JSON 对象 {"id": 整数, "path": "绝对路径"}（id 为唯一整型编号，
+旧记录（无 id）在首次 list/add/rm 时自动补齐）。
 
 用法:
   duck-fav add ./notes.txt
   duck-fav list
   duck-fav rm ./notes.txt
+  duck-fav rm --id 3
   duck-fav clear -y
   duck-fav select
 
@@ -68,34 +74,73 @@ def _display(path: str) -> str:
 
 
 def _all_paths(store: JsonlStore) -> List[str]:
-    return [rec["path"] for rec in store.read_all() if rec.get("path")]
+    # 默认按路径名称排序 (大小写不敏感), 让 list / select 展示顺序稳定一致
+    return sorted(
+        (rec["path"] for rec in store.read_all() if rec.get("path")),
+        key=lambda p: os.path.normcase(p),
+    )
 
 
-def _all_keys(store: JsonlStore) -> set:
-    return set(_key(p) for p in _all_paths(store))
+def _read_records(store: JsonlStore) -> List[dict]:
+    """读取全部收藏记录, 并为缺少 id 的旧记录补齐顺序 id（原地写回）。
+
+    返回的每个 dict 都包含 "id"(int) 与 "path" 字段, 供 list / rm --id 使用。
+    """
+    recs = store.read_all()
+    if any("id" not in r for r in recs):
+        used: set = set()
+        nxt = 1
+        for r in recs:
+            rid = r.get("id")
+            if isinstance(rid, int):
+                used.add(rid)
+        for r in recs:
+            if "id" not in r:
+                while nxt in used:
+                    nxt += 1
+                r["id"] = nxt
+                used.add(nxt)
+        store.write_all(recs, atomic=True)
+    return recs
+
+
+def _next_id(recs: List[dict]) -> int:
+    """在已有记录基础上, 返回下一个未被占用的整型 id。"""
+    used = set(r.get("id") for r in recs if isinstance(r.get("id"), int))
+    nxt = 1
+    while nxt in used:
+        nxt += 1
+    return nxt
 
 
 def cmd_add(store: JsonlStore, paths: List[str]) -> int:
-    existing = _all_keys(store)
+    recs = _read_records(store)
+    existing = set(_key(r.get("path", "")) for r in recs)
+    nxt = _next_id(recs)
     added = 0
     for p in paths:
         key = _key(p)
         if key in existing:
             continue
         disp = _display(p)
-        store.append({"path": disp})
+        store.append({"id": nxt, "path": disp})
         existing.add(key)
+        print("已收藏 [#%d]: %s" % (nxt, disp))
+        nxt += 1
         added += 1
-        print("已收藏: %s" % disp)
     if added == 0:
         print("无新增（全部已存在）")
     return 0
 
 
-def cmd_rm(store: JsonlStore, paths: List[str]) -> int:
-    targets = set(_key(p) for p in paths)
-    recs = store.read_all()
-    kept = [r for r in recs if _key(r.get("path", "")) not in targets]
+def cmd_rm(store: JsonlStore, paths: List[str], ids: Optional[List[int]] = None) -> int:
+    recs = _read_records(store)
+    if ids:
+        idset = set(ids)
+        kept = [r for r in recs if r.get("id") not in idset]
+    else:
+        targets = set(_key(p) for p in paths)
+        kept = [r for r in recs if _key(r.get("path", "")) not in targets]
     removed = len(recs) - len(kept)
     if removed == 0:
         print("未找到匹配项")
@@ -106,12 +151,12 @@ def cmd_rm(store: JsonlStore, paths: List[str]) -> int:
 
 
 def cmd_list(store: JsonlStore) -> int:
-    paths = _all_paths(store)
-    if not paths:
+    recs = _read_records(store)
+    if not recs:
         print("（空）")
         return 0
-    for p in paths:
-        print(p)
+    for r in sorted(recs, key=lambda r: os.path.normcase(r.get("path", ""))):
+        print("#%s\t%s" % (r.get("id"), r.get("path")))
     return 0
 
 
@@ -298,8 +343,10 @@ def main() -> None:
     p_add = sub.add_parser("add", help="收藏文件/目录")
     p_add.add_argument("paths", nargs="+", help="一个或多个路径")
 
-    p_rm = sub.add_parser("rm", help="取消收藏")
-    p_rm.add_argument("paths", nargs="+", help="一个或多个路径")
+    p_rm = sub.add_parser("rm", help="取消收藏（按路径或 --id）")
+    p_rm.add_argument("paths", nargs="*", help="一个或多个路径（按规范化绝对路径匹配）")
+    p_rm.add_argument("--id", nargs="+", type=int, default=None,
+                      help="按记录 id 删除（与 paths 二选一）")
 
     sub.add_parser("list", help="列出收藏")
 
@@ -311,15 +358,18 @@ def main() -> None:
                           help="将选择结果写入该文件（供调用方读取）；不传则打印到 stdout")
 
     args = parser.parse_args()
-    if not args.command:
-        parser.print_help()
-        sys.exit(2)
-
     store = _store()
+    if not args.command:
+        # 无参数直接运行等价于 `duck-fav select`：进入交互式选择（供 duck-cli 直接调用）
+        sys.exit(cmd_select(store))
+
     if args.command == "add":
         sys.exit(cmd_add(store, args.paths))
     elif args.command == "rm":
-        sys.exit(cmd_rm(store, args.paths))
+        if not args.paths and not args.id:
+            sys.stderr.write("duck-fav rm: 请指定路径或 --id\n")
+            sys.exit(2)
+        sys.exit(cmd_rm(store, args.paths, args.id))
     elif args.command == "list":
         sys.exit(cmd_list(store))
     elif args.command == "clear":

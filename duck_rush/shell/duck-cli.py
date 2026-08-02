@@ -8,6 +8,8 @@ duck-cli —— 传统的交互式 shell（单行提示符，非 TUI）。
 - `cd` 不带参数时，调用 duck-chdir 选择器（TUI），等待其结束并切换到它返回的目录；
   `cd <路径>` 与普通 cd 行为相同；`<路径>` 支持 glob 通配（如 `cd duck*`、`cd */src`、
   `cd **/test`），匹配到多个目录时切换到第一个并列出全部候选
+- `duck-fav`（或 `duck-fav select`）打开收藏夹选择器（TUI），选择目录则切换、
+  选择文件则预览，协议与 duck-chdir 一致（`dir <路径>` / `file <路径>` / `exit`）
 - `cd` 选择文件时，调用 duck-file 检查类型；文本文件再用 duck-cat 预览
 - 其余命令直接交给系统 shell 执行（继承终端，vim/less 等交互程序照常工作）
 
@@ -283,7 +285,9 @@ class DuckCli:
         if cmd == "cd":
             self._run_chdir()
             return
-        if cmd == "duck-fav select":
+        if cmd in ("duck-fav", "duck-fav select"):
+            # 收藏夹选择器：无参 `duck-fav` 等价于 `duck-fav select`；
+            # 选目录则切换, 选文件则预览 (与 cd/duck-chdir 协议一致)
             line = self._run_picker(DUCK_FAV_PATH, "select")
             self._apply_pick(line)
             return

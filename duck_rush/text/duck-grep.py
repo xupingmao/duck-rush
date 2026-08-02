@@ -93,8 +93,49 @@ def grep_stream(pattern, regex, line_number, only_matching, after, before,
                       show_label, line_number, only_matching and matched[j])
 
 
-def main():
-    parser = argparse.ArgumentParser(description="用于windows环境模拟linux的grep命令")
+def build_regex_help() -> str:
+    """构造 -h/--help 时附加展示的正则表达式规则说明"""
+    lines = [
+        "正则表达式规则(匹配模式 pattern 按正则处理):",
+        "",
+        "  字符      含义",
+        "  .         匹配任意单个字符(除换行)",
+        "  *         前一项重复 0 次或多次",
+        "  +         前一项重复 1 次或多次",
+        "  ?         前一项重复 0 次或 1 次",
+        "  {n}       前一项重复 n 次",
+        "  {n,}      前一项重复至少 n 次",
+        "  {n,m}     前一项重复 n 到 m 次",
+        "  ^         匹配行首",
+        "  $         匹配行尾",
+        "  []        字符集合, 如 [a-z0-9]; [^...] 表示取反",
+        "  ()        分组, 如 (ab)+",
+        "  |         或, 如 cat|dog",
+        "  \\d        数字 [0-9]",
+        "  \\w        单词字符 [A-Za-z0-9_]",
+        "  \\s        空白字符(空格/制表/换行等)",
+        "  \\b        单词边界",
+        "  \\         转义元字符(如 \\. 匹配句点本身)",
+        "",
+        "示例:",
+        "  ^error          匹配以 error 开头的行",
+        "  \\d+             匹配一个或多个连续数字",
+        "  foo|bar         匹配 foo 或 bar",
+        "  colou?r         匹配 color 或 colour",
+        "  \\bword\\b        整词匹配 word",
+        "  [Cc]at          匹配 Cat 或 cat",
+        "",
+        "注意: 中文按字符逐个匹配, 直接用中文串即可, 如 错误|警告",
+    ]
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="用于windows环境模拟linux的grep命令",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_regex_help(),
+    )
     parser.add_argument("pattern", type=str, help="匹配模式(支持正则)")
     parser.add_argument("files", nargs="*", help="要搜索的文件(不指定则从 stdin 读取)")
     parser.add_argument("-n", "--line-number", action="store_true",
@@ -111,6 +152,11 @@ def main():
                         help="总是打印文件名(类似 grep -H)")
     parser.add_argument("--no-filename", action="store_true",
                         help="不打印文件名(类似 grep -h)")
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     ensure_utf8_output()
@@ -139,4 +185,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(build_parser().format_help())
+        sys.exit(0)
     main()
