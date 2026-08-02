@@ -13,12 +13,16 @@
     duck-vocab add <word> [-m 释义] [-e 例句] [-n 笔记] [-t 标签1,标签2]
     duck-vocab list [-t 标签] [-s 关键词] [--unmastered]
     duck-vocab show <id>
-    duck-vocab remove <id>
+    duck-vocab update <id> [-w 单词] [-m 释义] [-e 例句] [-n 笔记] [-t 标签]
+    duck-vocab remove <id> [-y]           # 按 ID 删除 (别名: delete)
     duck-vocab master <id> [--off]        # 标记/取消掌握
     duck-vocab quiz [--count N] [-t 标签]  # 自测复习(仅未掌握词条)
 
 示例:
     duck-vocab add hello -m 你好 -e "say hello" -t greeting
+    duck-vocab update 3 -m 新的释义 -t 新标签    # 仅更新给定字段
+    duck-vocab remove 3                         # 删除前确认
+    duck-vocab remove 3 -y                      # 跳过确认直接删除
     duck-vocab list --unmastered
     duck-vocab quiz --count 10
     duck-vocab master 3
@@ -26,6 +30,8 @@
 说明:
     - 各子命令加 -h 可查看详细参数, 如: duck-vocab add -h
     - -h/--help 仅打印帮助并以 0 退出, 不读写数据、不创建文件
+    - update 仅修改给出的字段, 未给出的字段保持原值
+    - remove/delete 为破坏性操作, 默认需交互确认; 加 -y/--yes 可跳过确认
 '''
 import os
 import sys
@@ -169,6 +175,18 @@ class VocabDao:
         self._write_all(new_items)
         return True
 
+    def update(self, rid: int, **fields: Any) -> Optional[VocabEntry]:
+        """按 ID 更新给定字段 (仅修改传入的键), 返回更新后的记录或 None。"""
+        items = self._read_all()
+        for e in items:
+            if e.id == rid:
+                for key in ("word", "meaning", "example", "note", "tags", "mastered"):
+                    if key in fields and fields[key] is not None:
+                        setattr(e, key, fields[key])
+                self._write_all(items)
+                return e
+        return None
+
     def set_mastered(self, rid: int, value: bool) -> bool:
         items = self._read_all()
         for e in items:
@@ -277,10 +295,62 @@ def cmd_show(args: argparse.Namespace) -> None:
 
 
 def cmd_remove(args: argparse.Namespace) -> None:
-    if get_dao().remove(args.id):
-        print("已删除 #%d" % args.id)
+    dao = get_dao()
+    e = dao.get_by_id(args.id)
+    if e is None:
+        print("未找到 #%d" % args.id)
+        return
+    if not args.yes:
+        # 破坏性操作, 默认交互确认; 非交互(stdin 非终端)时不读取输入,
+        # 直接取消, 避免管道场景下 input() 阻塞
+        if not sys.stdin.isatty():
+            print("非交互环境未指定 -y, 已取消删除 (用 -y 可跳过确认)")
+            return
+        try:
+            ans = input("确定删除 #%d (%s)? [y/N] " % (e.id, e.word)).strip().lower()
+        except EOFError:
+            ans = ""
+        if ans != "y":
+            print("已取消删除")
+            return
+    if dao.remove(args.id):
+        print("已删除 #%d: %s" % (args.id, e.word))
     else:
         print("未找到 #%d" % args.id)
+
+
+def cmd_update(args: argparse.Namespace) -> None:
+    fields: Dict[str, Any] = {}
+    if args.word is not None:
+        w = args.word.strip()
+        if not w:
+            sys.stderr.write("单词不能为空\n")
+            sys.exit(1)
+        fields["word"] = w
+    if args.meaning is not None:
+        fields["meaning"] = args.meaning
+    if args.example is not None:
+        fields["example"] = args.example
+    if args.note is not None:
+        fields["note"] = args.note
+    if args.tags is not None:
+        fields["tags"] = [t.strip() for t in args.tags.split(",") if t.strip()]
+    if not fields:
+        print("未提供任何要更新的字段 (可用 -w/-m/-e/-n/-t)")
+        return
+    e = get_dao().update(args.id, **fields)
+    if e is None:
+        print("未找到 #%d" % args.id)
+        return
+    print("已更新 #%d: %s" % (e.id, e.word))
+    if e.meaning:
+        print("  释义: %s" % e.meaning)
+    if e.example:
+        print("  例句: %s" % e.example)
+    if e.note:
+        print("  笔记: %s" % e.note)
+    if e.tags:
+        print("  标签: %s" % ", ".join(e.tags))
 
 
 def cmd_master(args: argparse.Namespace) -> None:
@@ -336,6 +406,8 @@ def build_parser() -> argparse.ArgumentParser:
                 "  duck-vocab list --unmastered\n"
                 "  duck-vocab list -s hello          # 按关键词搜索\n"
                 "  duck-vocab show 3\n"
+                "  duck-vocab update 3 -m 新释义 -t 新标签   # 更新生词\n"
+                "  duck-vocab remove 3 -y            # 按 ID 删除\n"
                 "  duck-vocab master 3               # 标记为已掌握\n"
                 "  duck-vocab quiz --count 10        # 自测复习 10 个未掌握词条\n"
                 "各子命令加 -h 可查看详细参数, 如: duck-vocab add -h"))
@@ -373,9 +445,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_show.add_argument("id", type=int, help="生词 ID (可用 list 查看)")
     p_show.set_defaults(func=cmd_show)
 
-    p_rm = sub.add_parser("remove", help="删除生词")
+    p_rm = sub.add_parser(
+        "remove", help="按 ID 删除生词",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=("按 ID 删除一条生词 (破坏性操作, 默认需确认)。\n"
+                     "别名 delete 等价。\n"
+                     "示例:\n"
+                     "  duck-vocab remove 3        # 删除前交互确认\n"
+                     "  duck-vocab remove 3 -y     # 跳过确认直接删除\n"
+                     "  duck-vocab delete 3        # 等价别名"))
     p_rm.add_argument("id", type=int, help="生词 ID (可用 list 查看)")
+    p_rm.add_argument("-y", "--yes", action="store_true", help="跳过确认直接删除")
     p_rm.set_defaults(func=cmd_remove)
+
+    p_del = sub.add_parser("delete", help="按 ID 删除生词 (remove 的别名)")
+    p_del.add_argument("id", type=int, help="生词 ID (可用 list 查看)")
+    p_del.add_argument("-y", "--yes", action="store_true", help="跳过确认直接删除")
+    p_del.set_defaults(func=cmd_remove)
+
+    p_update = sub.add_parser(
+        "update", help="按 ID 更新生词",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=("按 ID 更新生词的字段, 仅修改给出的字段, 其余保持原值。\n"
+                     "示例:\n"
+                     "  duck-vocab update 3 -m 新释义 -t 新标签\n"
+                     "  duck-vocab update 3 -w newword -e \"new example\""))
+    p_update.add_argument("id", type=int, help="生词 ID (可用 list 查看)")
+    p_update.add_argument("-w", "--word", default=None, help="新单词/词条")
+    p_update.add_argument("-m", "--meaning", default=None, help="新释义")
+    p_update.add_argument("-e", "--example", default=None, help="新例句")
+    p_update.add_argument("-n", "--note", default=None, help="新笔记/备注")
+    p_update.add_argument("-t", "--tags", default=None,
+                           help="新标签, 多个用逗号分隔 (如 greeting,verb)")
+    p_update.set_defaults(func=cmd_update)
 
     p_master = sub.add_parser(
         "master", help="标记/取消掌握",
