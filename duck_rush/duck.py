@@ -196,10 +196,15 @@ def list_command_func(args: argparse.Namespace) -> None:
     if need_save:
         save_desc_cache(cache)
 
+# 解析时未被 duck.py 识别、需要透传给子命令(如 install)的参数
+_UNKNOWN_ARGS: List[str] = []
+
+
 def install_func(args):
     install_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "install.py")
     install_script = os.path.normpath(install_script)
-    os.system("%s %s" % (sys.executable, install_script))
+    extra = " ".join([escape_arg(a) for a in (args.args + _UNKNOWN_ARGS)])
+    os.system("%s %s %s" % (sys.executable, install_script, extra))
 
 def add_src_dir_func(args):
     """登记外部工具源码目录, 写入 ~/.duck-rush/duck.json 的 external_src_dirs,
@@ -281,7 +286,7 @@ ACTION_FUNC_DICT = {
 
 ACTION_DESC = {
     "list": "列出所有已注册命令 (支持 -s/--short 只打印命令名称)",
-    "install": "安装全部工具: 装依赖 -> 安装 duck_utils -> 生成命令包装脚本 -> 生成命令简介缓存",
+    "install": "安装全部工具: 装依赖 -> 安装 duck_utils -> 生成命令包装脚本 -> 生成命令简介缓存; 也可 `duck install <命令>` 只安装指定命令",
     "upgrade": "拉取最新代码 (git pull) 并重新安装",
     "add-src-dir": "登记外部工具源码目录, 更新 duck.json 并重新生成脚本链接",
     "dir": "打印 duck-rush 项目根目录的绝对路径",
@@ -297,6 +302,7 @@ EPILOG = (
     + "  duck <命令>                    执行某个命令 (如: duck duck-json -h)\n"
     + "  duck dir                       打印项目根目录\n"
     + "  duck add-src-dir ~/my-tools   登记外部工具源码目录并生成脚本链接\n"
+    + "  duck install <命令>           只安装指定命令(生成其包装脚本, 跳过完整安装)\n"
 )
 
 PARSER = argparse.ArgumentParser(
@@ -309,7 +315,9 @@ PARSER.add_argument("args", nargs = "*", help = "参数")
 PARSER.add_argument("-s", "--short", action = "store_true", help = "list 模式: 只打印命令名称, 不打印简介")
 
 def main():
-    args   = PARSER.parse_args()
+    args, unknown = PARSER.parse_known_args()
+    global _UNKNOWN_ARGS
+    _UNKNOWN_ARGS = unknown
     func = ACTION_FUNC_DICT.get(args.action, default_func)
     func(args)
 

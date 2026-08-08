@@ -1,13 +1,27 @@
 #!/usr/bin/env python
 # encoding=utf-8
+"""
+duck-rush 安装工具
+
+默认执行完整安装: 创建虚拟环境、安装依赖、生成全部命令的包装脚本等。
+也可只安装指定命令(仅生成其包装脚本, 跳过虚拟环境/依赖等重步骤):
+
+  python install.py                完整安装
+  python install.py duck-cat       仅生成 duck-cat 的包装脚本
+  python install.py duck-cat duck-json   同时生成多个指定命令
+  python install.py --list         列出所有可安装的命令
+  python install.py --duck-utils    仅安装 duck_utils 工具包(跳过完整安装)
+  python install.py duck_utils      同上, 仅安装 duck_utils 工具包的另一种写法
+"""
 
 import os
 import sys
+import argparse
 import platform
 import shutil
 import json
 import subprocess
-from typing import List, Optional
+from typing import List, Optional, Set, Set
 
 # 确保脚本所在目录 (仓库根) 位于 sys.path 最前。这样即使 duck_utils 尚未安装到
 # 虚拟环境, install.py 也能从本地仓库导入 duck_utils 包 —— install.py 本身只依赖
@@ -203,6 +217,25 @@ def makedirs(dirname):
     return False
 
 
+def get_external_roots() -> List[str]:
+    """读取已登记的外部工具源码目录(不存在时返回空列表)。"""
+    try:
+        return InstallMeta.load().get_external_src_dirs()
+    except Exception:
+        return []
+
+
+def _resolve_python() -> str:
+    """解析用于包装脚本的 python 路径: 优先已安装的 venv python, 否则回退当前 python。"""
+    try:
+        meta = InstallMeta.load()
+        if getattr(meta, "python", None) and os.path.exists(meta.python):
+            return meta.python
+    except Exception:
+        pass
+    return sys.executable
+
+
 def collect_commands(extra_roots: Optional[List[str]] = None):
     '''收集所有命令并生成命令列表(含外部源码目录)。'''
     commands = []
@@ -381,13 +414,15 @@ class WindowsInstaller:
             fp.write(content)
 
 
-    def create_bat_files(self, roots: Optional[List[str]] = None):
+    def create_bat_files(self, roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
         for src_root in (roots or [SRC_PATH]):
             if not os.path.isdir(src_root):
                 continue
             for root, dirs, files in os.walk(src_root):
                 for fname in files:
                     if InstallConfig.is_skip_file(fname):
+                        continue
+                    if filter_names is not None and os.path.splitext(fname)[0] not in filter_names:
                         continue
                     fpath = os.path.join(root, fname)
                     fpath = os.path.abspath(fpath)
@@ -405,12 +440,14 @@ class WindowsInstaller:
                 os.remove(fpath)
                 print("删除过期脚本: %s" % fpath)
 
-    def install(self, extra_roots: Optional[List[str]] = None):
+    def install(self, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)
 
-        self.create_bat_files([SRC_PATH] + (extra_roots or []))
-        self.remove_stale_files()
+        self.create_bat_files([SRC_PATH] + (extra_roots or []), filter_names=filter_names)
+        # 仅安装指定命令时不清理其它已存在的脚本, 避免误删
+        if filter_names is None:
+            self.remove_stale_files()
 
 def _norm_path(s: str) -> str:
     s = s.replace("\\", "/")
@@ -431,14 +468,14 @@ def _ps_quote(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
-def install_for_windows(python, extra_roots: Optional[List[str]] = None):
+def install_for_windows(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
     print("准备安装duck_rush (windows平台) ...")
     makedirs(DUCK_RUSH_HOME)
     makedirs(BIN_DIR)
     makedirs(DATA_DIR)
 
     installer = WindowsInstaller(BIN_DIR, python)
-    installer.install(extra_roots)
+    installer.install(extra_roots, filter_names=filter_names)
 
     add_path_windows(BIN_DIR)
 
@@ -517,20 +554,21 @@ def add_path_windows(bin_dir):
             "*注意* 自动加入 PATH 失败，请手动将 %s 加入用户 PATH" % bin_dir, "red"))
 
 
-def install_for_unix(python, extra_roots: Optional[List[str]] = None):
+def build_unix_start_code(fpath: str, ext: str, python: str) -> str:
+    """构建 unix 启动脚本; 末尾的 echo 输出一个换行, 避免命令输出未以换行结束时与 shell 的 prompt 混在同一行。"""
+    if ext == ".py":
+        return f"{python} %r \"$@\"\necho" % fpath
+    if ext == ".sh":
+        return "sh %r \"$@\"\necho" % fpath
+    return ""
+
+
+def install_for_unix(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
     log_info("准备安装duck_rush ... ")
 
     makedirs(DUCK_RUSH_HOME)
     makedirs(BIN_DIR)
     makedirs(DATA_DIR)
-
-    def get_start_code(fpath, ext):
-        """构建启动脚本; 末尾的 echo 输出一个换行, 避免命令输出未以换行结束时与 shell 的 prompt 混在同一行"""
-        if ext == ".py":
-            return f"{python} %r \"$@\"\necho" % fpath
-        if ext == ".sh":
-            return "sh %r \"$@\"\necho" % fpath
-        return ""
 
     # 第1步：收集所有当前应生成的脚本名
     expected_names = set()
@@ -545,12 +583,16 @@ def install_for_unix(python, extra_roots: Optional[List[str]] = None):
                     continue
                 if InstallConfig.is_skip_file(fname):
                     continue
+                if filter_names is not None and os.path.splitext(fname)[0] not in filter_names:
+                    continue
                 fpath = os.path.join(root, fname)
                 fpath = os.path.abspath(fpath)
                 name, ext = os.path.splitext(fname)
                 expected_names.add(name)
 
-                start_code = get_start_code(fpath, ext)
+                start_code = build_unix_start_code(fpath, ext, python)
+                if not start_code:
+                    continue
                 start_file = os.path.abspath(os.path.join(BIN_DIR, name))
 
                 # 检查文件是否存在且内容一致
@@ -568,8 +610,8 @@ def install_for_unix(python, extra_roots: Optional[List[str]] = None):
                 log_info("[%03d]更新脚本[%r]", index+1, fpath)
                 index += 1
 
-    # 第2步：删除不再需要的旧脚本
-    if os.path.exists(BIN_DIR):
+    # 第2步：删除不再需要的旧脚本(仅完整安装时清理)
+    if filter_names is None and os.path.exists(BIN_DIR):
         for fname in os.listdir(BIN_DIR):
             if fname in expected_names:
                 continue
@@ -672,7 +714,77 @@ def do_install():
     print("  脚本总数: %d" % len(commands))
     print("=" * 40)
 
-if __name__ == '__main__':
+def install_specific(commands: List[str]) -> None:
+    """仅生成/更新指定命令的包装脚本, 跳过虚拟环境、依赖安装等重步骤。"""
+    python = _resolve_python()
+    makedirs(DUCK_RUSH_HOME)
+    makedirs(BIN_DIR)
+    makedirs(DATA_DIR)
+
+    all_cmds = collect_commands(get_external_roots())
+    matched = [c for c in all_cmds if c["name"] in set(commands)]
+    found = {c["name"] for c in matched}
+    for name in sorted(set(commands) - found):
+        sys.stderr.write("未找到命令: %s\n" % name)
+    if not matched:
+        sys.stderr.write("没有匹配的已注册命令, 未生成任何包装脚本\n")
+        return
+
+    filter_names = {c["name"] for c in matched}
+    if os.name == "nt":
+        install_for_windows(python, get_external_roots(), filter_names=filter_names)
+    else:
+        install_for_unix(python, get_external_roots(), filter_names=filter_names)
+
+    print("")
+    print("已安装 %d 个指定命令的包装脚本: %s"
+          % (len(matched), ", ".join(sorted(filter_names))))
+
+
+def install_duck_utils_only() -> None:
+    """仅安装 duck_utils 工具包到虚拟环境, 跳过依赖与命令包装脚本等重步骤。
+
+    适用于只需更新 duck_utils (如新增了 os_util.emoji_supported 等共享能力),
+    而不想重跑完整安装的场景。
+    """
+    venv_python = ensure_venv()
+    install_duck_utils_package(venv_python)
+    print(colored("duck_utils 安装完成!", "green"))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="duck-rush 安装工具: 默认完整安装; 也可仅安装指定命令或仅安装 duck_utils。")
+    parser.add_argument("commands", nargs="*",
+                        help="仅安装指定命令(生成对应包装脚本), 跳过完整安装")
+    parser.add_argument("--list", action="store_true",
+                        help="列出所有可安装的命令后退出")
+    parser.add_argument("--duck-utils", action="store_true", dest="duck_utils",
+                        help="仅安装 duck_utils 工具包(跳过完整安装)")
+    args = parser.parse_args()
+
+    if args.list:
+        for cmd in collect_commands(get_external_roots()):
+            print(cmd["name"])
+        return
+    # 支持 `install.py duck_utils` 写法
+    if "duck_utils" in args.commands:
+        args.commands.remove("duck_utils")
+        args.duck_utils = True
+    if args.duck_utils:
+        install_duck_utils_only()
+        return
+    if args.commands:
+        install_specific(args.commands)
+        return
     do_install()
+
+
+if __name__ == '__main__':
+    # -h/--help 不得产生副作用(不创建虚拟环境/不安装依赖), 直接打印用法后退出
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip() if __doc__ else "Usage: install.py [command ...] [--list]")
+        sys.exit(0)
+    main()
 
 
