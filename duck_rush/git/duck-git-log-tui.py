@@ -13,11 +13,15 @@ Git Log TUI — 基于 Textual 的 git 提交历史查看器
   --date-format {absolute,relative}  时间显示格式 (默认 absolute 绝对时间)
 
 快捷键:
-  ↑/↓       在当前栏内上下移动
+  ↑/↓       在当前栏内上下移动 (滚到提交列表末尾会自动加载下一页)
+  End       手动加载更多提交 (分页)
   ←/→       在 提交记录 / 文件列表 / diff 三栏之间切换焦点
   Enter     选中 (与 ↑/↓ 等价, 自动联动刷新)
-  r         刷新 (重新读取提交/同步状态)
+  r         刷新 (重新读取提交/同步状态并回到第一页)
   q         退出
+
+提交记录采用分页加载, 每次最多拉取 100 条, 避免一次性加载全部历史造成卡顿;
+滚到列表底部或按 End 会拉取下一页。
 
 关于"是否和远端同步":
   以本地仓库的远端跟踪分支 (如 origin/master) 为基准: 某次提交只要存在于远端
@@ -163,6 +167,7 @@ class GitLogTUI(App):
     BINDINGS = [
         ("q", "quit", "退出"),
         ("r", "refresh", "刷新"),
+        ("end", "load_more", "加载更多"),
         ("left", "focus_previous", "← 上一栏"),
         ("right", "focus_next", "→ 下一栏"),
     ]
@@ -181,6 +186,10 @@ class GitLogTUI(App):
         self.pushed: Set[str] = set()
         self.has_remote: bool = False
         self.sync_summary: str = ""
+        # 分页加载状态
+        self._skip: int = 0
+        self._has_more: bool = True
+        self._loading_more: bool = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -192,7 +201,7 @@ class GitLogTUI(App):
 
     def on_mount(self) -> None:
         self.title = "Git Log TUI"
-        self._load_commits()
+        self._load_commits(reset=True)
         self.query_one("#commit-list", ListView).focus()
 
     # ---- git 调用封装 -------------------------------------------------
@@ -215,44 +224,12 @@ class GitLogTUI(App):
                 return out, True
         return None, False
 
-    # ---- 加载提交列表 -------------------------------------------------
-    def _load_commits(self) -> None:
-        diff_view = self.query_one("#diff-view", RichLog)
-        repo = find_repo_root()
-        if repo is None:
-            diff_view.clear()
-            diff_view.write(Text("当前目录不是 git 仓库", style="red"))
-            return
-        self.repo_root = repo
+    # ---- 加载提交列表 (分页) -----------------------------------------
+    # 每页拉取的提交数量, 避免一次性加载全部历史造成卡顿
+    PAGE_SIZE = 100
 
-        branch = self._git(["rev-parse", "--abbrev-ref", "HEAD"], repo) or "HEAD"
-        target = self.ref or "HEAD"
-
-        upstream, has_remote = self._detect_upstream(repo, branch)
-        self.has_remote = has_remote
-        self.pushed = set()
-        if has_remote and upstream is not None:
-            ab = self._git(
-                ["rev-list", "--left-right", "--count", "%s...%s" % (upstream, target)],
-                repo,
-            )
-            ahead = 0
-            behind = 0
-            if ab:
-                parts = ab.split()
-                if len(parts) == 2:
-                    behind = int(parts[0] or 0)
-                    ahead = int(parts[1] or 0)
-            revs = self._git(["rev-list", upstream], repo)
-            self.pushed = {line.strip() for line in revs.splitlines() if line.strip()}
-            if ahead == 0 and behind == 0:
-                self.sync_summary = "%s · 已与 %s 同步" % (branch, upstream)
-            else:
-                self.sync_summary = "%s · ↑%d ↓%d (相对 %s)" % (branch, ahead, behind, upstream)
-        else:
-            self.sync_summary = "%s · 无远端跟踪分支" % branch
-
-        # 取日志: 用 \x1f 分隔字段, \x1e 分隔记录, 便于解析
+    def _fetch_page(self, repo: str, target: str) -> List[CommitEntry]:
+        """从 self._skip 处拉取一页提交 (最多 PAGE_SIZE 条) 并解析。"""
         # 时间格式: absolute -> %ad + 固定格式; relative -> %ar
         if self.date_format == "relative":
             date_field = "%ar"
@@ -261,7 +238,9 @@ class GitLogTUI(App):
             date_field = "%ad"
             date_args = ["--date=format:%Y-%m-%d %H:%M"]
         out = self._git([
-            "log", target, "--max-count=300",
+            "log", target,
+            "--skip=%d" % self._skip,
+            "--max-count=%d" % self.PAGE_SIZE,
         ] + date_args + [
             "--pretty=format:%H%x1f%h%x1f%an%x1f" + date_field + "%x1f%s%x1e",
         ], repo)
@@ -275,25 +254,93 @@ class GitLogTUI(App):
                 if len(f) < 5:
                     continue
                 sha, short, author, date, subject = f[0], f[1], f[2], f[3], f[4]
-                synced = sha in self.pushed if has_remote else False
+                synced = sha in self.pushed if self.has_remote else False
                 commits.append(CommitEntry(
                     sha=sha, short=short, author=author, date=date,
-                    subject=subject, synced=synced, sync_known=has_remote,
+                    subject=subject, synced=synced, sync_known=self.has_remote,
                 ))
-        self.commits = commits
+        return commits
 
-        commit_list = self.query_one("#commit-list", ListView)
-        commit_list.clear()
-        for c in commits:
-            commit_list.append(self._make_commit_item(c))
-        self.sub_title = self.sync_summary
+    def _load_commits(self, reset: bool = False) -> None:
+        diff_view = self.query_one("#diff-view", RichLog)
+        if reset:
+            # 重新检测仓库 / 同步状态, 并清空已有提交
+            repo = find_repo_root()
+            if repo is None:
+                diff_view.clear()
+                diff_view.write(Text("当前目录不是 git 仓库", style="red"))
+                return
+            self.repo_root = repo
 
-        if commits:
-            self._select_commit(0)
-        else:
+            branch = self._git(["rev-parse", "--abbrev-ref", "HEAD"], repo) or "HEAD"
+            target = self.ref or "HEAD"
+
+            upstream, has_remote = self._detect_upstream(repo, branch)
+            self.has_remote = has_remote
+            self.pushed = set()
+            if has_remote and upstream is not None:
+                ab = self._git(
+                    ["rev-list", "--left-right", "--count", "%s...%s" % (upstream, target)],
+                    repo,
+                )
+                ahead = 0
+                behind = 0
+                if ab:
+                    parts = ab.split()
+                    if len(parts) == 2:
+                        behind = int(parts[0] or 0)
+                        ahead = int(parts[1] or 0)
+                revs = self._git(["rev-list", upstream], repo)
+                self.pushed = {line.strip() for line in revs.splitlines() if line.strip()}
+                if ahead == 0 and behind == 0:
+                    self.sync_summary = "%s · 已与 %s 同步" % (branch, upstream)
+                else:
+                    self.sync_summary = "%s · ↑%d ↓%d (相对 %s)" % (branch, ahead, behind, upstream)
+            else:
+                self.sync_summary = "%s · 无远端跟踪分支" % branch
+
+            self.commits = []
+            self._skip = 0
+            self._has_more = True
+            self.query_one("#commit-list", ListView).clear()
             self.query_one("#file-list", ListView).clear()
             diff_view.clear()
-            diff_view.write(Text("没有提交记录 (No commits)", style="yellow"))
+
+        if not self._has_more or self.repo_root is None:
+            return
+        target = self.ref or "HEAD"
+        new_commits = self._fetch_page(self.repo_root, target)
+        if not new_commits:
+            self._has_more = False
+            if not self.commits:
+                diff_view.write(Text("没有提交记录 (No commits)", style="yellow"))
+            return
+        before = len(self.commits)
+        self.commits.extend(new_commits)
+        commit_list = self.query_one("#commit-list", ListView)
+        for c in new_commits:
+            commit_list.append(self._make_commit_item(c))
+        self._skip += len(new_commits)
+        if len(new_commits) < self.PAGE_SIZE:
+            self._has_more = False
+        self.sub_title = "%s · 已加载 %d 条" % (self.sync_summary, len(self.commits))
+        if before == 0:
+            # 首屏: 选中第一条并联动文件列表与 diff
+            self._select_commit(0)
+
+    def _maybe_load_more(self, idx: int) -> None:
+        """当高亮到提交列表最后一项且仍有更多时, 触发加载下一页。"""
+        if not self._has_more or self._loading_more:
+            return
+        if idx >= 0 and idx == len(self.commits) - 1:
+            self._load_more()
+
+    def _load_more(self) -> None:
+        self._loading_more = True
+        try:
+            self._load_commits(reset=False)
+        finally:
+            self._loading_more = False
 
     # ---- 渲染: 提交项 --------------------------------------------------
     def _sync_marker(self, c: CommitEntry) -> Tuple[str, str]:
@@ -382,11 +429,15 @@ class GitLogTUI(App):
             return
         if event.list_view.id == "commit-list":
             self._select_commit(idx)
+            self._maybe_load_more(idx)
         elif event.list_view.id == "file-list":
             self._show_file_diff(idx)
 
     def action_refresh(self) -> None:
-        self._load_commits()
+        self._load_commits(reset=True)
+
+    def action_load_more(self) -> None:
+        self._load_more()
 
 
 # ============================================================
