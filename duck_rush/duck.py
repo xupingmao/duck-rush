@@ -75,7 +75,8 @@ class DuckCommand:
         args = " ".join([escape_arg(arg) for arg in args])
         if self.ext == ".py":
             os.system("python3 %s %s" % (escape_arg(self.fpath), args))
-        # print("execute %s" % self.fpath)
+        # 命令输出结束时补一个换行, 避免输出与 shell 的 prompt 混在同一行
+        sys.stdout.write("\n")
 
 def is_executable_file(fpath):
     name, ext = os.path.splitext(fpath)

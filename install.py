@@ -326,7 +326,8 @@ def is_script_file(fpath):
 
 class WindowsInstaller:
 
-    BAT_SCRIPT_TEMPLATE = "\r\n@echo off\r\nset DUCK_RUSH_DIR={duck_rush_dir}\r\n\"{python}\" \"{fpath}\" %*\r\n"
+    # 末尾的 echo( 输出一个换行, 避免命令输出未以换行结束时与 shell 的 prompt 混在同一行
+    BAT_SCRIPT_TEMPLATE = "\r\n@echo off\r\nset DUCK_RUSH_DIR={duck_rush_dir}\r\n\"{python}\" \"{fpath}\" %*\r\necho(\r\n"
     
     NON_CODE_EXT_SET = InstallConfig.not_code_file_set
 
@@ -524,11 +525,11 @@ def install_for_unix(python, extra_roots: Optional[List[str]] = None):
     makedirs(DATA_DIR)
 
     def get_start_code(fpath, ext):
-        """构建启动脚本"""
+        """构建启动脚本; 末尾的 echo 输出一个换行, 避免命令输出未以换行结束时与 shell 的 prompt 混在同一行"""
         if ext == ".py":
-            return f"{python} %r \"$@\"" % fpath
+            return f"{python} %r \"$@\"\necho" % fpath
         if ext == ".sh":
-            return "sh %r \"$@\"" % fpath
+            return "sh %r \"$@\"\necho" % fpath
         return ""
 
     # 第1步：收集所有当前应生成的脚本名
