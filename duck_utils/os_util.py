@@ -47,6 +47,28 @@ def is_linux():
     return os.name == "linux"
 
 
+def emoji_supported() -> bool:
+    """尽量判断当前终端是否支持 emoji 渲染。
+
+    无法可靠探测时按系统版本兜底: Windows 10 及以下的 conhost 一般不支持,
+    降级为字母表示; Windows 11 / macOS / Linux 的现代终端默认视为支持。
+    Windows Terminal 会通过 WT_SESSION 环境变量暴露, 可确信支持 emoji。
+    """
+    if sys.platform != "win32":
+        # macOS / Linux 的现代终端大多支持 emoji, 无法精确探测时默认支持
+        return True
+    if os.environ.get("WT_SESSION"):
+        # Windows Terminal: 支持 emoji
+        return True
+    # 其余 Windows 情况: Win10 及更早 -> 不支持; Win11 -> 支持
+    ver = sys.getwindowsversion()
+    if ver.major > 10:
+        return True
+    if ver.major == 10 and ver.build >= 22000:
+        return True  # Windows 11
+    return False  # Windows 10 及更早
+
+
 def get_duck_rush_home() -> str:
     """返回 duck_rush 的用户级根目录 ~/.duck-rush（仅返回路径，不创建）。"""
     return os.path.join(os.path.expanduser("~"), ".duck-rush")
