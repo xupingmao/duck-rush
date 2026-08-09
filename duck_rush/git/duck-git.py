@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Duck Git — 基于 prompt-toolkit 的 git 工具启动器
+Duck Git — 基于 prompt-toolkit 的 git 工具启动器 (样式参考 duck-fav)
 
 本身不执行任何 git 操作, 仅以列表形式汇总常用的 git 子命令与本项目自带的
-git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工具, 工具退出后再
-回到本列表。
+git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工具。
+
+退出逻辑:
+  - [tui] 交互式工具: 工具退出后回到启动器列表
+  - [git]/[tool] 命令行工具: 工具退出后启动器也直接退出, 以保留其输出
 
 用法:
   duck-git                启动 git 工具列表
@@ -17,8 +20,8 @@ git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工
 
 快捷键:
   ↑/↓       在列表内移动
-  Enter      启动选中的工具 (退出后返回本列表)
-  q / Ctrl-C 退出启动器
+  Enter      启动选中的工具 (tui 返回列表, cli 直接退出)
+  q / Esc    退出启动器
 """
 
 import os
@@ -29,9 +32,11 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from prompt_toolkit import Application
-from prompt_toolkit.widgets import RadioList, Frame
-from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.styles import Style
 
 
 GIT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,8 +45,9 @@ GIT_DIR = os.path.dirname(os.path.abspath(__file__))
 @dataclass
 class ToolEntry:
     """列表中的一条 git 工具/操作。"""
-    name: str                       # 列表展示名
+    name: str                       # 列表展示名, 带 [git]/[tool]/[tui] 前缀
     desc: str                       # 列表副标题
+    kind: str                       # "git" | "tool" | "tui" (决定退出逻辑)
     command: str = ""               # 在终端中执行的外命令
 
 
@@ -68,7 +74,7 @@ def build_tools() -> List[ToolEntry]:
     ]
     for name, desc, args in git_ops:
         tools.append(ToolEntry(
-            name="[git] " + name, desc=desc,
+            name="[git] " + name, desc=desc, kind="git",
             command="git " + subprocess.list2cmdline(args),
         ))
 
@@ -85,7 +91,7 @@ def build_tools() -> List[ToolEntry]:
     for name, desc in tool_scripts:
         path = script_path(name + ".py")
         tools.append(ToolEntry(
-            name="[tool] " + name, desc=desc,
+            name="[tool] " + name, desc=desc, kind="tool",
             command=f'{sys.executable} "{path}"',
         ))
 
@@ -97,7 +103,7 @@ def build_tools() -> List[ToolEntry]:
     for name, desc in tui_tools:
         path = script_path(name + ".py")
         tools.append(ToolEntry(
-            name="[tui] " + name, desc=desc,
+            name="[tui] " + name, desc=desc, kind="tui",
             command=f'{sys.executable} "{path}"',
         ))
 
@@ -126,52 +132,136 @@ def find_current_branch() -> str:
         return "(未知)"
 
 
-def build_app(tools: List[ToolEntry]) -> Application:
-    """构造启动器界面。"""
-    values = [(tool.command, f"{tool.name}  {tool.desc}") for tool in tools]
-    radio = RadioList(values, default=tools[0].command)
+_STYLE = Style.from_dict(
+    {
+        "title": "ansigreen bold",
+        "git": "ansicyan",
+        "tool": "ansiblue",
+        "tui": "ansiyellow",
+        "selected": "reverse",
+        "hint": "ansigray",
+    }
+)
 
-    branch = find_current_branch()
-    repo = find_repo_root() or os.getcwd()
-    title = f"Duck Git 启动器  ·  {repo}  ({branch})"
 
-    kb = KeyBindings()
+class GitLauncherApp:
+    """基于 prompt_toolkit 的 git 工具选择器 (样式参考 duck-fav)。"""
 
-    @kb.add("enter", eager=True)
-    def _launch(event) -> None:
-        radio._handle_enter()
-        event.app.exit(result=radio.current_value)
+    def __init__(self, tools: List[ToolEntry]) -> None:
+        self.tools: List[ToolEntry] = tools
+        self.index: int = 0
+        # 结果: ("tui"|"cli", command) 表示启动某工具; None 表示取消退出
+        self.result: Optional[Tuple[str, str]] = None
+        self._pt_app: Optional[Application] = None
+        self._pt_app = self._build()
 
-    @kb.add("q")
-    @kb.add("c-c")
-    def _quit(event) -> None:
-        event.app.exit(result=None)
+    def _get_text(self) -> FormattedText:
+        ft = FormattedText()
+        repo = find_repo_root() or os.getcwd()
+        branch = find_current_branch()
+        ft.append(
+            ("class:title",
+             "Duck Git 启动器 — %s (%s)\n\n" % (repo, branch))
+        )
 
-    return Application(
-        layout=Layout(Frame(radio, title=title)),
-        key_bindings=kb,
-        full_screen=True,
-    )
+        # 视口: 内容超过一屏时围绕当前选中项居中显示
+        avail = 1 << 30
+        try:
+            from prompt_toolkit.application import get_app
+            avail = max(1, get_app().output.get_size().rows - 4)
+        except Exception:  # noqa: 非运行期(如单测)退化为全部显示
+            pass
+
+        n = len(self.tools)
+        top = 0
+        if n > avail:
+            top = max(0, min(self.index - avail // 2, n - avail))
+        for i in range(top, min(n, top + avail)):
+            e = self.tools[i]
+            style = ("class:selected," if i == self.index else "class:") + e.kind
+            marker = "> " if i == self.index else "  "
+            ft.append((style, marker + e.name + "  " + e.desc))
+            ft.append(("", "\n"))
+        if n > avail:
+            ft.append(("class:hint", "... 更多项, 用 ↑/↓ 浏览 ...\n"))
+        ft.append(("class:hint", "\n↑/↓ 选择, Enter 启动, q/Esc 退出"))
+        return ft
+
+    def _emit(self, value: Optional[Tuple[str, str]]) -> None:
+        self.result = value
+        if self._pt_app is not None:
+            self._pt_app.exit()
+
+    def _launch(self) -> None:
+        if self.tools:
+            e = self.tools[self.index]
+            self._emit((e.kind, e.command))
+
+    def _build(self) -> Application:
+        bindings = KeyBindings()
+
+        @bindings.add("up")
+        def _up(event: object) -> None:  # noqa: 参数由 prompt_toolkit 注入
+            if self.tools:
+                self.index = (self.index - 1) % len(self.tools)
+
+        @bindings.add("down")
+        def _down(event: object) -> None:  # noqa
+            if self.tools:
+                self.index = (self.index + 1) % len(self.tools)
+
+        @bindings.add("enter")
+        def _enter(event: object) -> None:  # noqa
+            self._launch()
+
+        @bindings.add("q")
+        @bindings.add("escape")
+        def _quit(event: object) -> None:  # noqa: 退出(未选择)
+            self._emit(None)
+
+        @bindings.add("c-c")
+        def _ctrl_c(event: object) -> None:  # noqa: Ctrl+C 不崩溃, 等同退出
+            self._emit(None)
+
+        control = FormattedTextControl(self._get_text, focusable=True)
+        layout = Layout(Window(control))
+        return Application(
+            layout=layout,
+            key_bindings=bindings,
+            style=_STYLE,
+            full_screen=True,
+            mouse_support=False,
+        )
+
+    def run(self) -> None:
+        assert self._pt_app is not None
+        self._pt_app.run()
 
 
 def main() -> None:
+    # -h/--help 必须无副作用, 放最开头直接退出
     if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
         print(__doc__)
         sys.exit(0)
 
     parser = argparse.ArgumentParser(
-        description="基于 prompt-toolkit 的 git 工具启动器(列表选择, 退出后返回)",
+        description="基于 prompt-toolkit 的 git 工具启动器(列表选择, tui 返回/cli 退出)",
         add_help=True,
     )
     parser.parse_args()
 
     tools = build_tools()
-    # 循环: 启动器退出后若需启动某工具, 则在终端执行之, 完成后重新进入启动器
+    # 循环: tui 工具退出后回到启动器; cli 工具退出后启动器直接退出(保留输出)
     while True:
-        result: object = build_app(tools).run()
-        if isinstance(result, str) and result:
-            os.system(result)
-            continue
+        app = GitLauncherApp(tools)
+        app.run()
+        res = app.result
+        if isinstance(res, tuple) and len(res) == 2:
+            kind, command = res
+            assert isinstance(command, str)
+            os.system(command)
+            if kind == "tui":
+                continue
         break
 
 
