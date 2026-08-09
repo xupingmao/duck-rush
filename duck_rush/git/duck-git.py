@@ -3,11 +3,7 @@
 Duck Git — 基于 prompt-toolkit 的 git 工具启动器 (样式参考 duck-fav)
 
 本身不执行任何 git 操作, 仅以列表形式汇总常用的 git 子命令与本项目自带的
-git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工具。
-
-退出逻辑:
-  - [tui] 交互式工具: 工具退出后回到启动器列表
-  - [git]/[tool] 命令行工具: 工具退出后启动器也直接退出, 以保留其输出
+git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工具, 启动器随之退出。
 
 用法:
   duck-git                启动 git 工具列表
@@ -20,7 +16,7 @@ git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工
 
 快捷键:
   ↑/↓       在列表内移动
-  Enter      启动选中的工具 (tui 返回列表, cli 直接退出)
+  Enter      启动选中的工具 (启动器随之退出, 保留其输出)
   q / Esc    退出启动器
 """
 
@@ -29,7 +25,7 @@ import sys
 import subprocess
 import argparse
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from prompt_toolkit import Application
 from prompt_toolkit.formatted_text import FormattedText
@@ -150,8 +146,7 @@ class GitLauncherApp:
     def __init__(self, tools: List[ToolEntry]) -> None:
         self.tools: List[ToolEntry] = tools
         self.index: int = 0
-        # 结果: ("tui"|"cli", command) 表示启动某工具; None 表示取消退出
-        self.result: Optional[Tuple[str, str]] = None
+        self.result: Optional[str] = None  # 选中的命令; None 表示取消退出
         self._pt_app: Optional[Application] = None
         self._pt_app = self._build()
 
@@ -187,7 +182,7 @@ class GitLauncherApp:
         ft.append(("class:hint", "\n↑/↓ 选择, Enter 启动, q/Esc 退出"))
         return ft
 
-    def _emit(self, value: Optional[Tuple[str, str]]) -> None:
+    def _emit(self, value: Optional[str]) -> None:
         self.result = value
         if self._pt_app is not None:
             self._pt_app.exit()
@@ -195,7 +190,7 @@ class GitLauncherApp:
     def _launch(self) -> None:
         if self.tools:
             e = self.tools[self.index]
-            self._emit((e.kind, e.command))
+            self._emit(e.command)
 
     def _build(self) -> Application:
         bindings = KeyBindings()
@@ -251,18 +246,12 @@ def main() -> None:
     parser.parse_args()
 
     tools = build_tools()
-    # 循环: tui 工具退出后回到启动器; cli 工具退出后启动器直接退出(保留输出)
-    while True:
-        app = GitLauncherApp(tools)
-        app.run()
-        res = app.result
-        if isinstance(res, tuple) and len(res) == 2:
-            kind, command = res
-            assert isinstance(command, str)
-            os.system(command)
-            if kind == "tui":
-                continue
-        break
+    # 选中工具后在终端启动, 启动器随之退出 (保留工具输出)
+    app = GitLauncherApp(tools)
+    app.run()
+    res = app.result
+    if isinstance(res, str) and res:
+        os.system(res)
 
 
 if __name__ == "__main__":
