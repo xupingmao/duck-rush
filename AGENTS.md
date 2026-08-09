@@ -85,3 +85,8 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 - **算子/流水线**: 数据处理类脚本可采用 Volcano 模型——`ScanOp` 产出
   `('json', obj)`/`('text', str)` 行，后续 `FilterOp`/`SplitOp`/`GroupByOp`/`SortOp`
   等依次消费上游 `source` 迭代器，最后组装输出
+- **终端文字配色**：终端输出/界面文字统一使用**浅色（明亮色）**，不要用深色。
+  如使用 prompt_toolkit 的 `Style`，偏好 `ansibrightgreen`/`ansibrightcyan`/
+  `ansibrightblue`/`ansibrightyellow`/`ansibrightmagenta` 等 `ansibright*` 变体，
+  而非 `ansigreen`/`ansiblue` 等偏暗的默认色（在深色背景下难以辨认）；
+  使用 `termcolor` 时同理避免 `grey`/`dark_*` 这类偏暗颜色。

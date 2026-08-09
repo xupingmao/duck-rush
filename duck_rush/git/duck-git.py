@@ -130,10 +130,10 @@ def find_current_branch() -> str:
 
 _STYLE = Style.from_dict(
     {
-        "title": "ansigreen bold",
-        "git": "ansicyan",
-        "tool": "ansiblue",
-        "tui": "ansiyellow",
+        "title": "ansibrightgreen bold",
+        "git": "ansibrightcyan",
+        "tool": "ansibrightblue",
+        "tui": "ansibrightyellow",
         "selected": "reverse",
         "hint": "ansigray",
     }
