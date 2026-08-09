@@ -370,6 +370,8 @@ class DuckCli:
                 start_new_session=(not is_windows()),
                 creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if is_windows() else 0),
             )
+            # 命令输出结束时补一个换行, 避免输出与下一条提示符混在同一行
+            sys.stdout.write("\n")
         except KeyboardInterrupt:
             # 理论上子进程在独立进程组，Ctrl+C 不会到达这里；兜底处理
             sys.stdout.write("^C\n")
