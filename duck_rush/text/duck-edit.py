@@ -12,6 +12,7 @@ duck-edit —— 基于 Textual 的双栏文本编辑器（左侧目录树 + 右
 - 语法高亮由 duck_utils 的 SyntaxTokenizer 完成（按扩展名 detect_lang 推断语言）
 - nano 风格快捷键：Ctrl+S 保存 / Ctrl+O 聚焦文件树 / Ctrl+G 跳转行 / Ctrl+Q 退出
 - 撤销重做：Ctrl+Z 撤销 / Ctrl+Y 或 Ctrl+Shift+Z 重做（基于 TextArea 内置历史）
+- 刷新：Ctrl+R 重新加载目录树；若当前文件被外部修改，无未保存改动时自动重新载入
 - 编辑器下方命令框支持搜索（Ctrl+F 聚焦）：
     f <片段>     在当前目录（含子目录）按文件名搜索，回车打开匹配文件
     g <内容>     在当前打开的文件中搜索内容，回车跳转到对应行
@@ -429,6 +430,7 @@ class DuckEditApp(App):
         ("ctrl+z", "undo", "撤销"),
         ("ctrl+y", "redo", "重做"),
         ("ctrl+shift+z", "redo", "重做"),
+        ("ctrl+r", "refresh", "刷新"),
         ("ctrl+q", "quit", "退出"),
     ]
 
@@ -441,6 +443,8 @@ class DuckEditApp(App):
         self._saved_text: str = ""
         self._encoding: str = "utf-8"
         self._newline: str = "\n"
+        # 当前文件在磁盘上的 (mtime, size) 快照，用于刷新时检测外部改动
+        self._disk_sig: Optional["tuple[float, int]"] = None
 
     # ------------------------------------------------------------------ #
     # 布局
@@ -451,6 +455,7 @@ class DuckEditApp(App):
             with Vertical(id="sidebar"):
                 with Horizontal(id="btnbar"):
                     yield Button("↑上级", id="up", variant="default")
+                    yield Button("刷新", id="refresh_btn", variant="default")
                     yield Button("保存", id="save_btn", variant="primary")
                     yield Button("退出", id="quit_btn", variant="default")
                 yield DuckDirTree(self.start_dir, id="tree")
@@ -512,9 +517,19 @@ class DuckEditApp(App):
         self._saved_text = text
         self._encoding = encoding
         self._newline = newline
+        self._disk_sig = self._disk_stat(path)
         _set_terminal_title("duck-edit - %s" % os.path.basename(path))
         self._update_status()
         editor.focus()
+
+    @staticmethod
+    def _disk_stat(path: str) -> "Optional[tuple[float, int]]":
+        """取文件 (mtime, size) 快照；读取失败时返回 None。"""
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+        return (st.st_mtime, st.st_size)
 
     def _do_save(self, path: str) -> None:
         try:
@@ -524,6 +539,7 @@ class DuckEditApp(App):
             return
         self.current_path = path
         self._saved_text = self._editor().text
+        self._disk_sig = (os.path.getmtime(path), size)
         self.notify("已保存 %d 字节: %s" % (size, path))
         self._update_status()
 
@@ -607,6 +623,28 @@ class DuckEditApp(App):
         editor = self._editor()
         editor.redo()
         self._update_status()
+
+    def action_refresh(self) -> None:
+        """刷新左侧目录树，并在文件被外部修改时按规则重载当前文件。
+
+        - 重加载目录树（外部新增 / 删除 / 重命名的文件即时出现）
+        - 若当前文件在磁盘上被改动：
+          * 无未保存改动 -> 自动重新载入，提示「已从磁盘重新加载」
+          * 有未保存改动 -> 仅警告，避免覆盖编辑器中的内容
+        """
+        self._tree().reload()
+        if not self.current_path:
+            return
+        new_sig = self._disk_stat(self.current_path)
+        if new_sig is None or new_sig == self._disk_sig:
+            return
+        if self._is_dirty():
+            self.notify(
+                "磁盘文件已被外部修改，保存将覆盖外部版本", severity="warning"
+            )
+            return
+        self.open_file(self.current_path)
+        self.notify("已从磁盘重新加载: %s" % self.current_path)
 
     # ------------------------------------------------------------------ #
     # 命令 / 搜索
@@ -733,6 +771,8 @@ class DuckEditApp(App):
             parent = os.path.dirname(self._tree().path)
             if parent and parent != self._tree().path:
                 self._tree().path = parent
+        elif bid == "refresh_btn":
+            self.action_refresh()
         elif bid == "save_btn":
             self.action_save()
         elif bid == "quit_btn":
