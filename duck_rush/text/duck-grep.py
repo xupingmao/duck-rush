@@ -51,22 +51,23 @@ def print_matches(pattern, regex, line_no, text, label, show_label, line_number,
 
 
 def grep_stream(pattern, regex, line_number, only_matching, after, before,
-                encoding, stream, label, show_label):
-    """对单个输入流(文件或 stdin)执行 grep"""
+                encoding, stream, label, show_label, invert):
+    """对单个输入流(文件或 stdin)执行 grep; invert 为 True 时反向匹配(类似 grep -v)"""
     match_func = re.search if regex else match_substring
 
     # 无上下文时流式输出
     if after == 0 and before == 0:
         for line_no, line in iter_lines(stream, encoding):
-            if match_func(pattern, line):
+            if bool(match_func(pattern, line)) != invert:
                 print_matches(pattern, regex, line_no, line, label,
-                              show_label, line_number, only_matching)
+                              show_label, line_number, only_matching and not invert)
         return
 
     # 需要上下文时, 先把所有行读入内存
     lines = list(iter_lines(stream, encoding))
     n = len(lines)
-    matched = [bool(match_func(pattern, text)) for _, text in lines]
+    is_match = [bool(match_func(pattern, text)) for _, text in lines]
+    matched = [m != invert for m in is_match]
 
     print_idx = [False] * n
     for i in range(n):
@@ -90,7 +91,7 @@ def grep_stream(pattern, regex, line_number, only_matching, after, before,
 
         line_no, text = lines[j]
         print_matches(pattern, regex, line_no, text, label,
-                      show_label, line_number, only_matching and matched[j])
+                      show_label, line_number, only_matching and is_match[j] and not invert)
 
 
 def build_regex_help() -> str:
@@ -115,6 +116,10 @@ def build_regex_help() -> str:
         "  \\w        单词字符 [A-Za-z0-9_]",
         "  \\s        空白字符(空格/制表/换行等)",
         "  \\b        单词边界",
+        "  \\D        非数字 [^0-9]",
+        "  \\W        非单词字符",
+        "  \\S        非空白字符",
+        "  \\B        非单词边界",
         "  \\         转义元字符(如 \\. 匹配句点本身)",
         "",
         "示例:",
@@ -152,6 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="总是打印文件名(类似 grep -H)")
     parser.add_argument("--no-filename", action="store_true",
                         help="不打印文件名(类似 grep -h)")
+    parser.add_argument("-v", "--invert-match", action="store_true",
+                        help="反向匹配, 只打印不包含 pattern 的行(类似 grep -v)")
     return parser
 
 
@@ -175,13 +182,13 @@ def main():
                 with open(fpath, "rb") as fp:
                     grep_stream(args.pattern, True, args.line_number, args.only_matching,
                                 args.after_context, args.before_context, args.encoding,
-                                fp, fpath, show_label)
+                                fp, fpath, show_label, args.invert_match)
             except Exception as e:
                 sys.stderr.write("duck-grep: %s: %s\n" % (fpath, e))
     else:
         grep_stream(args.pattern, True, args.line_number, args.only_matching,
                     args.after_context, args.before_context, args.encoding,
-                    sys.stdin.buffer, "", False)
+                    sys.stdin.buffer, "", False, args.invert_match)
 
 
 if __name__ == '__main__':
