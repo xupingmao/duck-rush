@@ -11,6 +11,7 @@ duck-edit —— 基于 Textual 的双栏文本编辑器（左侧目录树 + 右
   与原换行符（CRLF / LF / CR）
 - 语法高亮由 duck_utils 的 SyntaxTokenizer 完成（按扩展名 detect_lang 推断语言）
 - nano 风格快捷键：Ctrl+S 保存 / Ctrl+O 聚焦文件树 / Ctrl+G 跳转行 / Ctrl+Q 退出
+- 撤销重做：Ctrl+Z 撤销 / Ctrl+Y 或 Ctrl+Shift+Z 重做（基于 TextArea 内置历史）
 - 编辑器下方命令框支持搜索（Ctrl+F 聚焦）：
     f <片段>     在当前目录（含子目录）按文件名搜索，回车打开匹配文件
     g <内容>     在当前打开的文件中搜索内容，回车跳转到对应行
@@ -425,6 +426,9 @@ class DuckEditApp(App):
         ("ctrl+o", "focus_tree", "文件树"),
         ("ctrl+g", "goto", "跳转行"),
         ("ctrl+f", "focus_cmd", "命令框"),
+        ("ctrl+z", "undo", "撤销"),
+        ("ctrl+y", "redo", "重做"),
+        ("ctrl+shift+z", "redo", "重做"),
         ("ctrl+q", "quit", "退出"),
     ]
 
@@ -591,6 +595,18 @@ class DuckEditApp(App):
 
     def action_focus_cmd(self) -> None:
         self.query_one("#cmd", Input).focus()
+
+    def action_undo(self) -> None:
+        """撤销上一次编辑（TextArea 内置历史），并刷新状态行。"""
+        editor = self._editor()
+        editor.undo()
+        self._update_status()
+
+    def action_redo(self) -> None:
+        """重做被撤销的编辑（TextArea 内置历史），并刷新状态行。"""
+        editor = self._editor()
+        editor.redo()
+        self._update_status()
 
     # ------------------------------------------------------------------ #
     # 命令 / 搜索
