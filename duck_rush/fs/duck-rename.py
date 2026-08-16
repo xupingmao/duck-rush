@@ -1,7 +1,13 @@
-import xutils
 import os
+import sys
 import argparse
 import logging
+
+try:
+    from duck_utils import fs_util
+except ImportError:
+    sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
+    sys.exit(1)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,7 +22,7 @@ def encode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0):
         logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, dirname)
         return
     for fname in os.listdir(dirname):
-        new_name = xutils.encode_name(fname)
+        new_name = fs_util.encode_name(fname)
         old_path = os.path.join(dirname, fname)
         new_path = os.path.join(dirname, new_name)
         is_dir = os.path.isdir(old_path)
@@ -32,7 +38,7 @@ def decode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0):
         logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, dirname)
         return
     for fname in os.listdir(dirname):
-        new_name = xutils.decode_name(fname)
+        new_name = fs_util.decode_name(fname)
         old_path = os.path.join(dirname, fname)
         new_path = os.path.join(dirname, new_name)
         is_dir = os.path.isdir(old_path)

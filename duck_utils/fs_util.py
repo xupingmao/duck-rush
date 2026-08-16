@@ -3,11 +3,16 @@
 # @since 2020/11/21 11:35:22
 # @modified 2020/11/21 11:46:43
 import os
-import time
 import sys
 import shutil
+import base64
+import time
+from urllib.parse import unquote
 
 IS_PY2 = sys.version_info[0] == 2
+
+# 编码文件名时使用的扩展名（命中这些扩展名则认为已经是编码后的文件名）
+ENCODE_NAME_EXT = (".x0", ".xenc")
 
 class FsException(Exception):
     pass
@@ -120,4 +125,37 @@ def get_relative_path(path="", parent=""):
     if relative_path.startswith("/"):
         relative_path = relative_path[1:]
     return relative_path
+
+
+def encode_name(name: str) -> str:
+    """对文件名进行 base64 编码, 以避免文件系统的编码问题
+
+    编码后的文件名以 `.x0` 结尾, 命中 ENCODE_NAME_EXT 的文件名直接原样返回。
+    """
+    namepart, ext = os.path.splitext(name)
+    if ext in ENCODE_NAME_EXT:
+        return name
+    result = base64.urlsafe_b64encode(name.encode("utf-8")).decode("utf-8")
+    result = result.strip("=")
+    return result + ".x0"
+
+
+def decode_name(name: str) -> str:
+    """将编码后的文件名解码成可读的名称
+
+    先尝试按 base64(`.x0`/`.xenc` 扩展名)解码, 失败则按 urlencode 解码。
+    """
+    dirname = os.path.dirname(name)
+    basename = os.path.basename(name)
+    namepart, ext = os.path.splitext(basename)
+    if ext in ENCODE_NAME_EXT:
+        try:
+            pad_size = 4 - len(namepart) % 4
+            namepart += '=' * pad_size
+            basename = base64.urlsafe_b64decode(
+                namepart.encode("utf-8")).decode("utf-8")
+            return os.path.join(dirname, basename)
+        except Exception:
+            pass
+    return unquote(name)
 
