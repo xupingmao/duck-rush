@@ -3,21 +3,21 @@
 Duck Git — 基于 prompt-toolkit 的 git 工具启动器 (样式参考 duck-fav)
 
 本身不执行任何 git 操作, 仅以列表形式汇总常用的 git 子命令与本项目自带的
-git 类小工具; 选中某项后退出当前界面, 在终端中启动对应工具, 启动器随之退出。
+git 类小工具; 选中某项后在终端中启动对应工具。
 
 用法:
   duck-git                启动 git 工具列表
   duck-git -h | --help    显示本帮助
 
-列表项分类:
-  [git]   直接启动 git 子命令 (status / log / branch / diff / fetch ...)
-  [tool]  启动 duck_rush/git 下的 git 小工具脚本 (git-push-all 等)
+列表项分类 (顺序: tui → tool → git):
   [tui]   启动交互式 TUI 工具 (duck-git-log-tui / duck-git-diff-tui)
+  [tool]  启动 duck_rush/git 下的 git 小工具脚本 (git-push-all 等)
+  [git]   直接启动 git 子命令 (status / log / branch / diff / fetch ...)
 
-快捷键:
+快捷键(列表界面):
   ↑/↓       在列表内移动
-  Enter      启动选中的工具 (启动器随之退出, 保留其输出)
-  q / Esc    退出启动器
+  Enter      启动选中的工具 (结束后自动回到菜单, 不清屏)
+  q / Esc    退出启动器 (列表底部也有 [quit] 退出项可 Enter 选中)
 """
 
 import os
@@ -52,8 +52,37 @@ def script_path(name: str) -> str:
 
 
 def build_tools() -> List[ToolEntry]:
-    """构造左侧列表的数据源。"""
+    """构造左侧列表的数据源 (顺序: tui → tool → git)。"""
     tools: List[ToolEntry] = []
+
+    # ---- 交互式 TUI 工具 ----
+    tui_tools = [
+        ("duck-git-log-tui", "提交历史三栏查看器"),
+        ("duck-git-diff-tui", "工作区改动查看器"),
+    ]
+    for name, desc in tui_tools:
+        path = script_path(name + ".py")
+        tools.append(ToolEntry(
+            name="[tui] " + name, desc=desc, kind="tui",
+            command=f'{sys.executable} "{path}"',
+        ))
+
+    # ---- 本项目的 git 小工具脚本 ----
+    tool_scripts = [
+        ("git-count-lines", "统计各作者提交行数"),
+        ("git-push-all", "推送到所有远端"),
+        ("git-pull-remote", "拉取当前分支远端更新"),
+        ("git-pull-force", "强制从 origin/master 同步"),
+        ("git-checkout", "checkout 指定分支"),
+        ("git-delete-other-branches", "删除其他本地分支"),
+        ("git-try-fix", "清理缓存 / 删除 lock 文件"),
+    ]
+    for name, desc in tool_scripts:
+        path = script_path(name + ".py")
+        tools.append(ToolEntry(
+            name="[tool] " + name, desc=desc, kind="tool",
+            command=f'{sys.executable} "{path}"',
+        ))
 
     # ---- 直接启动 git 子命令 ----
     git_ops = [
@@ -74,34 +103,11 @@ def build_tools() -> List[ToolEntry]:
             command="git " + subprocess.list2cmdline(args),
         ))
 
-    # ---- 本项目的 git 小工具脚本 ----
-    tool_scripts = [
-        ("git-count-lines", "统计各作者提交行数"),
-        ("git-push-all", "推送到所有远端"),
-        ("git-pull-remote", "拉取当前分支远端更新"),
-        ("git-pull-force", "强制从 origin/master 同步"),
-        ("git-checkout", "checkout 指定分支"),
-        ("git-delete-other-branches", "删除其他本地分支"),
-        ("git-try-fix", "清理缓存 / 删除 lock 文件"),
-    ]
-    for name, desc in tool_scripts:
-        path = script_path(name + ".py")
-        tools.append(ToolEntry(
-            name="[tool] " + name, desc=desc, kind="tool",
-            command=f'{sys.executable} "{path}"',
-        ))
-
-    # ---- 交互式 TUI 工具 ----
-    tui_tools = [
-        ("duck-git-log-tui", "提交历史三栏查看器"),
-        ("duck-git-diff-tui", "工作区改动查看器"),
-    ]
-    for name, desc in tui_tools:
-        path = script_path(name + ".py")
-        tools.append(ToolEntry(
-            name="[tui] " + name, desc=desc, kind="tui",
-            command=f'{sys.executable} "{path}"',
-        ))
+    # ---- 退出选项 (选中即退出; 也可按 q/Esc) ----
+    tools.append(ToolEntry(
+        name="[quit] 退出", desc="退出启动器 (或按 q/Esc)", kind="quit",
+        command="",
+    ))
 
     return tools
 
@@ -134,6 +140,7 @@ _STYLE = Style.from_dict(
         "git": "ansibrightcyan",
         "tool": "ansibrightblue",
         "tui": "ansibrightyellow",
+        "quit": "ansibrightmagenta",
         "selected": "reverse",
         "hint": "ansigray",
     }
@@ -179,7 +186,8 @@ class GitLauncherApp:
             ft.append(("", "\n"))
         if n > avail:
             ft.append(("class:hint", "... 更多项, 用 ↑/↓ 浏览 ...\n"))
-        ft.append(("class:hint", "\n↑/↓ 选择, Enter 启动, q/Esc 退出"))
+        ft.append(("class:hint",
+                   "\n↑/↓ 选择, Enter 启动, q/Esc 退出 (结束后自动回到菜单)"))
         return ft
 
     def _emit(self, value: Optional[str]) -> None:
@@ -190,7 +198,11 @@ class GitLauncherApp:
     def _launch(self) -> None:
         if self.tools:
             e = self.tools[self.index]
-            self._emit(e.command)
+            # 空命令(如 [quit] 退出项)或选中退出项时, 等同取消退出
+            if e.kind == "quit" or not e.command:
+                self._emit(None)
+            else:
+                self._emit(e.command)
 
     def _build(self) -> Application:
         bindings = KeyBindings()
@@ -224,7 +236,7 @@ class GitLauncherApp:
             layout=layout,
             key_bindings=bindings,
             style=_STYLE,
-            full_screen=True,
+            full_screen=False,
             mouse_support=False,
         )
 
@@ -240,17 +252,19 @@ def main() -> None:
         sys.exit(0)
 
     parser = argparse.ArgumentParser(
-        description="基于 prompt-toolkit 的 git 工具启动器(列表选择, tui 返回/cli 退出)",
+        description="基于 prompt-toolkit 的 git 工具启动器(列表选择, 结束后回到菜单)",
         add_help=True,
     )
     parser.parse_args()
 
     tools = build_tools()
-    # 选中工具后在终端启动, 启动器随之退出 (保留工具输出)
-    app = GitLauncherApp(tools)
-    app.run()
-    res = app.result
-    if isinstance(res, str) and res:
+    # 选中工具后在终端启动; 结束后不清屏, 直接回到菜单继续选择, q/Esc 退出
+    while True:
+        app = GitLauncherApp(tools)
+        app.run()
+        res = app.result
+        if not (isinstance(res, str) and res):
+            break  # q/Esc 退出
         os.system(res)
 
 
