@@ -46,9 +46,10 @@ DUCK_FILE_PATH = os.path.normpath(os.path.join(_HERE, "..", "fs", "duck-file.py"
 DUCK_CAT_PATH = os.path.normpath(os.path.join(_HERE, "..", "text", "duck-cat.py"))
 DUCK_CALC_PATH = os.path.normpath(os.path.join(_HERE, "..", "math-tools", "duck-calc.py"))
 DUCK_FAV_PATH = os.path.normpath(os.path.join(_HERE, "..", "text", "duck-fav.py"))
+DUCK_HELP_PATH = os.path.normpath(os.path.join(_HERE, "duck-help.py"))
 
 # 内置命令（可被 Tab 补全的首个 token）
-BUILTIN_COMMANDS = ["cd", "pwd", "clear", "cls", "exit", "quit"]
+BUILTIN_COMMANDS = ["cd", "pwd", "clear", "cls", "exit", "quit", "help", "reload"]
 
 
 def _quote(path: str) -> str:
@@ -276,6 +277,14 @@ class DuckCli:
         if low in ("exit", "quit"):
             self._exit_requested = True
             return
+        if low in ("help", "h"):
+            # 交互式帮助浏览器 (TUI): 浏览全部 duck-* 工具, 返回后停留原目录
+            self._run_help_browser()
+            return
+        if low == "reload":
+            # 退出当前 shell 并以当前目录重新启动 duck-cli (保留选中的目录)
+            self._reload()
+            return
         if low in ("clear", "cls"):
             os.system("cls" if is_windows() else "clear")
             return
@@ -356,6 +365,36 @@ class DuckCli:
             )
         except Exception as e:  # noqa: 任意异常都不应让 shell 崩溃
             sys.stderr.write("计算失败: %s\n" % e)
+
+    # ------------------------------------------------------------------ #
+    # help 内置命令 -> 交互式帮助浏览器 (TUI)
+    # ------------------------------------------------------------------ #
+    def _run_help_browser(self) -> None:
+        """交接终端给 duck-help 浏览器 (TUI), 结束后回到本 shell。
+
+        浏览器内启动 duck-chdir / duck-fav 选中目录/文件时, 通过 --result-file 协议
+        透传结果行 (dir <路径> / file <路径>), 这里据此切换目录或预览文件;
+        仅普通退出 (无选择结果) 则保持原目录。
+        """
+        line = self._run_picker(DUCK_HELP_PATH)
+        if line.startswith("dir ") or line.startswith("file "):
+            self._apply_pick(line)
+
+    # ------------------------------------------------------------------ #
+    # reload 内置命令 -> 以当前目录重新启动 duck-cli
+    # ------------------------------------------------------------------ #
+    def _reload(self) -> None:
+        """退出当前 shell 并以当前目录 (self.cwd) 重新启动 duck-cli。
+
+        通过 os.execv 原地替换进程 (等价于先退出再重启), 复用同一解释器与环境,
+        从而保留选中的工作目录, 并刷新 PATH 命令缓存等运行时状态。
+        """
+        script = os.path.abspath(__file__)
+        try:
+            os.execv(sys.executable, [sys.executable, script, "--path", self.cwd])
+        except Exception as e:  # noqa: execv 失败 (极少见) 时退回普通退出
+            sys.stderr.write("重启失败: %s\n" % e)
+            self._exit_requested = True
 
     # ------------------------------------------------------------------ #
     # 执行外部命令（继承终端，Ctrl+C 只作用于子进程，不影响 shell）
