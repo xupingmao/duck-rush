@@ -34,7 +34,7 @@ from prompt_toolkit.styles import Style
 
 
 SWITCH_CURRENT_LABEL = "[切换到当前目录]"
-PARENT_LABEL = "..  上级目录"
+PARENT_LABEL = "[..上级目录]"
 EXIT_LABEL = "[退出]"
 
 # 不同种类条目的样式类名
