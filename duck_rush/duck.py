@@ -8,6 +8,7 @@ import os
 import time
 import traceback
 import json
+import shutil
 import subprocess
 from typing import List, Optional
 
@@ -19,6 +20,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from duck_utils.duck_meta import InstallMeta
+from duck_utils.os_util import get_duck_rush_home
 
 EXECTABLE_FILE_EXT_SET = set([
     ".py", 
@@ -229,6 +231,61 @@ def add_src_dir_func(args):
     print("正在重新安装以生成脚本链接 ...")
     install_func(args)
 
+ADD_TOOL_USAGE = "用法: duck add <脚本路径> [<脚本路径> ...]\n" \
+                  "  把单个 .py/.sh 脚本文件注册为 duck 工具:\n" \
+                  "  1. 复制到 ~/.duck-rush/external-tools/\n" \
+                  "  2. 登记该目录为外部源码目录(重装后依然生效)\n" \
+                  "  3. 生成对应的命令包装脚本(支持 `duck <文件名>` 直接调用)"
+
+def add_tool_func(args):
+    """把单个脚本文件注册为 duck 工具(外部工具目录 + 包装脚本)。
+
+    与 add-src-dir(整目录)不同, 这里只接收具体的脚本文件, 适合零散地
+    把一两个现成脚本纳入 duck-rush 体系, 而不必专门建一个源码目录。
+    """
+    if args.args and args.args[0] in ("-h", "--help"):
+        print(ADD_TOOL_USAGE)
+        return
+    if not args.args:
+        sys.stderr.write(ADD_TOOL_USAGE + "\n")
+        sys.exit(1)
+
+    meta = InstallMeta.load()
+    ext_dir = os.path.join(get_duck_rush_home(), "external-tools")
+    # 首次使用时登记外部工具目录, 使后续 `duck upgrade` / 完整安装能保留这些工具
+    if meta.add_external_src_dir(ext_dir):
+        meta.save()
+
+    installed: List[str] = []
+    for raw in args.args:
+        src = os.path.abspath(os.path.expanduser(raw))
+        if not os.path.isfile(src):
+            sys.stderr.write("文件不存在: %s\n" % src)
+            continue
+        ext = os.path.splitext(src)[1].lower()
+        if ext not in (".py", ".sh"):
+            sys.stderr.write("仅支持 .py / .sh 脚本: %s\n" % src)
+            continue
+        # 同一文件重复 add 时覆盖, 便于更新脚本后刷新包装脚本
+        os.makedirs(ext_dir, exist_ok=True)
+        dest = os.path.join(ext_dir, os.path.basename(src))
+        shutil.copy2(src, dest)
+        installed.append(os.path.splitext(os.path.basename(src))[0])
+        print("已复制脚本: %s -> %s" % (src, dest))
+
+    if not installed:
+        sys.stderr.write("没有可注册的脚本, 未生成任何包装脚本\n")
+        sys.exit(1)
+
+    # 仅安装这些命令的包装脚本(直接复用 install.py 的按名安装能力)
+    install_script = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "install.py"))
+    targets = " ".join(escape_arg(name) for name in installed)
+    rc = os.system("%s %s %s" % (sys.executable, install_script, targets))
+    if rc != 0:
+        sys.stderr.write("生成包装脚本失败(安装脚本退出码 %d)\n" % rc)
+        sys.exit(1)
+
 def upgrade_func(args):
     project_root = get_project_root()
     os.chdir(project_root)
@@ -281,7 +338,13 @@ def default_func(args):
     for index, cmd in enumerate(matches):
         print("%02d: %s" % (index, cmd.name))
 
-    choice = input("please choose:")
+    try:
+        choice = int(input("please choose: "))
+    except (ValueError, EOFError):
+        # 非交互环境(管道/重定向)或非法输入时退出, 不执行任何命令
+        return
+    if 0 <= choice < len(matches):
+        matches[choice].execute(args.args)
 
 
 
@@ -291,6 +354,7 @@ ACTION_FUNC_DICT = {
     "install": install_func,
     "upgrade": upgrade_func,
     "add-src-dir": add_src_dir_func,
+    "add": add_tool_func,
     "dir": dir_func,
     "help": help_func,
     "h": help_func,
@@ -301,6 +365,7 @@ ACTION_DESC = {
     "install": "安装全部工具: 装依赖 -> 安装 duck_utils -> 生成命令包装脚本 -> 生成命令简介缓存; 也可 `duck install <命令>` 只安装指定命令",
     "upgrade": "拉取最新代码 (git pull) 并重新安装",
     "add-src-dir": "登记外部工具源码目录, 更新 duck.json 并重新生成脚本链接",
+    "add": "把单个脚本文件(.py/.sh)注册为 duck 工具: 复制到外部工具目录、登记并生成包装脚本",
     "dir": "打印 duck-rush 项目根目录的绝对路径",
     "help": "进入交互式帮助浏览器 (TUI): 方向键浏览全部 duck-* 工具, Enter 启动, `/` 筛选",
     "h": "help 的别名, 进入交互式帮助浏览器 (TUI)",
@@ -317,6 +382,7 @@ EPILOG = (
     + "  duck help                      进入交互式帮助浏览器 (TUI), 方向键浏览并启动工具\n"
     + "  duck h                         同 duck help\n"
     + "  duck add-src-dir ~/my-tools   登记外部工具源码目录并生成脚本链接\n"
+    + "  duck add ~/my-tool.py         把单个脚本文件注册为命令(生成其包装脚本)\n"
     + "  duck install <命令>           只安装指定命令(生成其包装脚本, 跳过完整安装)\n"
 )
 
@@ -333,8 +399,8 @@ def main():
     args, unknown = PARSER.parse_known_args()
     global _UNKNOWN_ARGS
     _UNKNOWN_ARGS = unknown
-    # `duck` 无参: 打印纯文本帮助 (非交互, 可安全管道/脚本化), 不进入 TUI
-    if args.action is None:
+    # `duck` 无参 或 `duck -h/--help`: 打印纯文本帮助(非交互, 可安全管道/脚本化), 不进入 TUI
+    if args.action is None or args.action in ("-h", "--help"):
         PARSER.print_help()
         return
     func = ACTION_FUNC_DICT.get(args.action, default_func)
