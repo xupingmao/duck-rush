@@ -11,10 +11,18 @@ duck-cli —— 传统的交互式 shell（单行提示符，非 TUI）。
 - `duck-fav`（或 `duck-fav select`）打开收藏夹选择器（TUI），选择目录则切换、
   选择文件则预览，协议与 duck-chdir 一致（`dir <路径>` / `file <路径>` / `exit`）
 - `cd` 选择文件时，调用 duck-file 检查类型；文本文件再用 duck-cat 预览
+- 命令别名：内置 `ll`（= `duck-ls -lh --color`），Windows 下还内置 `ls`（= `duck-ls --color`）；
+  别名只作用于命令行首个单词，参数会原样追加（`ll /tmp` -> `duck-ls -lh --color /tmp`）
 - 其余命令直接交给系统 shell 执行（继承终端，vim/less 等交互程序照常工作）
 
 用法:
   duck-cli [--path PATH] [-h]
+
+别名用法:
+  alias                       列出全部生效别名
+  alias ll                    查看单个别名
+  alias gs="git status"       新增/覆盖别名（立即持久化）
+  unalias gs                  删除别名（删除内置别名同样会被记住）
 
 说明:
   duck-cli 只负责「传统 shell 交互」与「调用外部命令」；目录/文件选择交给 duck-chdir，
@@ -38,6 +46,8 @@ from prompt_toolkit.history import FileHistory
 from duck_utils.os_util import is_windows, get_command_data_dir, CommandNameLoader
 from duck_utils.jsonl_util import JsonlStore
 
+from alias_util import AliasError, AliasStore, format_alias, get_default_store_path, parse_assign
+
 # 由本文件位置推导 duck-chdir / duck-file / duck-cat 脚本路径
 # （外部命令的调用统一放在 duck-cli 内，duck-chdir 只负责选择并返回结果）
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +59,8 @@ DUCK_FAV_PATH = os.path.normpath(os.path.join(_HERE, "..", "text", "duck-fav.py"
 DUCK_HELP_PATH = os.path.normpath(os.path.join(_HERE, "duck-help.py"))
 
 # 内置命令（可被 Tab 补全的首个 token）
-BUILTIN_COMMANDS = ["cd", "pwd", "clear", "cls", "exit", "quit", "help", "reload"]
+BUILTIN_COMMANDS = ["cd", "pwd", "clear", "cls", "exit", "quit", "help", "reload",
+                   "alias", "unalias"]
 
 
 def _quote(path: str) -> str:
@@ -97,22 +108,28 @@ def _apply_windows_utf8() -> None:
 class DuckCompleter(Completer):
     """命令 + 路径补全（prompt_toolkit 版）。
 
-    - 首个 token（命令名）：内置命令 + 历史命令首 token + 系统命令（PATH / shell 内建）
+    - 首个 token（命令名）：内置命令 + 别名 + 历史命令首 token + 系统命令（PATH / shell 内建）
     - 任意位置含路径片段的词：在当前工作目录下做文件名 / 目录名补全
+
+    几个 provider 都用关键字参数传入：位置参数上限为 5，而这里连同 commands 已达上限，
+    改成关键字形式后调用处也更好辨认。
     """
 
     def __init__(
         self,
         commands: List[str],
+        *,
         history_provider: Callable[[], List[str]],
         cwd_provider: Callable[[], str],
         system_provider: Callable[[], List[str]],
+        alias_provider: Callable[[], List[str]],
     ) -> None:
         super().__init__()
         self._commands = sorted(set(commands))
         self._history_provider = history_provider
         self._cwd_provider = cwd_provider
         self._system_provider = system_provider
+        self._alias_provider = alias_provider
 
     def get_completions(
         self, document: Document, complete_event: CompleteEvent
@@ -137,8 +154,9 @@ class DuckCompleter(Completer):
             yield Completion(cand, start_position=-len(word))
 
     def _cmd_candidates(self, word: str) -> List[str]:
-        # 顺序即优先级：内置命令 > 历史命令 > 系统命令
+        # 顺序即优先级：内置命令 > 别名 > 历史命令 > 系统命令
         cands: List[str] = list(self._commands)
+        cands.extend(self._alias_provider())
         for hist in self._history_provider():
             tok = hist.strip().split(" ", 1)[0]
             if tok:
@@ -224,15 +242,18 @@ class DuckCli:
         except OSError:
             pass
         self._js_store = JsonlStore(os.path.join(data_dir, "history.jsonl"))
+        # 命令别名（内置默认 + 用户自定义，持久化在 data_dir/aliases.jsonl）
+        self._aliases = AliasStore(get_default_store_path(data_dir))
 
         # 系统命令（PATH 可执行文件 + shell 内建）后台加载，不阻塞启动
         self._system_commands = CommandNameLoader()
         self._system_commands.start()
         self.completer = DuckCompleter(
             BUILTIN_COMMANDS,
-            lambda: self.history,
-            lambda: self.cwd,
-            self._system_commands.get_names,
+            history_provider=lambda: self.history,
+            cwd_provider=lambda: self.cwd,
+            system_provider=self._system_commands.get_names,
+            alias_provider=self._aliases.names,
         )
         self._session: Optional[PromptSession] = None
 
@@ -272,6 +293,14 @@ class DuckCli:
         if not cmd:
             return
         self._remember(cmd)
+
+        # alias / unalias 必须在展开之前处理，否则 `alias ll=...` 里的 alias
+        # 自身会被当成待展开的别名
+        if self._handle_alias_builtin(cmd):
+            return
+        # 别名展开放在分发之前：展开结果同样能命中下面的内置命令分支
+        # （如 `alias h="help"`），历史里记录的仍是用户输入的原文
+        cmd = self._aliases.expand(cmd)
 
         low = cmd.lower()
         if low in ("exit", "quit"):
@@ -320,6 +349,54 @@ class DuckCli:
             )
         except OSError:
             pass
+
+    # ------------------------------------------------------------------ #
+    # alias / unalias 内置命令
+    # ------------------------------------------------------------------ #
+    def _handle_alias_builtin(self, cmd: str) -> bool:
+        """处理 alias / unalias；返回 True 表示命令已被消费。"""
+        name, _, rest = cmd.partition(" ")
+        if name not in ("alias", "unalias"):
+            return False
+        rest = rest.strip()
+
+        if name == "unalias":
+            if not rest:
+                sys.stderr.write("用法: unalias <别名>\n")
+            elif self._aliases.remove(rest):
+                sys.stderr.write("已删除别名: %s\n" % rest)
+            else:
+                sys.stderr.write("未定义的别名: %s\n" % rest)
+            return True
+
+        # alias：无参列出全部
+        if not rest:
+            aliases = self._aliases.all()
+            if not aliases:
+                sys.stderr.write("暂无别名\n")
+            for alias_name in sorted(aliases):
+                # 明亮青色，深色背景下也清晰
+                print("\033[96m%s\033[0m" % format_alias(alias_name, aliases[alias_name]))
+            return True
+
+        assigned = parse_assign(rest)
+        if assigned is None:
+            # alias <名称>：查询单个
+            value = self._aliases.get(rest)
+            if value is None:
+                sys.stderr.write("未定义的别名: %s\n" % rest)
+            else:
+                print("\033[96m%s\033[0m" % format_alias(rest, value))
+            return True
+
+        alias_name, alias_cmd = assigned
+        try:
+            self._aliases.set(alias_name, alias_cmd)
+        except AliasError as e:
+            sys.stderr.write("%s\n" % e)
+            return True
+        print("\033[96m%s\033[0m" % format_alias(alias_name, alias_cmd))
+        return True
 
     def _change_dir(self, target: str) -> None:
         if not target:
