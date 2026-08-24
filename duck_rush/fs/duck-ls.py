@@ -517,6 +517,9 @@ class Lister:
         files: List[Entry] = []
         dirs: List[str] = []
         for path in paths:
+            # 展开 ~ 与 ~user(系统 shell 会自动做, 但本脚本不会, 否则
+            # `duck-ls ~/foo` 会误报「不存在」); 真实路径不含 ~ 时原样返回
+            path = os.path.expanduser(path)
             if not os.path.exists(path) and not os.path.islink(path):
                 sys.stderr.write("duck-ls: 无法访问 '%s': 文件或目录不存在\n" % path)
                 self.exit_code = 2

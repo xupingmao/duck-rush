@@ -335,6 +335,21 @@ class TestCli(DirTestCase):
         _, out, _ = run_cli([target])
         self.assertEqual(out.strip(), target)
 
+    def test_tilde_expands(self):
+        # 系统 shell 会自动展开 ~, 但本脚本不会; 这里把 HOME / USERPROFILE
+        # 指向临时目录(Windows 下 expanduser 优先 USERPROFILE), 验证 `~/xxx`
+        # 被展开成真实绝对路径(报错信息里不应残留 ~)
+        env = dict(os.environ)
+        env["HOME"] = self.tmpdir
+        env["USERPROFILE"] = self.tmpdir
+        env["PYTHONIOENCODING"] = "utf-8"
+        proc = subprocess.run(
+            [sys.executable, SCRIPT, "~/nonexistent"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        err = proc.stderr.decode("utf-8", errors="replace")
+        self.assertNotIn("~", err)
+        self.assertIn(self.tmpdir, err)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
