@@ -6,26 +6,39 @@ import argparse
 import sys
 import re
 import fnmatch
+from typing import Any
 
 
-def _ensure_unix_newline_stdout():
-    """Windows 下 Python 会把写到 stdout 的 \\n 翻译成 \\r\\n，
-    当通过管道传给 xargs 时，文件名尾部会带上 \\r，导致
-    `xargs grep` 报 `No such file or directory`。
+class _RawLineWriter:
+    """单行写入器: 直接把文本以 UTF-8 + '\\n' 写到 stdout 底层二进制流,
+    不做 Windows 默认的 '\\r\\n' 翻译, 也不在 stdout 之上再套一层
+    TextIOWrapper(那样会与原有 buffer 错位, 导致管道/xargs 输出错乱、
+    多个文件名被合并成一行)。
 
-    这里强制 stdout 只输出 \\n，保证 `duck-find | xargs ...` 可用。
+    这样 `duck-find --name "*.py" | xargs ...` 时每个文件名都独立成行,
+    且不会带上 '\\r'。
     """
-    if sys.platform != "win32":
-        return
-    try:
-        sys.stdout.reconfigure(newline="\n")
-    except (AttributeError, ValueError):
-        # Python < 3.7 回退：重新包装 stdout
-        sys.stdout = io.TextIOWrapper(
-            sys.stdout.buffer,
-            encoding=getattr(sys.stdout, "encoding", None),
-            newline="\n",
-        )
+
+    def __init__(self, buffer: Any) -> None:
+        self._buffer = buffer
+
+    def write(self, text: str) -> int:
+        data = text.replace("\r\n", "\n").replace("\r", "\n")
+        self._buffer.write(data.encode("utf-8", errors="replace"))
+        return len(text)
+
+    def flush(self) -> None:
+        self._buffer.flush()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._buffer, name)
+
+
+def _setup_stdout() -> None:
+    """用安全写入器替换 sys.stdout, 保证管道输出每行以 '\\n' 结尾且编码为 UTF-8。"""
+    buf = getattr(sys.stdout, "buffer", None)
+    if buf is not None:
+        sys.stdout = _RawLineWriter(buf)
 
 
 def _normalize_path_for_shell(fpath: str) -> str:
@@ -338,9 +351,25 @@ class FileFinder:
 
 
 def main():
-    _ensure_unix_newline_stdout()
+    _setup_stdout()
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog="duck-find",
+        usage="duck-find [options] [dir]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(
+            "按名称/glob 递归搜索文件, 每行输出一个文件的路径(UTF-8, 以 \\n 结尾)。\n\n"
+            "管道配合 xargs 的用法:\n"
+            "  每行输出一个文件名, 可直接作为 xargs 的输入。\n"
+            "  # 逐行查看(每个文件名作为一次 echo 的参数)\n"
+            "  duck-find --name \"*.py\" | xargs -n1 echo\n"
+            "  # 注意: xargs echo (不加 -n1) 会把全部文件名作为【一次】echo 的多个参数,\n"
+            "  #       用空格连成一行打印, 这是 xargs 的正常行为, 并非输出错乱。\n"
+            "  # 真正按文件执行命令(每个文件执行一次)推荐用 -n1 或 -I:\n"
+            "  duck-find --name \"*.py\" | xargs -n1 grep \"def main\"\n"
+            "  duck-find --name \"*.py\" | xargs -I{} echo \"处理: {}\"\n"
+        ),
+    )
     # action有很多选项
     # 'store': 默认值，存储选项
     # 'store_const': 存储常量，和`const`参数一起搭配使用
@@ -385,6 +414,7 @@ def main():
     finder.find_empty_dirs = args.empty_dirs
 
     finder.execute()
+    sys.stdout.flush()
 
 if __name__ == "__main__":
     main()
