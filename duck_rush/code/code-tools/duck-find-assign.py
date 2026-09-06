@@ -62,9 +62,10 @@ def print_results(results, show_label: bool, line_number: bool,
         for line_no, line, pattern in matches:
             prefix = ""
             if show_label:
+                # file:line 形式, 中间不留空格、行号后不加冒号, 方便 IDE 终端点击跳转
                 prefix += C_FILE + fpath + C_RESET + ":"
             if line_number:
-                prefix += C_LINE + "%5d" % line_no + C_RESET + ":"
+                prefix += C_LINE + "%d" % line_no + C_RESET
             print(prefix + " " + highlight(line, pattern))
     return total
 
