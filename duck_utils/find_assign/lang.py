@@ -81,7 +81,10 @@ class GoPlugin(LanguagePlugin):
     extensions = {".go"}
     line_comments = ("//",)
     block_comments = (("/*", "*/"),)
-    assignment_operators = ("=", ":=", "+=", "-=", "*=", "/=", "%=", "&=",
+    # 含结构体/映射字面量里的 `Name: value` 键值对(复合字面量赋值),
+    # 用 `:` 而非 `=`; 正则要求冒号前是完整标识符, 不会误命中字符串键(如 "key":)
+    # 或 URL(http://)等 —— 因 id_re 要求标识符紧贴冒号(中间无其他字符)。
+    assignment_operators = (":", "=", ":=", "+=", "-=", "*=", "/=", "%=", "&=",
                             "|=", "^=", "<<=", ">>=", "&^=")
     setter_enabled = True
 
