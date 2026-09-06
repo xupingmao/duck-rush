@@ -211,6 +211,21 @@ def list_command_func(args: argparse.Namespace) -> None:
 _UNKNOWN_ARGS: List[str] = []
 
 
+def _run_full_install() -> None:
+    """运行完整安装 (install.py, 不附加任何参数)。
+
+    完整安装会重新收集所有命令并清理 bin 目录下过期的包装脚本, 因此用于
+    增加/移除外部源码目录或单脚本命令后, 使 duck.json 的登记与新生成的
+    脚本链接保持一致。
+    """
+    install_script = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "install.py"))
+    rc = os.system("%s %s" % (sys.executable, install_script))
+    if rc != 0:
+        sys.stderr.write("重新安装失败 (安装脚本退出码 %d)\n" % rc)
+        sys.exit(1)
+
+
 def install_func(args):
     install_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "install.py")
     install_script = os.path.normpath(install_script)
@@ -307,6 +322,107 @@ def add_tool_func(args):
         sys.stderr.write("生成包装脚本失败(安装脚本退出码 %d)\n" % rc)
         sys.exit(1)
 
+RM_SRC_DIR_USAGE = "用法: duck rm-src-dir <外部工具源码目录>\n" \
+                   "  移除已用 `duck add-src-dir` 登记的外部工具源码目录:\n" \
+                   "  从 duck.json 删除登记项, 并重新安装以清理 bin 下对应的过期脚本链接\n" \
+                   "  仅移除登记, 不会删除该目录或其下的源文件"
+
+def _match_external_src_dirs(registered: List[str], raw: str) -> List[str]:
+    """在已登记的外部源码目录中, 按绝对路径精确匹配; 无精确命中时退回按目录名匹配。
+
+    返回需要移除的登记项列表 (可能为空)。
+    """
+    target = os.path.abspath(os.path.expanduser(raw))
+    norm_target = target.rstrip(os.sep)
+    exact = [d for d in registered if os.path.abspath(os.path.expanduser(d)) == target]
+    if exact:
+        return exact
+    # 精确未命中: 用目录名兜底, 便于 `duck rm-src-dir my-tools` 这类简写
+    base = os.path.basename(norm_target)
+    if base:
+        return [d for d in registered if os.path.basename(d.rstrip(os.sep)) == base]
+    return []
+
+def rm_src_dir_func(args: argparse.Namespace) -> None:
+    """移除已登记的外部工具源码目录, 并重新安装以清理对应的脚本链接。
+
+    与 add-src-dir(整目录)对称: 仅删除 duck.json 中的登记项, 不触碰源目录自身。
+    """
+    if args.args and args.args[0] in ("-h", "--help"):
+        print(RM_SRC_DIR_USAGE)
+        return
+    if not args.args:
+        sys.stderr.write(RM_SRC_DIR_USAGE + "\n")
+        sys.exit(1)
+
+    raw = args.args[0]
+    meta = InstallMeta.load()
+    matches = _match_external_src_dirs(meta.external_src_dirs, raw)
+    if not matches:
+        sys.stderr.write("未找到已登记的外部源码目录: %s\n" % raw)
+        sys.exit(1)
+
+    for d in matches:
+        meta.remove_external_src_dir(d)
+    meta.save()
+    print("已移除外部源码目录登记: %s" % ", ".join(matches))
+    print("正在重新安装以清理脚本链接 ...")
+    _run_full_install()
+
+RM_TOOL_USAGE = "用法: duck rm <命令名> [<命令名> ...]\n" \
+                "  移除已用 `duck add` 单独添加的单脚本命令:\n" \
+                "  .py: 从 duck.json 删除原始路径登记 (不删除源文件)\n" \
+                "  .sh: 删除复制到 ~/.duck-rush/external-tools/ 的副本, 并在该目录变空时注销它\n" \
+                "  二者均重新安装以清理 bin 下对应的过期包装脚本"
+
+def rm_tool_func(args: argparse.Namespace) -> None:
+    """移除已用 `duck add` 单独添加的单脚本命令, 并清理对应包装脚本。
+
+    仅针对外部添加的命令: .py 不复制(只删登记), .sh 复制自外部工具目录(删副本)。
+    不删除用户自己的原始脚本文件; 移除后重新安装以清理 bin 下的过期脚本链接。
+    """
+    if args.args and args.args[0] in ("-h", "--help"):
+        print(RM_TOOL_USAGE)
+        return
+    if not args.args:
+        sys.stderr.write(RM_TOOL_USAGE + "\n")
+        sys.exit(1)
+
+    names = list(args.args)
+    meta = InstallMeta.load()
+    ext_dir = os.path.join(get_duck_rush_home(), "external-tools")
+    removed: List[str] = []
+
+    for name in names:
+        # 不复制的 .py: 从 external_tools 中按命令名移除原始路径登记
+        for p in list(meta.external_tools):
+            if os.path.splitext(os.path.basename(p))[0] == name:
+                meta.remove_external_tool(p)
+                if name not in removed:
+                    removed.append(name)
+        # 复制到 external-tools 的 .sh / .py 副本: 直接删除文件
+        for ext in (".sh", ".py"):
+            copied = os.path.join(ext_dir, name + ext)
+            if os.path.isfile(copied):
+                os.remove(copied)
+                if name not in removed:
+                    removed.append(name)
+
+    # 若 external-tools 目录变空, 注销该目录登记并删掉空目录
+    if os.path.isdir(ext_dir) and not os.listdir(ext_dir):
+        if ext_dir in meta.external_src_dirs:
+            meta.remove_external_src_dir(ext_dir)
+        os.rmdir(ext_dir)
+
+    if not removed:
+        sys.stderr.write("未找到已登记的外部命令: %s\n" % ", ".join(names))
+        sys.exit(1)
+
+    meta.save()
+    print("已移除外部命令: %s" % ", ".join(removed))
+    print("正在重新安装以清理脚本链接 ...")
+    _run_full_install()
+
 def upgrade_func(args):
     project_root = get_project_root()
     os.chdir(project_root)
@@ -389,6 +505,8 @@ ACTION_FUNC_DICT = {
     "upgrade": upgrade_func,
     "add-src-dir": add_src_dir_func,
     "add": add_tool_func,
+    "rm-src-dir": rm_src_dir_func,
+    "rm": rm_tool_func,
     "dir": dir_func,
     "meta": meta_func,
     "help": help_func,
@@ -401,6 +519,8 @@ ACTION_DESC = {
     "upgrade": "拉取最新代码 (git pull) 并重新安装",
     "add-src-dir": "登记外部工具源码目录, 更新 duck.json 并重新生成脚本链接",
     "add": "把单个脚本文件(.py/.sh)注册为 duck 工具: 复制到外部工具目录、登记并生成包装脚本",
+    "rm-src-dir": "移除已登记的外部工具源码目录(只删 duck.json 登记, 不删源文件), 并重装清理脚本链接",
+    "rm": "移除已用 duck add 添加的单脚本命令(.py 删登记/.sh 删副本), 并重装清理包装脚本",
     "dir": "打印 duck-rush 项目根目录的绝对路径",
     "meta": "展示安装元数据 (~/.duck-rush/duck.json) 的关键信息",
     "help": "进入交互式帮助浏览器 (TUI): 方向键浏览全部 duck-* 工具, Enter 启动, `/` 筛选",
@@ -420,6 +540,8 @@ EPILOG = (
     + "  duck h                         同 duck help\n"
     + "  duck add-src-dir ~/my-tools   登记外部工具源码目录并生成脚本链接\n"
     + "  duck add ~/my-tool.py         把单个脚本文件注册为命令(生成其包装脚本)\n"
+    + "  duck rm-src-dir ~/my-tools    移除已登记的外部源码目录并清理脚本链接\n"
+    + "  duck rm my-tool               移除已用 duck add 添加的单脚本命令并清理包装脚本\n"
     + "  duck install <命令>           只安装指定命令(生成其包装脚本, 跳过完整安装)\n"
 )
 

@@ -97,6 +97,18 @@ class InstallMeta:
         self.external_src_dirs.append(d)
         return True
 
+    def remove_external_src_dir(self, d: str) -> bool:
+        """按绝对路径移除外部工具源码目录 (精确匹配)。
+
+        返回是否真的发生了移除; 未登记则返回 False。调用方应自行处理移除后的
+        重新安装(清理 bin 目录下的过期包装脚本)。
+        """
+        d = os.path.abspath(os.path.expanduser(d))
+        if d not in self.external_src_dirs:
+            return False
+        self.external_src_dirs.remove(d)
+        return True
+
     def get_external_src_dirs(self) -> List[str]:
         """返回已登记且仍然存在的外部工具源码目录。"""
         return [d for d in self.external_src_dirs if os.path.isdir(d)]
@@ -111,6 +123,19 @@ class InstallMeta:
         if p in self.external_tools:
             return False
         self.external_tools.append(p)
+        return True
+
+    def remove_external_tool(self, p: str) -> bool:
+        """按绝对路径移除用 `duck add` 单独添加的脚本原始路径 (精确匹配)。
+
+        返回是否真的发生了移除; 未登记则返回 False。注意: 该方法只移除名单中的
+        登记项, 不会删除脚本原始文件(位于仓库/用户自己的目录)。复制到 external-tools
+        的 .sh 副本由其它的清理逻辑处理。调用方应自行处理移除后的重新安装。
+        """
+        p = os.path.abspath(os.path.expanduser(p))
+        if p not in self.external_tools:
+            return False
+        self.external_tools.remove(p)
         return True
 
     def get_external_tools(self) -> List[str]:
