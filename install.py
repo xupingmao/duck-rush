@@ -225,6 +225,14 @@ def get_external_roots() -> List[str]:
         return []
 
 
+def get_external_tools() -> List[str]:
+    """读取用 `duck add` 单独添加、且仍然存在的脚本原始路径(不存在时返回空列表)。"""
+    try:
+        return InstallMeta.load().get_external_tools()
+    except Exception:
+        return []
+
+
 def _resolve_python() -> str:
     """解析用于包装脚本的 python 路径: 优先已安装的 venv python, 否则回退当前 python。"""
     try:
@@ -236,8 +244,8 @@ def _resolve_python() -> str:
     return sys.executable
 
 
-def collect_commands(extra_roots: Optional[List[str]] = None):
-    '''收集所有命令并生成命令列表(含外部源码目录)。'''
+def collect_commands(extra_roots: Optional[List[str]] = None, extra_files: Optional[List[str]] = None):
+    '''收集所有命令并生成命令列表(含外部源码目录与单独添加的外部脚本)。'''
     commands = []
     index = 0
 
@@ -270,6 +278,23 @@ def collect_commands(extra_roots: Optional[List[str]] = None):
                 commands.append(command)
                 index += 1
 
+    # 单独添加的外部工具(由 `duck add` 登记原始路径, 不复制, 启动器直接指向该路径)
+    for fpath in (extra_files or []):
+        if not os.path.isfile(fpath):
+            continue
+        name, ext = os.path.splitext(os.path.basename(fpath))
+        if ext not in InstallConfig.code_ext_set:
+            continue
+        command = {
+            'id': index + 1,
+            'name': name,
+            'path': os.path.abspath(fpath),
+            'category': 'external',
+            'extension': ext
+        }
+        commands.append(command)
+        index += 1
+
     return commands
 
 
@@ -295,7 +320,7 @@ def generate_command_desc(python: str, extra_roots: Optional[List[str]] = None) 
     """
     import subprocess as _sp
 
-    commands = collect_commands(extra_roots)
+    commands = collect_commands(extra_roots, get_external_tools())
     if not commands:
         return
 
@@ -440,11 +465,20 @@ class WindowsInstaller:
                 os.remove(fpath)
                 print("删除过期脚本: %s" % fpath)
 
-    def install(self, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
+    def install(self, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None, external_files: Optional[List[str]] = None):
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)
 
         self.create_bat_files([SRC_PATH] + (extra_roots or []), filter_names=filter_names)
+        # 单独添加的外部脚本(原始路径, 不复制): 为其中的 .py 生成指向源文件的 .bat 启动器
+        for fpath in (external_files or []):
+            if not os.path.isfile(fpath):
+                continue
+            fb = os.path.basename(fpath)
+            if filter_names is not None and os.path.splitext(fb)[0] not in filter_names:
+                continue
+            # create_file 仅处理 .py (其余扩展名直接返回, 与 .sh 在 Windows 下不生成包装一致)
+            self.create_file(fpath)
         # 仅安装指定命令时不清理其它已存在的脚本, 避免误删
         if filter_names is None:
             self.remove_stale_files()
@@ -468,14 +502,14 @@ def _ps_quote(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
-def install_for_windows(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
+def install_for_windows(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None, external_files: Optional[List[str]] = None):
     print("准备安装duck_rush (windows平台) ...")
     makedirs(DUCK_RUSH_HOME)
     makedirs(BIN_DIR)
     makedirs(DATA_DIR)
 
     installer = WindowsInstaller(BIN_DIR, python)
-    installer.install(extra_roots, filter_names=filter_names)
+    installer.install(extra_roots, filter_names=filter_names, external_files=external_files)
 
     add_path_windows(BIN_DIR)
 
@@ -563,7 +597,7 @@ def build_unix_start_code(fpath: str, ext: str, python: str) -> str:
     return ""
 
 
-def install_for_unix(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None):
+def install_for_unix(python, extra_roots: Optional[List[str]] = None, filter_names: Optional[Set[str]] = None, external_files: Optional[List[str]] = None):
     log_info("准备安装duck_rush ... ")
 
     makedirs(DUCK_RUSH_HOME)
@@ -609,6 +643,33 @@ def install_for_unix(python, extra_roots: Optional[List[str]] = None, filter_nam
                     fp.write(start_code)
                 log_info("[%03d]更新脚本[%r]", index+1, fpath)
                 index += 1
+
+    # 单独添加的外部脚本(原始路径, 不复制): 生成指向源文件的 bash 启动器
+    for fpath in (external_files or []):
+        if not os.path.isfile(fpath):
+            continue
+        fname = os.path.basename(fpath)
+        name, ext = os.path.splitext(fname)
+        if filter_names is not None and name not in filter_names:
+            continue
+        expected_names.add(name)
+
+        start_code = build_unix_start_code(os.path.abspath(fpath), ext, python)
+        if not start_code:
+            continue
+        start_file = os.path.abspath(os.path.join(BIN_DIR, name))
+        if os.path.exists(start_file):
+            with open(start_file) as fp:
+                old_code = fp.read()
+            if old_code == start_code:
+                log_info("[%03d]跳过(无变化)[%r]", index+1, fpath)
+                index += 1
+                continue
+        makedirs(os.path.dirname(start_file))
+        with open(start_file, "w") as fp:
+            fp.write(start_code)
+        log_info("[%03d]更新脚本[%r]", index+1, fpath)
+        index += 1
 
     # 第2步：删除不再需要的旧脚本(仅完整安装时清理)
     if filter_names is None and os.path.exists(BIN_DIR):
@@ -685,13 +746,13 @@ def do_install():
     external_roots = meta.get_external_src_dirs()
 
     if env == "nt":
-        install_for_windows(venv_python, external_roots)
+        install_for_windows(venv_python, external_roots, external_files=get_external_tools())
     else:
-        install_for_unix(venv_python, external_roots)
+        install_for_unix(venv_python, external_roots, external_files=get_external_tools())
 
     # 收集并保存命令列表 (含外部源码目录)
     print("\n收集命令列表...")
-    commands = collect_commands(external_roots)
+    commands = collect_commands(external_roots, get_external_tools())
     save_commands(commands)
 
     # 生成命令简介缓存 (供 duck list 使用, 含外部命令)
@@ -721,7 +782,7 @@ def install_specific(commands: List[str]) -> None:
     makedirs(BIN_DIR)
     makedirs(DATA_DIR)
 
-    all_cmds = collect_commands(get_external_roots())
+    all_cmds = collect_commands(get_external_roots(), get_external_tools())
     matched = [c for c in all_cmds if c["name"] in set(commands)]
     found = {c["name"] for c in matched}
     for name in sorted(set(commands) - found):
@@ -732,9 +793,9 @@ def install_specific(commands: List[str]) -> None:
 
     filter_names = {c["name"] for c in matched}
     if os.name == "nt":
-        install_for_windows(python, get_external_roots(), filter_names=filter_names)
+        install_for_windows(python, get_external_roots(), filter_names=filter_names, external_files=get_external_tools())
     else:
-        install_for_unix(python, get_external_roots(), filter_names=filter_names)
+        install_for_unix(python, get_external_roots(), filter_names=filter_names, external_files=get_external_tools())
 
     print("")
     print("已安装 %d 个指定命令的包装脚本: %s"
@@ -764,7 +825,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.list:
-        for cmd in collect_commands(get_external_roots()):
+        for cmd in collect_commands(get_external_roots(), get_external_tools()):
             print(cmd["name"])
         return
     # 支持 `install.py duck_utils` 写法

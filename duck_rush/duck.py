@@ -93,7 +93,12 @@ def get_external_src_dirs() -> List[str]:
     return InstallMeta.load().get_external_src_dirs()
 
 
-def get_command_list(extra_roots: Optional[List[str]] = None) -> list:
+def get_external_tools() -> List[str]:
+    """返回已用 `duck add` 单独添加、且仍然存在的脚本原始路径列表。"""
+    return InstallMeta.load().get_external_tools()
+
+
+def get_command_list(extra_roots: Optional[List[str]] = None, extra_files: Optional[List[str]] = None) -> list:
     duck_dir = os.path.dirname(os.path.abspath(__file__))
     command_list = []
     roots = [duck_dir] + (extra_roots or [])
@@ -116,6 +121,10 @@ def get_command_list(extra_roots: Optional[List[str]] = None) -> list:
                     continue
                 fpath = os.path.join(root, fname)
                 command_list.append(DuckCommand(fpath))
+    # 单独添加的外部脚本(原始路径, 不复制): 直接作为命令纳入
+    for fpath in (extra_files or []):
+        if os.path.isfile(fpath):
+            command_list.append(DuckCommand(fpath))
     return command_list
 
 
@@ -182,7 +191,7 @@ def get_desc_by_help(cmd: "DuckCommand", timeout: int = 3) -> str:
 
 def list_command_func(args: argparse.Namespace) -> None:
     short = bool(args.short)
-    commands = get_command_list(get_external_src_dirs())
+    commands = get_command_list(get_external_src_dirs(), get_external_tools())
     cache = load_desc_cache()
     need_save = False
     for cmd in commands:
@@ -233,15 +242,19 @@ def add_src_dir_func(args):
 
 ADD_TOOL_USAGE = "用法: duck add <脚本路径> [<脚本路径> ...]\n" \
                   "  把单个 .py/.sh 脚本文件注册为 duck 工具:\n" \
-                  "  1. 复制到 ~/.duck-rush/external-tools/\n" \
-                  "  2. 登记该目录为外部源码目录(重装后依然生效)\n" \
-                  "  3. 生成对应的命令包装脚本(支持 `duck <文件名>` 直接调用)"
+                  "  .py: 不复制, 记录原始路径并在 ~/.duck-rush/bin 生成启动器\n" \
+                  "       (Windows: .bat, 其它平台: bash) 直接执行源文件\n" \
+                  "  .sh: 复制到 ~/.duck-rush/external-tools/ 并登记该目录\n" \
+                  "  二者均登记到 duck.json, 重装/升级后依然生效"
 
 def add_tool_func(args):
     """把单个脚本文件注册为 duck 工具(外部工具目录 + 包装脚本)。
 
     与 add-src-dir(整目录)不同, 这里只接收具体的脚本文件, 适合零散地
     把一两个现成脚本纳入 duck-rush 体系, 而不必专门建一个源码目录。
+
+    Python 脚本不再复制, 而是把原始路径记入 duck.json 的 external_tools,
+    由 install.py 生成指向源文件的启动器(.bat/.sh), 这样源文件更新后无需重新 add。
     """
     if args.args and args.args[0] in ("-h", "--help"):
         print(ADD_TOOL_USAGE)
@@ -252,9 +265,6 @@ def add_tool_func(args):
 
     meta = InstallMeta.load()
     ext_dir = os.path.join(get_duck_rush_home(), "external-tools")
-    # 首次使用时登记外部工具目录, 使后续 `duck upgrade` / 完整安装能保留这些工具
-    if meta.add_external_src_dir(ext_dir):
-        meta.save()
 
     installed: List[str] = []
     for raw in args.args:
@@ -266,12 +276,23 @@ def add_tool_func(args):
         if ext not in (".py", ".sh"):
             sys.stderr.write("仅支持 .py / .sh 脚本: %s\n" % src)
             continue
-        # 同一文件重复 add 时覆盖, 便于更新脚本后刷新包装脚本
-        os.makedirs(ext_dir, exist_ok=True)
-        dest = os.path.join(ext_dir, os.path.basename(src))
-        shutil.copy2(src, dest)
-        installed.append(os.path.splitext(os.path.basename(src))[0])
-        print("已复制脚本: %s -> %s" % (src, dest))
+        name = os.path.splitext(os.path.basename(src))[0]
+        if ext == ".py":
+            # Python 不复制: 记录原始路径, install.py 据此生成指向源文件的启动器
+            if meta.add_external_tool(src):
+                meta.save()
+            installed.append(name)
+            print("已登记脚本(不复制, 生成启动器): %s" % src)
+        else:
+            # shell 脚本沿用复制策略, 复制到外部工具目录并登记
+            if meta.add_external_src_dir(ext_dir):
+                meta.save()
+            os.makedirs(ext_dir, exist_ok=True)
+            dest = os.path.join(ext_dir, os.path.basename(src))
+            # 同一文件重复 add 时覆盖, 便于更新脚本后刷新包装脚本
+            shutil.copy2(src, dest)
+            installed.append(name)
+            print("已复制脚本: %s -> %s" % (src, dest))
 
     if not installed:
         sys.stderr.write("没有可注册的脚本, 未生成任何包装脚本\n")
@@ -321,7 +342,7 @@ def help_func(args):
 def default_func(args):
     action = args.action
     log_debug(args)
-    commands = get_command_list(get_external_src_dirs())
+    commands = get_command_list(get_external_src_dirs(), get_external_tools())
     matches  = []
     for cmd in commands:
         if cmd.match(action):

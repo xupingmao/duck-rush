@@ -24,6 +24,8 @@ class InstallMeta:
     python:             虚拟环境 Python 解释器的绝对路径
     src_dir:            duck-rush 源码目录 (仓库内 duck_rush/)
     external_src_dirs:  已登记的外部工具源码目录列表
+    external_tools:     已用 `duck add` 单独添加的脚本原始绝对路径列表
+                        (不复制, 仅记录原路径以便生成指向它的启动器)
     """
 
     version: str = "1.0"
@@ -33,6 +35,7 @@ class InstallMeta:
     python: str = ""
     src_dir: str = ""
     external_src_dirs: List[str] = field(default_factory=list)
+    external_tools: List[str] = field(default_factory=list)
 
     @classmethod
     def meta_path(cls) -> str:
@@ -60,6 +63,7 @@ class InstallMeta:
             python=str(data.get("python", "")),
             src_dir=str(data.get("src_dir", "")),
             external_src_dirs=[str(d) for d in (data.get("external_src_dirs") or [])],
+            external_tools=[str(p) for p in (data.get("external_tools") or [])],
         )
 
     def to_dict(self) -> dict:
@@ -72,6 +76,7 @@ class InstallMeta:
             "python": self.python,
             "src_dir": self.src_dir,
             "external_src_dirs": list(self.external_src_dirs),
+            "external_tools": list(self.external_tools),
         }
 
     def save(self) -> None:
@@ -95,3 +100,19 @@ class InstallMeta:
     def get_external_src_dirs(self) -> List[str]:
         """返回已登记且仍然存在的外部工具源码目录。"""
         return [d for d in self.external_src_dirs if os.path.isdir(d)]
+
+    def add_external_tool(self, p: str) -> bool:
+        """追加用 `duck add` 单独添加的脚本原始绝对路径 (去重)。
+
+        与 external_src_dirs(整目录)不同, 这里记录的是单个文件, 且不复制文件,
+        仅记录其原始路径以便生成指向它的启动器。返回是否新增; 已存在返回 False。
+        """
+        p = os.path.abspath(os.path.expanduser(p))
+        if p in self.external_tools:
+            return False
+        self.external_tools.append(p)
+        return True
+
+    def get_external_tools(self) -> List[str]:
+        """返回已登记且仍然存在的外部工具脚本原始路径。"""
+        return [p for p in self.external_tools if os.path.isfile(p)]
