@@ -51,6 +51,11 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
   - 例外：`duck_utils` 等共享工具包、纯 Python 2 第三方库（如 `html2text.py`）、`editor/sublime-text/*`
     等插件不属于独立 CLI 命令，不受此前缀约束；以 `__` 或 `test_` 开头的模块及以 `_util.py` 结尾的
     辅助模块本就不会被注册为命令。
+- **复杂命令的多文件组织**：当一个命令需要多个文件实现时，**入口脚本（带 `duck-` 前缀的 CLI
+  脚本）以外的所有辅助模块都必须放到 `duck_utils` 模块下**（按功能建子包，如 `duck_utils/find_assign/`），
+  由入口脚本通过 `from duck_utils.<子包> import ...` 引用。不要把辅助模块散落在命令目录
+  （如 `duck_rush/code/code-tools/`）里——它们不以 `duck-` 前缀开头、又不以 `_util.py` 结尾时，
+  会被 `install.py` 误当作独立命令安装成"幽灵命令"，并污染 `duck list`。
 - **gitignore** 已忽略 `local/`、`data/`、`gui-tools/`、`*.local.json`、构建产物
 - **Git远程**：`github` → github.com/xupingmao/duck-rush，`origin` → gitee.com/xupingmao/duck-rush
 - **跨平台**：使用 `duck_utils/os_util.py` 的 `is_windows/is_mac/is_linux` 判断平台

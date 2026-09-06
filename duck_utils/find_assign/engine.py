@@ -1,18 +1,20 @@
 # -*- coding:utf-8 -*-
-# @filename find_assign_engine.py
+# @filename duck_utils/find_assign/engine.py
 # @description 赋值搜索核心引擎(高内聚): 负责文件读取、注释剥离、逐行匹配与结果收集。
 #
-# 引擎只依赖 LanguagePlugin 接口(见 find_assign_lang)与 NameVariants(见
-# find_assign_name), 不内含任何具体语言规则 —— 语言差异全部通过 plugin 注入,
-# 从而实现"搜索逻辑高内聚、语言匹配逻辑低耦合"。
+# 引擎只依赖 LanguagePlugin 接口(见 duck_utils.find_assign.lang)与 NameVariants
+# (见 duck_utils.find_assign.name), 不内含任何具体语言规则 —— 语言差异全部通过
+# plugin 注入, 从而实现"搜索逻辑高内聚、语言匹配逻辑低耦合"。
 
 import os
 import re
+import sys
 from typing import Any, List, Optional, Tuple
 
-from find_assign_name import NameVariants
-from find_assign_lang import (GENERIC_PLUGIN, KNOWN_EXTENSIONS, LanguagePlugin,
-                              get_plugin_by_ext, get_plugin_by_name)
+from duck_utils.find_assign.name import NameVariants
+from duck_utils.find_assign.lang import (GENERIC_PLUGIN, KNOWN_EXTENSIONS,
+                                          LanguagePlugin, get_plugin_by_ext,
+                                          get_plugin_by_name)
 
 # re.compile 返回值在 3.6 运行期没有 re.Pattern 这个名字
 Pattern = Any
@@ -205,7 +207,6 @@ class AssignmentFinder:
 
     def search_stdin(self, label: str = "-") -> Optional[FileResult]:
         plugin = self._lang_plugin or GENERIC_PLUGIN
-        import sys
         data = sys.stdin.read()
         matches = self._search_text(data, plugin)
         return (label, matches) if matches else None

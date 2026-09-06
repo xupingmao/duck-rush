@@ -1,10 +1,10 @@
 # -*- coding:utf-8 -*-
-# @filename find_assign_lang.py
+# @filename duck_utils/find_assign/lang.py
 # @description 语言相关的赋值匹配逻辑(与搜索算法解耦)。
 #
 # 设计要点(满足"语言相关逻辑低耦合"):
 #   - 每种语言用一个 LanguagePlugin 描述其"注释写法 / 赋值运算符 / 是否支持
-#     setXxx setter"等事实, 引擎 find_assign_engine 只依赖 LanguagePlugin 接口,
+#     setXxx setter"等事实, 引擎只依赖 LanguagePlugin 接口,
 #     不关心任何具体语言细节。
 #   - 引擎通过扩展名查表得到对应 plugin; 也支持 --lang 直接按名称取 plugin。
 #   - 其余语言(未注册)用 GENERIC_PLUGIN 兜底, 仅做最通用的 = / := 匹配。
@@ -12,7 +12,7 @@
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from find_assign_name import NameVariants
+from duck_utils.find_assign.name import NameVariants
 
 # re.compile 返回值在 3.6 运行期没有 re.Pattern 这个名字, 用 Any 标注返回值
 Pattern = Any

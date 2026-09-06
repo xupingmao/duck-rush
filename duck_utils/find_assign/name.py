@@ -1,12 +1,11 @@
 # -*- coding:utf-8 -*-
-# @filename find_assign_name.py
+# @filename duck_utils/find_assign/name.py
 # @description 命名变体生成: 将一个名字拆词, 派生出 camelCase / PascalCase /
 #              snake_case / SCREAMING_SNAKE 等多种形式, 以及 setXXX / set_xxx
 #              两种 setter 形式。搜索本身大小写不敏感(引擎用 IGNORECASE), 这里
 #              只负责"同一语义在不同命名风格下的等价写法"。
 #
-# 该模块与具体编程语言无关(高内聚于"命名"), 供 find_assign_engine 与
-# find_assign_lang 复用。
+# 该模块与具体编程语言无关(高内聚于"命名"), 供 engine 与 lang 复用。
 
 import re
 from typing import List, Set

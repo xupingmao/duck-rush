@@ -6,7 +6,7 @@
 #              setXxx / set_xxx 形式的 setter 赋值。覆盖 Python / Go / JS(TS) /
 #              Java / C / C++ 等语言。
 #
-# 搜索逻辑与语言匹配逻辑分离: 核心在 find_assign_engine, 语言差异在 find_assign_lang。
+# 搜索逻辑与语言匹配逻辑分离: 核心在 duck_utils.find_assign.engine, 语言差异在 duck_utils.find_assign.lang。
 
 import sys
 import io
@@ -15,8 +15,7 @@ import re
 import argparse
 from typing import List, Optional
 
-from find_assign_engine import AssignmentFinder, DEFAULT_MAX_SIZE
-from find_assign_lang import list_lang_names
+from duck_utils.find_assign import AssignmentFinder, DEFAULT_MAX_SIZE, list_lang_names
 
 # 浅色(明亮)配色, 满足 AGENTS 规范(深色背景下清晰可读)
 C_FILE = "\033[94m"    # bright blue
