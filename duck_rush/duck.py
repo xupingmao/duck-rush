@@ -325,6 +325,39 @@ def dir_func(args):
     project_root = get_project_root()
     print(project_root)
 
+META_USAGE = "用法: duck meta [-h|--help]\n" \
+             "  展示安装元数据 (~/.duck-rush/duck.json) 的关键信息:\n" \
+             "  version / install_dir / bin_dir / data_dir / python / src_dir\n" \
+             "  以及已登记的外部源码目录(external_src_dirs)与单独添加的外部脚本(external_tools)"
+
+def meta_func(args):
+    """展示安装元数据 (~/.duck-rush/duck.json) 的关键信息。"""
+    if args.args and args.args[0] in ("-h", "--help"):
+        print(META_USAGE)
+        return
+    meta = InstallMeta.load()
+    rows = [
+        ("version", meta.version),
+        ("install_dir", meta.install_dir),
+        ("bin_dir", meta.bin_dir),
+        ("data_dir", meta.data_dir),
+        ("python", meta.python),
+        ("src_dir", meta.src_dir),
+    ]
+    print("%s 安装元数据 (~/.duck-rush/duck.json):" % "[duck-rush]")
+    for key, value in rows:
+        print("  %-12s %s" % (key, value))
+    print("  %-12s" % "external_src_dirs")
+    for d in meta.get_external_src_dirs():
+        print("    - %s" % d)
+    if not meta.get_external_src_dirs():
+        print("    (无)")
+    print("  %-12s" % "external_tools")
+    for p in meta.get_external_tools():
+        print("    - %s" % p)
+    if not meta.get_external_tools():
+        print("    (无)")
+
 def help_func(args):
     # `duck help -h` / `duck h -h` 仅打印用法, 不得启动 TUI (无副作用)
     if args.args and args.args[0] in ("-h", "--help"):
@@ -377,6 +410,7 @@ ACTION_FUNC_DICT = {
     "add-src-dir": add_src_dir_func,
     "add": add_tool_func,
     "dir": dir_func,
+    "meta": meta_func,
     "help": help_func,
     "h": help_func,
 }
@@ -388,6 +422,7 @@ ACTION_DESC = {
     "add-src-dir": "登记外部工具源码目录, 更新 duck.json 并重新生成脚本链接",
     "add": "把单个脚本文件(.py/.sh)注册为 duck 工具: 复制到外部工具目录、登记并生成包装脚本",
     "dir": "打印 duck-rush 项目根目录的绝对路径",
+    "meta": "展示安装元数据 (~/.duck-rush/duck.json) 的关键信息",
     "help": "进入交互式帮助浏览器 (TUI): 方向键浏览全部 duck-* 工具, Enter 启动, `/` 筛选",
     "h": "help 的别名, 进入交互式帮助浏览器 (TUI)",
 }
@@ -400,6 +435,7 @@ EPILOG = (
     + "  duck list -s                   只打印命令名称\n"
     + "  duck <命令>                    执行某个命令 (如: duck duck-json -h)\n"
     + "  duck dir                       打印项目根目录\n"
+    + "  duck meta                      展示安装元数据 (~/.duck-rush/duck.json)\n"
     + "  duck help                      进入交互式帮助浏览器 (TUI), 方向键浏览并启动工具\n"
     + "  duck h                         同 duck help\n"
     + "  duck add-src-dir ~/my-tools   登记外部工具源码目录并生成脚本链接\n"
@@ -412,7 +448,7 @@ PARSER = argparse.ArgumentParser(
     epilog = EPILOG,
     formatter_class = argparse.RawDescriptionHelpFormatter,
 )
-PARSER.add_argument("action", nargs = "?", help = "操作 (list/install/upgrade/dir/help/h)", default = None)
+PARSER.add_argument("action", nargs = "?", help = "操作 (list/install/upgrade/dir/meta/help/h)", default = None)
 PARSER.add_argument("args", nargs = "*", help = "参数")
 PARSER.add_argument("-s", "--short", action = "store_true", help = "list 模式: 只打印命令名称, 不打印简介")
 
