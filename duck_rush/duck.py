@@ -331,32 +331,12 @@ META_USAGE = "用法: duck meta [-h|--help]\n" \
              "  以及已登记的外部源码目录(external_src_dirs)与单独添加的外部脚本(external_tools)"
 
 def meta_func(args):
-    """展示安装元数据 (~/.duck-rush/duck.json) 的关键信息。"""
+    """展示安装元数据 (~/.duck-rush/duck.json), 直接以 JSON 输出。"""
     if args.args and args.args[0] in ("-h", "--help"):
         print(META_USAGE)
         return
     meta = InstallMeta.load()
-    rows = [
-        ("version", meta.version),
-        ("install_dir", meta.install_dir),
-        ("bin_dir", meta.bin_dir),
-        ("data_dir", meta.data_dir),
-        ("python", meta.python),
-        ("src_dir", meta.src_dir),
-    ]
-    print("%s 安装元数据 (~/.duck-rush/duck.json):" % "[duck-rush]")
-    for key, value in rows:
-        print("  %-12s %s" % (key, value))
-    print("  %-12s" % "external_src_dirs")
-    for d in meta.get_external_src_dirs():
-        print("    - %s" % d)
-    if not meta.get_external_src_dirs():
-        print("    (无)")
-    print("  %-12s" % "external_tools")
-    for p in meta.get_external_tools():
-        print("    - %s" % p)
-    if not meta.get_external_tools():
-        print("    (无)")
+    print(json.dumps(meta.to_dict(), ensure_ascii=False, indent=2))
 
 def help_func(args):
     # `duck help -h` / `duck h -h` 仅打印用法, 不得启动 TUI (无副作用)
