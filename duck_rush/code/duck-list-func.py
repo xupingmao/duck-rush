@@ -187,13 +187,13 @@ def walk_dir(root: str) -> List[str]:
 
 
 def format_prefix(label: str, line_no: int, show_label: bool, line_number: bool) -> str:
-    parts = []
+    """构造输出前缀, 格式为 grep 风格: '{file_path}:{line_no}: ' (可单独出现其一)."""
+    if show_label and line_number:
+        return f"{label}:{line_no}: "
     if show_label:
-        parts.append(label)
+        return f"{label}: "
     if line_number:
-        parts.append(f"{line_no:4d}")
-    if parts:
-        return " │ ".join(parts) + " │ "
+        return f"{line_no}: "
     return ""
 
 
@@ -311,7 +311,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("files", nargs="*",
                         help="要搜索的文件或目录(不传则默认遍历当前目录; '-' 表示读取 stdin)")
-    parser.add_argument("-n", "--line-number", action="store_true", help="显示行号")
+    parser.add_argument("-n", "--line-number", action="store_true",
+                        help="显示行号(默认即显示, 此参数仅为兼容保留)")
+    parser.add_argument("--no-line-number", action="store_true", help="不显示行号")
     parser.add_argument("-l", "--files-with-matches", action="store_true",
                         help="只打印含函数定义的文件名(类似 grep -l)")
     parser.add_argument("--lang", type=str, default=None,
@@ -342,6 +344,9 @@ def main() -> None:
     # 是否显示文件名标签: 多个输入 / 含目录 / 显式 -H 时显示(除非 --no-filename)
     has_dir = any(inp != "-" and os.path.isdir(inp) for inp in inputs)
     show_label = (not args.no_filename) and (args.with_filename or len(inputs) > 1 or has_dir)
+
+    # 行号默认显示(文件名后即可见); --no-line-number 可关闭, -n 仅为兼容保留
+    line_number = args.line_number or (not args.no_line_number)
 
     # 展开输入: 目录递归遍历; "-" 表示读取管道(stdin), 需显式指定
     targets: List[str] = []
@@ -386,7 +391,7 @@ def main() -> None:
                 sys.stderr.write("duck-list-func: 疑似压缩代码, 已跳过\n")
                 sys.exit(2)
             scan_lines(specs, class_pat, lang, lines, "", False,
-                       args.line_number, args.files_with_matches)
+                       line_number, args.files_with_matches)
             continue
 
         fpath = target
@@ -429,7 +434,7 @@ def main() -> None:
             continue
 
         hit = scan_lines(specs, class_pat, lang, lines, fpath, show_label,
-                         args.line_number, args.files_with_matches)
+                         line_number, args.files_with_matches)
         if args.files_with_matches and hit:
             print(fpath)
 
