@@ -23,6 +23,12 @@
   交互确认后才批量执行 (-y/--yes 跳过确认, -n/--dry-run 只预览不执行)
 * 支持从管道读取待处理文件列表: 加 -i/--stdin 后, 从标准输入按行读取文件路径
   代替扫描目录 (每行一个文件; 空行与 # 开头的注释行会被忽略)
+
+用法示例:
+* duck-rename add-prefix ./photos img_
+* duck-rename add-suffix ./photos _v2 -n
+* duck-rename remove-date-prefix ./photos -r -y
+* duck-find . --name "*.jpg" | duck-rename add-prefix img_ -i -y
 """
 import argparse
 import logging
@@ -51,6 +57,23 @@ DATE_COMMANDS = ("add-date-prefix", "remove-date-prefix")
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 DEFAULT_DATE_SEP = "_"
+
+# 管道输入的用法说明, 作为各重命名子命令 -h 的 epilog
+PIPE_USAGE = """\
+管道输入文件列表 (-i/--stdin, 每行一个路径, 空行与 # 开头的行忽略):
+  duck-find . --name "*.jpg" | duck-rename add-prefix img_ -i -y
+注意: 使用 -i 时忽略目录参数; 标准输入被管道占用无法交互确认,
+      需加 -y/--yes 执行, 或用 -n/--dry-run 只预览。
+"""
+
+MAIN_EPILOG = """\
+示例:
+  duck-rename add-prefix ./photos img_            # 加前缀 img_
+  duck-rename add-suffix ./photos _v2 -n          # 预览: 扩展名前加 _v2 (a.jpg -> a_v2.jpg)
+  duck-rename remove-date-prefix ./photos -r -y   # 递归删除日期前缀, 不确认直接执行
+  duck-rename encode ./data -d 2                  # base64 编码文件名, 最大递归 2 层
+
+""" + PIPE_USAGE
 
 # 支持的 strftime 令牌 -> 对应的正则片段
 DATE_TOKEN_MAP = {
@@ -430,18 +453,20 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-y", "--yes", action="store_true",
                         help="跳过交互确认直接执行")
     parser.add_argument("-i", "--stdin", action="store_true",
-                        help="从标准输入按行读取待处理的文件列表, 代替扫描目录")
+                        help="从标准输入按行读取待处理的文件列表, 代替扫描目录(忽略目录参数)")
 
 
 def add_dir_args(parser: argparse.ArgumentParser) -> None:
     """为按路径处理的命令添加 目录 + 公共参数"""
-    parser.add_argument("dirname", nargs="?", default="./", help="目标目录(默认当前目录)")
+    parser.add_argument("dirname", nargs="?", default="./",
+                        help="目标目录(默认当前目录; -i 时该参数被忽略)")
     add_common_args(parser)
 
 
 def add_batch_args(parser: argparse.ArgumentParser, text_help: str) -> None:
     """为前后缀增删命令添加公共参数"""
-    parser.add_argument("dirname", nargs="?", default="./", help="目标目录(默认当前目录)")
+    parser.add_argument("dirname", nargs="?", default="./",
+                        help="目标目录(默认当前目录; -i 时该参数被忽略)")
     parser.add_argument("text", help=text_help)
     add_common_args(parser)
 
@@ -455,50 +480,74 @@ def add_date_args(parser: argparse.ArgumentParser) -> None:
 
 
 if __name__ == "__main__":
+    def new_parser(name: str, help_text: str, epilog: Optional[str] = None) -> argparse.ArgumentParser:
+        """创建子命令解析器, 保留 epilog 中的换行与缩进"""
+        return subparsers.add_parser(
+            name,
+            help=help_text,
+            epilog=epilog,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+
     parser = argparse.ArgumentParser(
         description="文件名批量编解码与前后缀/日期前缀增删工具;"
-                    "重命名命令先打印计划并交互确认, 支持 -i 从管道读取文件列表")
+                    "重命名命令先打印计划并交互确认, 支持 -i 从管道读取文件列表",
+        epilog=MAIN_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     subparsers = parser.add_subparsers(dest="command", help="子命令")
 
-    encode_parser = subparsers.add_parser("encode", help="对文件名进行base64编码")
+    encode_parser = new_parser(
+        "encode", "对文件名进行base64编码",
+        "示例: duck-rename encode ./data -d 2")
     encode_parser.add_argument("dirname", nargs="?", default="./", help="目录路径")
     encode_parser.add_argument(
         "-d", "--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
         help="递归最大深度, 默认 %s" % DEFAULT_MAX_DEPTH)
 
-    decode_parser = subparsers.add_parser("decode", help="对文件名进行base64解码")
+    decode_parser = new_parser(
+        "decode", "对文件名进行base64解码",
+        "示例: duck-rename decode ./data")
     decode_parser.add_argument("dirname", nargs="?", default="./", help="目录路径")
     decode_parser.add_argument(
         "-d", "--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
         help="递归最大深度, 默认 %s" % DEFAULT_MAX_DEPTH)
 
-    add_prefix_parser = subparsers.add_parser("add-prefix", help="批量添加文件前缀")
+    add_prefix_parser = new_parser(
+        "add-prefix", "批量添加文件前缀",
+        "示例: duck-rename add-prefix ./photos img_ -n" + "\n" + PIPE_USAGE)
     add_batch_args(add_prefix_parser, "要添加的前缀文本")
 
-    remove_prefix_parser = subparsers.add_parser("remove-prefix", help="批量删除文件前缀")
+    remove_prefix_parser = new_parser(
+        "remove-prefix", "批量删除文件前缀",
+        "示例: duck-rename remove-prefix ./photos img_ -y" + "\n" + PIPE_USAGE)
     add_batch_args(remove_prefix_parser, "要删除的前缀文本")
 
-    add_suffix_parser = subparsers.add_parser(
-        "add-suffix", help="批量添加文件后缀(扩展名之前)")
+    add_suffix_parser = new_parser(
+        "add-suffix", "批量添加文件后缀(扩展名之前)",
+        "示例: duck-rename add-suffix ./photos _v2      # a.jpg -> a_v2.jpg\n"
+        "      duck-rename add-suffix ./photos _bak -a  # a.jpg -> a.jpg_bak\n"
+        + PIPE_USAGE)
     add_batch_args(add_suffix_parser, "要添加的后缀文本")
     add_suffix_parser.add_argument(
         "-a", "--after-ext", action="store_true",
         help="追加到扩展名之后(如 a.txt + _bak => a.txt_bak)")
 
-    remove_suffix_parser = subparsers.add_parser(
-        "remove-suffix", help="批量删除文件后缀(扩展名之前)")
+    remove_suffix_parser = new_parser(
+        "remove-suffix", "批量删除文件后缀(扩展名之前)",
+        "示例: duck-rename remove-suffix ./photos _v2\n"
+        "      duck-rename remove-suffix ./photos _bak -a\n" + PIPE_USAGE)
     add_batch_args(remove_suffix_parser, "要删除的后缀文本")
     remove_suffix_parser.add_argument(
         "-a", "--after-ext", action="store_true",
         help="从完整文件名末尾删除(对应 add-suffix --after-ext 的结果)")
 
-    add_date_parser = subparsers.add_parser(
-        "add-date-prefix", help="按文件创建日期批量添加日期前缀(如 2026-09-08_xxx)")
+    add_date_parser = new_parser(
+        "add-date-prefix", "按文件创建日期批量添加日期前缀(如 2026-09-08_xxx)")
     add_dir_args(add_date_parser)
     add_date_args(add_date_parser)
 
-    remove_date_parser = subparsers.add_parser(
-        "remove-date-prefix", help="批量删除文件日期前缀(与 add-date-prefix 参数对应)")
+    remove_date_parser = new_parser(
+        "remove-date-prefix", "批量删除文件日期前缀(与 add-date-prefix 参数对应)")
     add_dir_args(remove_date_parser)
     add_date_args(remove_date_parser)
 
