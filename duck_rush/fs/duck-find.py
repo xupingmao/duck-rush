@@ -194,6 +194,13 @@ class FileFinder:
         self.max_size = -1
         self.find_empty_files = False
         self.find_empty_dirs = False
+        self.include_git = False
+
+    def is_dir_ignored(self, dirname: str) -> bool:
+        """判断目录是否需要跳过（默认忽略 .git, 可用 --include-git 重新开启）"""
+        if not self.include_git and dirname == ".git":
+            return True
+        return False
 
     def set_min_size(self, min_size_str):
         self.min_size = parse_file_size(min_size_str, "min_size")
@@ -292,6 +299,10 @@ class FileFinder:
         count = 0
         
         for root, dirs, files in os.walk(self.dirname):
+            has_sub_dir = len(dirs) > 0
+            # 原地剪枝, 让 os.walk 不再进入被忽略的目录
+            dirs[:] = [d for d in dirs if not self.is_dir_ignored(d)]
+
             for fname in files:
                 fpath = os.path.join(root, fname)
                 # print("process %s ..." % fpath)
@@ -333,7 +344,7 @@ class FileFinder:
                 self.move_file(fpath)
 
             # --empty-dirs: 列出空目录 (既没有子文件也没有子目录)
-            if self.find_empty_dirs and len(dirs) == 0 and len(files) == 0:
+            if self.find_empty_dirs and not has_sub_dir and len(files) == 0:
                 count += 1
 
                 if print_base_name:
@@ -393,6 +404,7 @@ def main():
     parser.add_argument("--max-size", default = "", help = "文件大小上限")
     parser.add_argument("--empty-files", action = "store_true", help = "只列出空文件(大小为0)")
     parser.add_argument("--empty-dirs", action = "store_true", help = "只列出空目录(没有任何子文件/子目录)")
+    parser.add_argument("--include-git", action = "store_true", help = "搜索 .git 目录(默认忽略)")
     parser.add_argument("--debug", action="store_true", help="打印调试信息")
     args = parser.parse_args()
 
@@ -412,6 +424,7 @@ def main():
     finder.set_max_size(args.max_size)
     finder.find_empty_files = args.empty_files
     finder.find_empty_dirs = args.empty_dirs
+    finder.include_git = args.include_git
 
     finder.execute()
     sys.stdout.flush()
