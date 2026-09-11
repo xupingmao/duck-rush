@@ -6,8 +6,13 @@ import os
 import sys
 import shutil
 import base64
+import logging
+import subprocess
 import time
+from typing import Optional
 from urllib.parse import unquote
+
+from duck_utils import os_util
 
 IS_PY2 = sys.version_info[0] == 2
 
@@ -159,3 +164,56 @@ def decode_name(name: str) -> str:
             pass
     return unquote(name)
 
+
+
+def _get_linux_birth_time(fpath: str) -> Optional[float]:
+    """Linux 上通过 `stat -c %W` 尽力获取创建时间 (birth time)
+
+    文件系统或 stat 命令不支持时返回 None。
+    """
+    try:
+        proc = subprocess.run(
+            ["stat", "-c", "%W", fpath],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    text = proc.stdout.decode("utf-8", errors="ignore").strip()
+    try:
+        value = int(text)
+    except ValueError:
+        return None
+    if value <= 0:
+        return None
+    return float(value)
+
+
+def get_file_create_time(fpath: str) -> float:
+    """跨平台获取文件创建时间戳 (秒, 浮点数)
+
+    策略:
+    * 优先 os.stat().st_birthtime (Windows Python>=3.12 / macOS / FreeBSD)
+    * Windows 旧版本: st_ctime 表示创建时间
+    * Linux: 标准库一般不暴露 birth time, 尝试 `stat -c %W` 命令,
+      仍失败则回退修改时间 (mtime) 并打印提示
+    """
+    st = os.stat(fpath)
+    birthtime = getattr(st, "st_birthtime", None)
+    if birthtime is not None and birthtime > 0:
+        return float(birthtime)
+    if os_util.is_windows():
+        # Windows 上 st_ctime 即创建时间 (st_birthtime 需 Python>=3.12)
+        return float(st.st_ctime)
+    if os_util.is_mac():
+        # macOS 一般可拿到 st_birthtime; 兜底
+        logging.warning("无法获取文件创建时间, 回退使用修改时间: %s", fpath)
+        return float(st.st_mtime)
+    # Linux
+    birth = _get_linux_birth_time(fpath)
+    if birth is not None:
+        return birth
+    logging.warning("当前平台无法获取文件创建时间, 回退使用修改时间: %s", fpath)
+    return float(st.st_mtime)

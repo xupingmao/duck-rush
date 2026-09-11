@@ -8,11 +8,11 @@
 * remove-prefix     - 批量删除文件前缀
 * add-suffix        - 批量添加文件后缀 (默认在扩展名之前)
 * remove-suffix     - 批量删除文件后缀 (默认删除扩展名之前的后缀)
-* add-date-prefix   - 按文件创建日期批量添加日期前缀 (如 2026-09-08_xxx)
+* add-date-prefix   - 按文件创建日期批量添加日期前缀 (如 20260908_xxx)
 * remove-date-prefix - 批量删除文件日期前缀
 
 日期前缀说明:
-* 日期默认取自文件创建时间, 格式默认 %Y-%m-%d, 前缀形如 2026-09-08_
+* 日期默认取自文件创建时间, 格式默认 %Y%m%d (yyyyMMdd), 前缀形如 20260908_
 * Windows: st_birthtime (Python>=3.12) 或 st_ctime (旧版本即创建时间)
 * macOS:   st_birthtime
 * Linux:   标准库一般不暴露创建时间, 优先尝试 `stat -c %W` 命令,
@@ -34,13 +34,12 @@ import argparse
 import logging
 import os
 import re
-import subprocess
 import sys
 import time
 from typing import Callable, List, Optional, Pattern, Tuple
 
 try:
-    from duck_utils import fs_util, os_util
+    from duck_utils import fs_util
 except ImportError:
     sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
     sys.exit(1)
@@ -55,7 +54,7 @@ DEFAULT_MAX_DEPTH = 5
 BATCH_COMMANDS = ("add-prefix", "remove-prefix", "add-suffix", "remove-suffix")
 DATE_COMMANDS = ("add-date-prefix", "remove-date-prefix")
 
-DEFAULT_DATE_FORMAT = "%Y-%m-%d"
+DEFAULT_DATE_FORMAT = "%Y%m%d"
 DEFAULT_DATE_SEP = "_"
 
 # 管道输入的用法说明, 作为各重命名子命令 -h 的 epilog
@@ -170,59 +169,6 @@ def remove_suffix_name(name: str, suffix: str, after_ext: bool = False) -> str:
     return name
 
 
-def _get_linux_birth_time(fpath: str) -> Optional[float]:
-    """Linux 上通过 `stat -c %W` 尽力获取创建时间 (birth time)
-
-    文件系统或 stat 命令不支持时返回 None。
-    """
-    try:
-        proc = subprocess.run(
-            ["stat", "-c", "%W", fpath],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-    except OSError:
-        return None
-    if proc.returncode != 0:
-        return None
-    text = proc.stdout.decode("utf-8", errors="ignore").strip()
-    try:
-        value = int(text)
-    except ValueError:
-        return None
-    if value <= 0:
-        return None
-    return float(value)
-
-
-def get_file_create_time(fpath: str) -> float:
-    """跨平台获取文件创建时间戳 (秒, 浮点数)
-
-    策略:
-    * 优先 os.stat().st_birthtime (Windows Python>=3.12 / macOS / FreeBSD)
-    * Windows 旧版本: st_ctime 表示创建时间
-    * Linux: 标准库一般不暴露 birth time, 尝试 `stat -c %W` 命令,
-      仍失败则回退修改时间 (mtime) 并打印一次提示
-    """
-    st = os.stat(fpath)
-    birthtime = getattr(st, "st_birthtime", None)
-    if birthtime is not None and birthtime > 0:
-        return float(birthtime)
-    if os_util.is_windows():
-        # Windows 上 st_ctime 即创建时间 (st_birthtime 需 Python>=3.12)
-        return float(st.st_ctime)
-    if os_util.is_mac():
-        # macOS 一般可拿到 st_birthtime; 兜底
-        logging.warning("无法获取文件创建时间, 回退使用修改时间: %s", fpath)
-        return float(st.st_mtime)
-    # Linux
-    birth = _get_linux_birth_time(fpath)
-    if birth is not None:
-        return birth
-    logging.warning("当前平台无法获取文件创建时间, 回退使用修改时间: %s", fpath)
-    return float(st.st_mtime)
-
-
 def build_date_prefix_pattern(date_format: str, sep: str) -> Pattern:
     """把 strftime 日期格式 + 分隔符转换成正则, 用于识别/删除日期前缀
 
@@ -277,7 +223,7 @@ def build_add_date_mapper(
         if pattern.match(name):
             # 已带日期前缀, 避免重复叠加
             return name
-        create_time = get_file_create_time(path)
+        create_time = fs_util.get_file_create_time(path)
         date_str = time.strftime(date_format, time.localtime(create_time))
         return add_date_prefix_name(name, date_str, sep)
     return mapper
@@ -542,7 +488,7 @@ if __name__ == "__main__":
         help="从完整文件名末尾删除(对应 add-suffix --after-ext 的结果)")
 
     add_date_parser = new_parser(
-        "add-date-prefix", "按文件创建日期批量添加日期前缀(如 2026-09-08_xxx)")
+        "add-date-prefix", "按文件创建日期批量添加日期前缀(如 20260908_xxx)")
     add_dir_args(add_date_parser)
     add_date_args(add_date_parser)
 

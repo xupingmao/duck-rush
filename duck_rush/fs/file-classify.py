@@ -11,6 +11,12 @@ import platform
 from typing import Set, Optional, List
 from termcolor import colored
 
+try:
+    from duck_utils import fs_util
+except ImportError:
+    sys.stderr.write("无法导入 duck_utils 模块, 请先执行 `python install.py` 安装后重试。\n")
+    sys.exit(1)
+
 
 MUSIC_EXT_CONFIG: str = "mp3|m4a|midi|wav|m3u8"
 DOC_EXT_CONFIG: str   = "pdf|doc|docx|xls|xlsx|html|md|xmind|txt|key|numbers|csv"
@@ -62,22 +68,13 @@ def makedirs(dirname: str) -> bool:
 DATE_FORMAT: str = "%Y%m%d"
 
 
-def get_mac_birth_date(fpath: str) -> str:
-    stat = os.stat(fpath)
-    st = time.localtime(stat.st_birthtime)
-    return time.strftime(DATE_FORMAT, st)
-
-
-def get_win_birth_date(fpath: str) -> str:
-    stat = os.stat(fpath)
-    st = time.localtime(stat.st_ctime)
-    return time.strftime(DATE_FORMAT, st)
-
-
 def get_birth_date(fpath: str) -> str:
-    if is_mac():
-        return get_mac_birth_date(fpath)
-    return get_win_birth_date(fpath)
+    """返回文件的创建日期字符串(格式见 DATE_FORMAT)
+
+    创建时间的跨平台获取统一由 duck_utils.fs_util.get_file_create_time 处理。
+    """
+    create_time = fs_util.get_file_create_time(fpath)
+    return time.strftime(DATE_FORMAT, time.localtime(create_time))
 
 
 def get_birth_year(fpath: str) -> str:
