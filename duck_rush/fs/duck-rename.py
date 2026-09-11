@@ -10,9 +10,15 @@
 * remove-suffix     - 批量删除文件后缀 (默认删除扩展名之前的后缀)
 * add-date-prefix   - 按文件创建日期批量添加日期前缀 (如 20260908_xxx)
 * remove-date-prefix - 批量删除文件日期前缀
+* reformat-date-prefix - 把已有的日期前缀重新格式化 (如 2026-09-08_xxx => 20260908_xxx)
 
 日期前缀说明:
 * 日期默认取自文件创建时间, 格式默认 %Y%m%d (yyyyMMdd), 前缀形如 20260908_
+* add-date-prefix 幂等: 已带常见日期前缀(20260908_ / 2026-09-08_ / 2026_09_08_ /
+  2026.09.08_ 等)的文件会跳过, 不会重复叠加
+* remove-date-prefix 除指定格式外, 也会兜底识别并删除上述常见格式的前缀
+* reformat-date-prefix 只改写日期写法(如 2026-09-08_ => 20260908_), 不改动文件名本体,
+  已是目标格式的文件保持不变 (幂等)
 * Windows: st_birthtime (Python>=3.12) 或 st_ctime (旧版本即创建时间)
 * macOS:   st_birthtime
 * Linux:   标准库一般不暴露创建时间, 优先尝试 `stat -c %W` 命令,
@@ -28,6 +34,7 @@
 * duck-rename add-prefix ./photos img_
 * duck-rename add-suffix ./photos _v2 -n
 * duck-rename remove-date-prefix ./photos -r -y
+* duck-rename reformat-date-prefix ./photos -n  # 预览: 2026-09-08_xxx => 20260908_xxx
 * duck-find . --name "*.jpg" | duck-rename add-prefix img_ -i -y
 """
 import argparse
@@ -52,7 +59,7 @@ logging.basicConfig(
 DEFAULT_MAX_DEPTH = 5
 
 BATCH_COMMANDS = ("add-prefix", "remove-prefix", "add-suffix", "remove-suffix")
-DATE_COMMANDS = ("add-date-prefix", "remove-date-prefix")
+DATE_COMMANDS = ("add-date-prefix", "remove-date-prefix", "reformat-date-prefix")
 
 DEFAULT_DATE_FORMAT = "%Y%m%d"
 DEFAULT_DATE_SEP = "_"
@@ -193,8 +200,8 @@ def add_date_prefix_name(name: str, date_str: str, sep: str) -> str:
     return date_str + sep + name
 
 
-def strip_date_prefix(name: str, pattern: Pattern) -> str:
-    """删除文件名开头的日期前缀, 无匹配时保持原名"""
+def strip_date_prefix_by_pattern(name: str, pattern: Pattern) -> str:
+    """按给定格式删除文件名开头的日期前缀, 无匹配时保持原名"""
     return pattern.sub("", name, count=1)
 
 
@@ -221,7 +228,10 @@ def build_add_date_mapper(
     def mapper(path: str) -> str:
         name = os.path.basename(path)
         if pattern.match(name):
-            # 已带日期前缀, 避免重复叠加
+            # 已是当前格式的日期前缀, 避免重复叠加
+            return name
+        if fs_util.has_date_prefix(name):
+            # 已有其它常见格式(如 2026-09-11_)的日期前缀, 同样不叠加
             return name
         create_time = fs_util.get_file_create_time(path)
         date_str = time.strftime(date_format, time.localtime(create_time))
@@ -229,15 +239,38 @@ def build_add_date_mapper(
     return mapper
 
 
+def build_reformat_date_mapper(
+    date_format: str = DEFAULT_DATE_FORMAT,
+    sep: str = DEFAULT_DATE_SEP,
+) -> Callable[[str], str]:
+    """构造 重新格式化已有日期前缀 的映射函数
+
+    只改写日期的写法 (如 2026-09-08_ => 20260908_), 日期之后的内容保持不变;
+    没有可识别日期前缀的文件保持原名。
+    """
+    def mapper(path: str) -> str:
+        name = os.path.basename(path)
+        return fs_util.reformat_date_prefix(name, date_format, sep)
+    return mapper
+
+
 def build_remove_date_mapper(
     date_format: str = DEFAULT_DATE_FORMAT,
     sep: str = DEFAULT_DATE_SEP,
 ) -> Callable[[str], str]:
-    """构造 删除日期前缀 的映射函数"""
+    """构造 删除日期前缀 的映射函数
+
+    先按 --date-format 指定的格式删除; 没匹配上时再兜底识别常见日期格式
+    (如 2026-09-11_ / 2026_09_11_ / 2026.09.11_), 避免换了格式就删不掉。
+    """
     pattern = build_date_prefix_pattern(date_format, sep)
 
     def mapper(path: str) -> str:
-        return strip_date_prefix(os.path.basename(path), pattern)
+        name = os.path.basename(path)
+        stripped = strip_date_prefix_by_pattern(name, pattern)
+        if stripped != name:
+            return stripped
+        return fs_util.strip_date_prefix(name)
     return mapper
 
 
@@ -497,6 +530,11 @@ if __name__ == "__main__":
     add_dir_args(remove_date_parser)
     add_date_args(remove_date_parser)
 
+    reformat_date_parser = new_parser(
+        "reformat-date-prefix", "把已有的日期前缀重新格式化(如 2026-09-08_xxx => 20260908_xxx)")
+    add_dir_args(reformat_date_parser)
+    add_date_args(reformat_date_parser)
+
     args = parser.parse_args()
     if args.command == "encode":
         encode(args.dirname, args.max_depth)
@@ -508,6 +546,8 @@ if __name__ == "__main__":
             mapper = build_mapper(args.command, args.text, after_ext)
         elif args.command == "add-date-prefix":
             mapper = build_add_date_mapper(args.date_format, args.sep)
+        elif args.command == "reformat-date-prefix":
+            mapper = build_reformat_date_mapper(args.date_format, args.sep)
         else:  # remove-date-prefix
             mapper = build_remove_date_mapper(args.date_format, args.sep)
         files = collect_files(args.dirname, args.recursive, args.stdin)

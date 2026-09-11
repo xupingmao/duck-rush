@@ -7,9 +7,11 @@ import sys
 import shutil
 import base64
 import logging
+import re
 import subprocess
 import time
-from typing import Optional
+from datetime import datetime
+from typing import NamedTuple, Optional
 from urllib.parse import unquote
 
 from duck_utils import os_util
@@ -217,3 +219,120 @@ def get_file_create_time(fpath: str) -> float:
         return birth
     logging.warning("当前平台无法获取文件创建时间, 回退使用修改时间: %s", fpath)
     return float(st.st_mtime)
+
+
+class DatePrefix(NamedTuple):
+    """文件名开头的日期前缀
+
+    text: 完整前缀, 含末尾分隔符 (如 `2026-09-11_`)
+    date: 日期部分 (如 `2026-09-11`)
+    sep : 日期与文件名之间的分隔符 (如 `_`)
+    """
+    text: str
+    date: str
+    sep: str
+
+
+# 文件名开头常见的日期写法, 顺序与 DATE_PREFIX_RE 中的分支对应
+DATE_TEXT_FORMATS = ("%Y-%m-%d", "%Y_%m_%d", "%Y.%m.%d", "%Y%m%d")
+
+# 日期(可带时间部分) + 分隔符; 时间部分例如 `2026-09-11_123000_report`
+DATE_PREFIX_RE = re.compile(
+    r"""^(?P<date>
+            \d{4}-\d{1,2}-\d{1,2}      # 2026-09-11
+          | \d{4}_\d{1,2}_\d{1,2}      # 2026_09_11
+          | \d{4}\.\d{1,2}\.\d{1,2}    # 2026.09.11
+          | \d{8}                      # 20260911
+        )
+        (?:[-_ T]\d{6})?                # 可选的时间部分 HHMMSS
+        (?P<sep>[-_ ])                 # 日期与文件名之间的分隔符
+    """,
+    re.VERBOSE)
+
+
+def parse_date_text(text: str) -> Optional[datetime]:
+    """把常见写法的日期文本解析成 datetime, 无法解析时返回 None
+
+    同时排除 2026-13-45 这类越界值。
+    """
+    for fmt in DATE_TEXT_FORMATS:
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _is_date_text(text: str) -> bool:
+    return parse_date_text(text) is not None
+
+
+def match_date_prefix(name: str) -> Optional[DatePrefix]:
+    """识别文件名开头的常见日期前缀, 没有则返回 None
+
+    支持 `20260911_` / `2026-09-11_` / `2026_09_11_` / `2026.09.11_` 等写法,
+    日期后可带时间部分 (如 `2026-09-11_123000_`)。
+
+    只对文件名主干(去掉目录与扩展名)做匹配, 因此 `20260911.txt` 这类
+    "整个文件名就是日期"的情况不算日期前缀。
+
+    >>> match_date_prefix("2026-09-11_report.pdf").date
+    '2026-09-11'
+    >>> match_date_prefix("report.pdf") is None
+    True
+    """
+    stem = os.path.splitext(os.path.basename(name))[0]
+    matched = DATE_PREFIX_RE.match(stem)
+    if matched is None:
+        return None
+    date_text = matched.group("date")
+    if not _is_date_text(date_text):
+        return None
+    return DatePrefix(text=matched.group(0), date=date_text,
+                      sep=matched.group("sep"))
+
+
+def has_date_prefix(name: str) -> bool:
+    """文件名是否已带常见格式的日期前缀"""
+    return match_date_prefix(name) is not None
+
+
+def reformat_date_prefix(name: str, date_format: str, sep: str) -> str:
+    """把文件名开头已有的日期前缀重新格式化成 date_format + sep
+
+    * 只改写日期的写法, 日期之后的内容(时间部分与文件名本体)保持不变
+    * 没有可识别的日期前缀时原样返回
+
+    >>> reformat_date_prefix("2026-09-11_report.pdf", "%Y%m%d", "_")
+    '20260911_report.pdf'
+    >>> reformat_date_prefix("20260911_report.pdf", "%Y-%m-%d", "_")
+    '2026-09-11_report.pdf'
+    >>> reformat_date_prefix("report.pdf", "%Y%m%d", "_")
+    'report.pdf'
+    """
+    prefix = match_date_prefix(name)
+    if prefix is None:
+        return name
+    parsed = parse_date_text(prefix.date)
+    if parsed is None:
+        return name
+    # 日期与时间部分之间的内容(如 `_123000`), 没有时间部分时为空串
+    middle = prefix.text[len(prefix.date):len(prefix.text) - len(prefix.sep)]
+    dirname, basename = os.path.split(name)
+    new_basename = (parsed.strftime(date_format) + middle + sep
+                    + basename[len(prefix.text):])
+    return os.path.join(dirname, new_basename)
+
+
+def strip_date_prefix(name: str) -> str:
+    """删除文件名开头的常见日期前缀, 无前缀时原样返回
+
+    >>> strip_date_prefix("2026-09-11_report.pdf")
+    'report.pdf'
+    """
+    prefix = match_date_prefix(name)
+    if prefix is None:
+        return name
+    # match_date_prefix 只匹配文件名主干, 切片前先剥掉目录部分
+    dirname, basename = os.path.split(name)
+    return os.path.join(dirname, basename[len(prefix.text):])
