@@ -11,6 +11,7 @@ import re
 import sys
 from typing import Any, List, Optional, Tuple
 
+from duck_utils.dir_util import DirFilter, walk_dir
 from duck_utils.find_assign.name import NameVariants
 from duck_utils.find_assign.lang import (GENERIC_PLUGIN, KNOWN_EXTENSIONS,
                                           LanguagePlugin, get_plugin_by_ext,
@@ -21,13 +22,6 @@ Pattern = Any
 
 # 单文件大小上限(字节), 超过则跳过, 避免大文件/二进制卡顿
 DEFAULT_MAX_SIZE = 5 * 1024 * 1024
-
-# 目录递归时跳过的目录名(依赖/构建产物等)
-IGNORE_DIRS = frozenset({
-    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox",
-    "dist", "build", ".idea", ".vscode", "site-packages", ".mypy_cache",
-    ".svn",
-})
 
 # 单/双/反引号字符串定界符
 _STRING_CHARS = {'"', "'", "`"}
@@ -192,17 +186,16 @@ class AssignmentFinder:
         matches = self._search_text(text, plugin)
         return (fpath, matches) if matches else None
 
-    def search_dir(self, root: str) -> List[FileResult]:
+    def search_dir(self, root: str, dir_filter: Optional[DirFilter] = None) -> List[FileResult]:
         results: List[FileResult] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
-            for fn in filenames:
-                ext = os.path.splitext(fn)[1].lower()
-                if ext not in KNOWN_EXTENSIONS:
-                    continue
-                res = self.search_file(os.path.join(dirpath, fn))
-                if res is not None:
-                    results.append(res)
+
+        def accept(path: str) -> bool:
+            return os.path.splitext(path)[1].lower() in KNOWN_EXTENSIONS
+
+        for fpath in walk_dir(root, accept, dir_filter):
+            res = self.search_file(fpath)
+            if res is not None:
+                results.append(res)
         return results
 
     def search_stdin(self, label: str = "-") -> Optional[FileResult]:
@@ -211,7 +204,8 @@ class AssignmentFinder:
         matches = self._search_text(data, plugin)
         return (label, matches) if matches else None
 
-    def search_targets(self, targets: List[str]) -> List[FileResult]:
+    def search_targets(self, targets: List[str],
+                       dir_filter: Optional[DirFilter] = None) -> List[FileResult]:
         """处理目标列表: 目录递归 / 文件直搜 / '-' 读管道。"""
         results: List[FileResult] = []
         for target in targets:
@@ -220,7 +214,7 @@ class AssignmentFinder:
                 if res is not None:
                     results.append(res)
             elif os.path.isdir(target):
-                results.extend(self.search_dir(target))
+                results.extend(self.search_dir(target, dir_filter))
             else:
                 res = self.search_file(target)
                 if res is not None:

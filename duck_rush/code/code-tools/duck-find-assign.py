@@ -15,6 +15,7 @@ import re
 import argparse
 from typing import List, Optional
 
+from duck_utils.dir_util import add_dir_filter_args, dir_filter_from_args
 from duck_utils.find_assign import AssignmentFinder, DEFAULT_MAX_SIZE, list_lang_names
 
 # 浅色(明亮)配色, 满足 AGENTS 规范(深色背景下清晰可读)
@@ -85,17 +86,22 @@ def build_parser() -> argparse.ArgumentParser:
             "目标参数可混合文件与目录: 目录递归遍历(仅取已知扩展名, 跳过 node_modules/.git 等);\n"
             "不传目标时默认搜索当前目录(.); 管道输入用 '-' 显式指定, 例如:\n"
             "  cat foo.py | duck-find-assign userName -\n\n"
+            "-d/--dir 与 -x/--exclude-dir 用于筛选遍历到的目录(对显式传入的文件无效):\n"
+            "均可重复传参或用逗号分隔, 按目录名或相对路径匹配, 支持 * 通配。\n\n"
             "示例:\n"
             "  duck-find-assign userName .            # 递归当前目录搜赋值\n"
             "  duck-find-assign user_name src/a.py    # 指定文件\n"
             "  duck-find-assign count --no-setters    # 不搜 setXxx\n"
             "  duck-find-assign total -l src/         # 仅列文件名\n"
+            "  duck-find-assign name -d src,lib       # 只搜 src 与 lib 目录\n"
+            "  duck-find-assign name -x test,dist     # 排除 test 与 dist 目录\n"
             "  cat a.go | duck-find-assign name - --lang go"
         ),
     )
     parser.add_argument("name", help="要搜索赋值的名字(任意命名风格)")
     parser.add_argument("targets", nargs="*",
                         help="文件或目录(不传则默认当前目录; '-' 表示读 stdin)")
+    add_dir_filter_args(parser)
     parser.add_argument("--no-setters", action="store_true",
                         help="不搜索 setXxx / set_xxx 形式的 setter 赋值")
     parser.add_argument("--lang", type=str, default=None,
@@ -148,7 +154,7 @@ def main() -> None:
         max_size=args.max_size * 1024 * 1024,
     )
 
-    results = finder.search_targets(targets)
+    results = finder.search_targets(targets, dir_filter=dir_filter_from_args(args))
     total = print_results(results, show_label, line_number, args.files_with_matches)
 
     if not results:

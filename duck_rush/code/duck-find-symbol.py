@@ -17,6 +17,8 @@ import re
 import argparse
 from typing import Any, List, Optional, Tuple
 
+from duck_utils.dir_util import (DirFilter, add_dir_filter_args,
+                                 dir_filter_from_args, walk_dir)
 from duck_utils.find_assign.name import NameVariants
 from duck_utils.find_assign.engine import strip_comments
 from duck_utils.find_assign.lang import (
@@ -36,13 +38,6 @@ C_RESET = "\033[0m"
 
 # 单文件大小上限(字节), 超过则跳过, 避免大文件/二进制卡顿
 DEFAULT_MAX_SIZE = 5 * 1024 * 1024
-
-# 目录递归时跳过的目录名(依赖/构建产物等)
-IGNORE_DIRS = frozenset({
-    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox",
-    "dist", "build", ".idea", ".vscode", "site-packages", ".mypy_cache",
-    ".svn",
-})
 
 
 def ensure_utf8_output() -> None:
@@ -133,18 +128,18 @@ def search_file(fpath: str, pattern: Any, encoding: str, max_size: int,
 
 def search_dir(root: str, pattern: Any, encoding: str, max_size: int,
               lang_plugin: Optional[LanguagePlugin],
-              strip_comments_flag: bool) -> List[Tuple[str, List[Tuple[int, str, Any]]]]:
+              strip_comments_flag: bool,
+              dir_filter: Optional[DirFilter] = None) -> List[Tuple[str, List[Tuple[int, str, Any]]]]:
     results: List[Tuple[str, List[Tuple[int, str, Any]]]] = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
-        for fn in filenames:
-            ext = os.path.splitext(fn)[1].lower()
-            if ext not in KNOWN_EXTENSIONS:
-                continue
-            res = search_file(os.path.join(dirpath, fn), pattern, encoding,
-                              max_size, lang_plugin, strip_comments_flag)
-            if res is not None:
-                results.append(res)
+
+    def accept(path: str) -> bool:
+        return os.path.splitext(path)[1].lower() in KNOWN_EXTENSIONS
+
+    for fpath in walk_dir(root, accept, dir_filter):
+        res = search_file(fpath, pattern, encoding, max_size,
+                          lang_plugin, strip_comments_flag)
+        if res is not None:
+            results.append(res)
     return results
 
 
@@ -158,8 +153,8 @@ def search_stdin(pattern: Any, lang_plugin: Optional[LanguagePlugin],
 
 
 def search_targets(targets: List[str], pattern: Any, encoding: str, max_size: int,
-                  lang: Optional[str],
-                  strip_comments_flag: bool) -> List[Tuple[str, List[Tuple[int, str, Any]]]]:
+                  lang: Optional[str], strip_comments_flag: bool,
+                  dir_filter: Optional[DirFilter] = None) -> List[Tuple[str, List[Tuple[int, str, Any]]]]:
     lang_plugin = get_plugin_by_name(lang) if lang else None
     results: List[Tuple[str, List[Tuple[int, str, Any]]]] = []
     for target in targets:
@@ -169,7 +164,7 @@ def search_targets(targets: List[str], pattern: Any, encoding: str, max_size: in
                 results.append(res)
         elif os.path.isdir(target):
             results.extend(search_dir(target, pattern, encoding, max_size,
-                                     lang_plugin, strip_comments_flag))
+                                     lang_plugin, strip_comments_flag, dir_filter))
         else:
             res = search_file(target, pattern, encoding, max_size,
                               lang_plugin, strip_comments_flag)
@@ -217,17 +212,22 @@ def build_parser() -> argparse.ArgumentParser:
             "目标参数可混合文件与目录: 目录递归遍历(仅取已知扩展名, 跳过 node_modules/.git 等);\n"
             "不传目标时默认搜索当前目录(.); 管道输入用 '-' 显式指定, 例如:\n"
             "  cat foo.py | duck-find-symbol userName -\n\n"
+            "-d/--dir 与 -x/--exclude-dir 用于筛选遍历到的目录(对显式传入的文件无效):\n"
+            "均可重复传参或用逗号分隔, 按目录名或相对路径匹配, 支持 * 通配。\n\n"
             "示例:\n"
             "  duck-find-symbol userName .             # 递归当前目录搜出现位置\n"
             "  duck-find-symbol user_name src/a.py      # 指定文件\n"
             "  duck-find-symbol count -l src/           # 仅列文件名\n"
             "  duck-find-symbol total --include-comments  # 连注释也搜\n"
+            "  duck-find-symbol name -d src,lib          # 只搜 src 与 lib 目录\n"
+            "  duck-find-symbol name -x test,dist        # 排除 test 与 dist 目录\n"
             "  cat a.go | duck-find-symbol name - --lang go"
         ),
     )
     parser.add_argument("name", help="要搜索的符号名字(任意命名风格)")
     parser.add_argument("targets", nargs="*",
                         help="文件或目录(不传则默认当前目录; '-' 表示读 stdin)")
+    add_dir_filter_args(parser)
     parser.add_argument("--lang", type=str, default=None,
                         help="强制指定语言(覆盖扩展名推断, 对 stdin 必需)")
     parser.add_argument("-E", "--encoding", default="utf-8",
@@ -278,6 +278,7 @@ def main() -> None:
         targets, pattern, args.encoding,
         args.max_size * 1024 * 1024, args.lang,
         not args.include_comments,
+        dir_filter=dir_filter_from_args(args),
     )
     total = print_results(results, show_label, line_number, args.files_with_matches)
 
