@@ -10,6 +10,7 @@ import io
 import os
 import re
 import argparse
+from fnmatch import fnmatch
 from typing import List, Optional, Dict, Tuple
 
 # PatternSpec = (正则, 函数名捕获组序号, 额外前缀捕获组序号|None)
@@ -174,15 +175,65 @@ def iter_lines(stream, encoding: str):
         yield line_no, raw.decode(encoding, errors="replace").rstrip("\n")
 
 
-def walk_dir(root: str) -> List[str]:
-    """递归遍历目录, 仅返回扩展名可识别语言(EXT_TO_LANG)的文件, 跳过 IGNORE_DIRS."""
+def split_patterns(values: Optional[List[str]]) -> List[str]:
+    """展开目录模式: 兼容重复传参与逗号分隔, 如 ['src,lib', 'test'] -> ['src', 'lib', 'test']"""
     result: List[str] = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        # 原地过滤, 避免继续深入无关目录
-        dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
-        for fn in filenames:
-            if os.path.splitext(fn)[1].lower() in EXT_TO_LANG:
-                result.append(os.path.join(dirpath, fn))
+    for value in values or []:
+        for part in value.split(","):
+            part = part.strip().replace("\\", "/").strip("/")
+            if part:
+                result.append(part)
+    return result
+
+
+def match_dir_patterns(relpath: str, name: str, patterns: List[str]) -> bool:
+    """判断目录是否命中任一模式: 支持目录名、相对路径(以 '/' 分隔)与 fnmatch 通配"""
+    for pat in patterns:
+        if fnmatch(name, pat) or fnmatch(relpath, pat):
+            return True
+        if relpath.startswith(pat + "/"):
+            return True
+    return False
+
+
+def walk_dir(root: str, include_dirs: Optional[List[str]] = None,
+             exclude_dirs: Optional[List[str]] = None) -> List[str]:
+    """递归遍历目录, 仅返回扩展名可识别语言(EXT_TO_LANG)的文件.
+
+    - exclude_dirs 与 IGNORE_DIRS 命中的目录会被跳过
+    - include_dirs 非空时, 只返回命中目录(及其子目录)下的文件
+    """
+    include_dirs = include_dirs or []
+    exclude_dirs = exclude_dirs or []
+    result: List[str] = []
+
+    def _walk(dirpath: str, relpath: str, included: bool) -> None:
+        try:
+            with os.scandir(dirpath) as it:
+                entries = sorted(it, key=lambda e: e.name)
+        except OSError as e:
+            sys.stderr.write("duck-list-func: %s: %s\n" % (dirpath, e))
+            return
+
+        for entry in entries:
+            child_rel = f"{relpath}/{entry.name}" if relpath else entry.name
+            # 不跟随符号链接, 避免软链成环
+            is_dir = entry.is_dir(follow_symlinks=False)
+            if is_dir:
+                if entry.name in IGNORE_DIRS or match_dir_patterns(child_rel, entry.name, exclude_dirs):
+                    continue
+                child_included = included or (
+                    not include_dirs or match_dir_patterns(child_rel, entry.name, include_dirs))
+                _walk(entry.path, child_rel, child_included)
+            elif entry.is_file(follow_symlinks=False):
+                if not included:
+                    continue
+                if os.path.splitext(entry.name)[1].lower() in EXT_TO_LANG:
+                    result.append(entry.path)
+
+    root_name = os.path.basename(os.path.normpath(root))
+    root_included = not include_dirs or match_dir_patterns("", root_name, include_dirs)
+    _walk(root, "", root_included)
     return result
 
 
@@ -302,15 +353,27 @@ def build_parser() -> argparse.ArgumentParser:
             "文件参数(file)可混合传入文件与目录: 目录会被递归遍历(仅取已知扩展名文件,\n"
             "并跳过 node_modules/.git 等); 不传任何参数时默认遍历当前目录(.);\n"
             "管道输入需显式用 '-' 指定, 例如 'cat foo.py | duck-list-func -'.\n\n"
+            "-d/--dir 与 -x/--exclude-dir 用于筛选遍历到的目录(对显式传入的文件无效):\n"
+            "均可重复传参或用逗号分隔, 按目录名或相对路径匹配, 支持 * 通配.\n\n"
             "示例:\n"
             "  duck-list-func -n src/foo.py        # 列出函数及行号\n"
             "  duck-list-func -l .                 # 仅列出含函数定义的文件(递归当前目录)\n"
             "  cat src/foo.py | duck-list-func -   # 从管道读取(stdin)\n"
-            "  duck-list-func -o src/              # 递归目录, 只打印函数名(含 ClassName.)"
+            "  duck-list-func -o src/              # 递归目录, 只打印函数名(含 ClassName.)\n"
+            "  duck-list-func -d src,lib           # 只搜索 src 与 lib 两个目录\n"
+            "  duck-list-func -x test,dist         # 排除 test 与 dist 目录\n"
+            "  duck-list-func -d src -x src/vendor # 只搜索 src, 但排除 src/vendor"
         ),
     )
     parser.add_argument("files", nargs="*",
-                        help="要搜索的文件或目录(不传则默认遍历当前目录; '-' 表示读取 stdin)")
+                        help="要搜索的文件或目录(不传则默认遍历当前目录; '-' 表示读取 stdin); "
+                             "目录可传多个, 会依次递归遍历")
+    parser.add_argument("-d", "--dir", action="append", metavar="PATTERN",
+                        help="只搜索命中的目录(可重复传参或用逗号分隔, 如 -d src,lib); "
+                             "按目录名或相对路径匹配, 支持 * 通配")
+    parser.add_argument("-x", "--exclude-dir", action="append", metavar="PATTERN",
+                        help="排除命中的目录(可重复传参或用逗号分隔, 如 -x test,dist); "
+                             "按目录名或相对路径匹配, 支持 * 通配")
     parser.add_argument("-n", "--line-number", action="store_true",
                         help="显示行号(默认即显示, 此参数仅为兼容保留)")
     parser.add_argument("--no-line-number", action="store_true", help="不显示行号")
@@ -341,6 +404,10 @@ def main() -> None:
 
     inputs = args.files if args.files else ["."]
 
+    # 目录筛选(仅作用于递归遍历, 显式传入的文件不做筛选)
+    include_dirs = split_patterns(args.dir)
+    exclude_dirs = split_patterns(args.exclude_dir)
+
     # 是否显示文件名标签: 多个输入 / 含目录 / 显式 -H 时显示(除非 --no-filename)
     has_dir = any(inp != "-" and os.path.isdir(inp) for inp in inputs)
     show_label = (not args.no_filename) and (args.with_filename or len(inputs) > 1 or has_dir)
@@ -354,7 +421,7 @@ def main() -> None:
         if inp == "-":
             targets.append("-")
         elif os.path.isdir(inp):
-            targets.extend(walk_dir(inp))
+            targets.extend(walk_dir(inp, include_dirs, exclude_dirs))
         else:
             targets.append(inp)
 
