@@ -29,6 +29,7 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 | 命令 | 说明 |
 |------|------|
 | `python install.py` | 安装全部（pip install 依赖 → 安装 duck_utils 包 → 生成包装器 → 索引采集） |
+| `python scripts/run_tests.py` | 运行全量测试（pytest + coverage，含 JS 的 node 测试） |
 | `python duck_rush/duck.py list` | 列出所有已注册命令 |
 | `python duck_rush/web-tools/duck-web-tools.py` | 启动Web工具（file:// 或 HTTP :8000） |
 
@@ -38,7 +39,15 @@ python install.py    # 安装全部工具（装依赖 → sdist install → 生�
 - `duck_rush/text/test_duck_json.py` 是 unittest 单元测试(仅依赖标准库),
   覆盖 duck-json 的算子与 CLI 行为; 运行: `python duck_rush/text/test_duck_json.py`
 - FloatBar GUI 含3个手动测试脚本：`gui-tools/floatbar/test_*.py`
-- 直接 `python <脚本>` 执行测试
+- `scripts/run_tests.py` 是**统一测试入口**: 自动发现 Python 测试(`test_*.py`/
+  `*_test.py`, 用 pytest 跑, 默认带 coverage 统计 `duck_rush`/`duck_utils` 覆盖率)
+  与 JavaScript 测试(`*.test.js`, 用 node 跑); 报告写入 `test-report.json`。
+  常用参数: `<路径>` 只跑指定文件/目录、`-k EXPR` 过滤用例、`--no-js`/`--no-python`
+  跳过某一类、`--no-coverage` 关覆盖率、`--html` 生成 HTML 报告(`htmlcov/`)、
+  `--exclude DIR` 额外排除目录。GUI 手工测试(`duck_rush/gui-tools/`)默认不纳入。
+- `duck_utils` 的单元测试就近放在被测模块旁(仅依赖标准库): `duck_utils/test_dir_util.py`
+  (目录筛选与遍历)、`duck_utils/find_assign/test_engine.py`(赋值搜索的目录筛选)
+- 直接 `python <脚本>` 执行单个测试文件
 
 ## 开发注意事项
 

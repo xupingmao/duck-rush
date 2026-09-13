@@ -15,3 +15,9 @@ id_rsa_github*
 .trae/
 
 duck_rush/gui-tools/
+
+# 测试产物(覆盖率/缓存)
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/

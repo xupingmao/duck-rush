@@ -26,6 +26,32 @@ def load_mod():
     return mod
 
 
+def isolated_home_env(home):
+    """构造隔离的用户目录环境。
+
+    duck-fav 的数据目录是 ~/.duck-rush/data/duck-fav, 若直接观察真实目录,
+    会与"文件已存在/其它进程并发创建"耦合(测试既不稳定也无法真正验证),
+    故把 HOME 指向临时目录, 让子进程读写独立的数据目录。
+    """
+    env = os.environ.copy()
+    env["HOME"] = home
+    env["USERPROFILE"] = home    # Windows 下 expanduser 优先读 USERPROFILE
+    return env
+
+
+def data_file_of(home):
+    """隔离 HOME 下的收藏数据文件路径"""
+    return os.path.join(home, ".duck-rush", "data", "duck-fav", "bookmarks.jsonl")
+
+
+def run_cli(args, home):
+    """在隔离 HOME 下运行 duck-fav 命令行"""
+    return subprocess.run(
+        [sys.executable, SCRIPT] + args,
+        env=isolated_home_env(home),
+        capture_output=True, text=True, encoding="utf-8")
+
+
 class TestFav(unittest.TestCase):
     """直接测试增删查逻辑（数据目录被替换为临时目录，避免污染真实环境）。"""
 
@@ -146,45 +172,20 @@ class TestCLI(unittest.TestCase):
 
     def test_help_no_side_effect(self):
         # -h 应在解析任何子命令前退出，绝不触碰数据文件
-        real_dir = None
-        try:
-            import duck_utils.os_util as ou
-            real_dir = ou.get_command_data_dir("duck-fav")
-        except Exception:
-            real_dir = None
-        target = os.path.join(real_dir, "bookmarks.jsonl") if real_dir else None
-        before = os.path.exists(target) if target else False
-
-        proc = subprocess.run(
-            [sys.executable, SCRIPT, "-h"],
-            capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(proc.returncode, 0)
-        self.assertIn("duck-fav", proc.stdout)
-
-        after = os.path.exists(target) if target else False
-        if not before:
-            self.assertFalse(after, "-h 不应创建数据文件")
+        with tempfile.TemporaryDirectory(prefix="duck_fav_home_") as home:
+            proc = run_cli(["-h"], home)
+            self.assertEqual(proc.returncode, 0)
+            self.assertIn("duck-fav", proc.stdout)
+            self.assertFalse(os.path.exists(data_file_of(home)), "-h 不应创建数据文件")
 
     def test_select_help_no_side_effect(self):
         # `duck-fav select -h` 也应无副作用（不启动 TUI、不读写数据文件）
-        real_dir = None
-        try:
-            import duck_utils.os_util as ou
-            real_dir = ou.get_command_data_dir("duck-fav")
-        except Exception:
-            real_dir = None
-        target = os.path.join(real_dir, "bookmarks.jsonl") if real_dir else None
-        before = os.path.exists(target) if target else False
-
-        proc = subprocess.run(
-            [sys.executable, SCRIPT, "select", "-h"],
-            capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(proc.returncode, 0)
-        self.assertIn("select", proc.stdout.lower())
-
-        after = os.path.exists(target) if target else False
-        if not before:
-            self.assertFalse(after, "select -h 不应创建数据文件")
+        with tempfile.TemporaryDirectory(prefix="duck_fav_home_") as home:
+            proc = run_cli(["select", "-h"], home)
+            self.assertEqual(proc.returncode, 0)
+            self.assertIn("select", proc.stdout.lower())
+            self.assertFalse(os.path.exists(data_file_of(home)),
+                             "select -h 不应创建数据文件")
 
 
 if __name__ == "__main__":

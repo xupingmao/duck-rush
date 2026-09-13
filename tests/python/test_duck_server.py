@@ -26,6 +26,7 @@ spec.loader.exec_module(ds)
 
 Request = ds.Request
 BaseBizHandler = ds.BaseBizHandler
+APIResponse = ds.APIResponse
 DuckRequestHandler = ds.DuckRequestHandler
 DuckServer = ds.DuckServer
 create_server = ds.create_server
@@ -232,16 +233,18 @@ class TestExampleRoutes(unittest.TestCase):
         self.assertIn("/api/status", DuckRequestHandler.CUSTOM_ROUTES)
         self.assertIn("/api/info", DuckRequestHandler.CUSTOM_ROUTES)
 
-    def test_status_handler_returns_dict(self):
+    def test_status_handler_returns_api_response(self):
         _register_example_routes()
         handler_cls = DuckRequestHandler.CUSTOM_ROUTES["/api/status"]
         handler = handler_cls()
         req = Request("/api/status", {}, b"", "GET", {}, ("127.0.0.1", 0))
         result = handler.do_GET(req)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(result.get("status"), "ok")
-        self.assertIn("time", result)
-        self.assertIn("version", result)
+        self.assertIsInstance(result, APIResponse)
+        self.assertEqual(result.code, 0)
+        data = result.data
+        self.assertEqual(data.get("status"), "ok")
+        self.assertIn("time", data)
+        self.assertIn("version", data)
 
     def test_status_handler_post(self):
         _register_example_routes()
@@ -249,18 +252,19 @@ class TestExampleRoutes(unittest.TestCase):
         handler = handler_cls()
         req = Request("/api/status", {}, b'{"foo":"bar"}', "POST", {}, ("127.0.0.1", 0))
         result = handler.do_POST(req)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(result.get("method"), "POST")
-        self.assertEqual(result.get("received"), {"foo": "bar"})
+        self.assertIsInstance(result, APIResponse)
+        data = result.data
+        self.assertEqual(data.get("method"), "POST")
+        self.assertEqual(data.get("received"), {"foo": "bar"})
 
-    def test_info_handler_returns_dict(self):
+    def test_info_handler_returns_api_response(self):
         _register_example_routes()
         handler_cls = DuckRequestHandler.CUSTOM_ROUTES["/api/info"]
         handler = handler_cls()
         req = Request("/api/info", {}, b"", "GET", {}, ("127.0.0.1", 0))
         result = handler.do_GET(req)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(result.get("name"), "Duck Server")
+        self.assertIsInstance(result, APIResponse)
+        self.assertEqual(result.data.get("name"), "Duck Server")
 
 
 class TestCreateServer(unittest.TestCase):
