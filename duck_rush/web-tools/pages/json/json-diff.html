@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Diff 对比工具 - Duck Rush Web Tools</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .layout {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .left-panel,
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .tag {
+            font-size: 12px;
+            font-weight: normal;
+            padding: 1px 8px;
+            border-radius: 10px;
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 320px;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 13px;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            background: #fafafa;
+            line-height: 1.5;
+        }
+
+        textarea.form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            background: #fff;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+        }
+
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #555;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .option-item input {
+            cursor: pointer;
+        }
+
+        .summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+
+        .summary .badge {
+            padding: 4px 14px;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .badge-added {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-removed {
+            background: #fdecea;
+            color: #c62828;
+        }
+
+        .badge-modified {
+            background: #fff8e1;
+            color: #b26a00;
+        }
+
+        .badge-same {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 13px;
+        }
+
+        .diff-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #34495e;
+            color: #ecf0f1;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .diff-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .diff-table .col-path {
+            width: 32%;
+            color: #555;
+        }
+
+        .diff-table .col-val {
+            width: 34%;
+        }
+
+        .row-added {
+            background: #e8f5e9;
+        }
+
+        .row-added .col-val-right {
+            color: #2e7d32;
+        }
+
+        .row-removed {
+            background: #fdecea;
+        }
+
+        .row-removed .col-val-left {
+            color: #c62828;
+        }
+
+        .row-modified {
+            background: #fff8e1;
+        }
+
+        .row-modified .col-val-left {
+            color: #c62828;
+        }
+
+        .row-modified .col-val-right {
+            color: #b26a00;
+        }
+
+        .row-unchanged {
+            color: #666;
+        }
+
+        .empty-hint {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 14px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #27ae60;
+            color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.error {
+            background: #e74c3c;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            .layout {
+                flex-direction: column;
+            }
+
+            textarea.form-control {
+                min-height: 200px;
+            }
+
+            .options {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .diff-table .col-path {
+                width: 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JSON Diff 对比工具</h1>
+
+        <div class="layout">
+            <div class="left-panel">
+                <div class="panel-title">原始 JSON <span class="tag">左侧</span></div>
+                <textarea id="json-left" class="form-control" placeholder='请输入原始 JSON，例如：&#10;{&#10;  "name": "张三",&#10;  "age": 30,&#10;  "tags": ["a", "b"]&#10;}'></textarea>
+            </div>
+            <div class="right-panel">
+                <div class="panel-title">修改后 JSON <span class="tag">右侧</span></div>
+                <textarea id="json-right" class="form-control" placeholder='请输入修改后 JSON，例如：&#10;{&#10;  "name": "张三",&#10;  "age": 31,&#10;  "tags": ["a", "c"]&#10;}'></textarea>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="compareJson()">比较</button>
+            <button class="btn btn-secondary" onclick="swapSides()">交换左右</button>
+            <button class="btn btn-secondary" onclick="formatLeft()">格式化左侧</button>
+            <button class="btn btn-secondary" onclick="formatRight()">格式化右侧</button>
+            <button class="btn btn-success" onclick="loadSample()">加载示例</button>
+            <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+
+            <div class="options">
+                <label class="option-item">
+                    <input type="checkbox" id="opt-ignore-order"> 忽略数组顺序
+                </label>
+                <label class="option-item">
+                    <input type="checkbox" id="opt-ignore-space"> 忽略首尾空白
+                </label>
+                <label class="option-item">
+                    <input type="checkbox" id="opt-only-diff"> 仅显示差异
+                </label>
+            </div>
+        </div>
+
+        <div class="summary" id="summary"></div>
+
+        <div id="diffResult">
+            <div class="empty-hint">点击「比较」查看两份 JSON 的差异</div>
+        </div>
+    </div>
+
+    <script>
+        function $(id) {
+            return document.getElementById(id);
+        }
+
+        function getOptions() {
+            return {
+                ignoreArrayOrder: $('opt-ignore-order').checked,
+                ignoreWhitespace: $('opt-ignore-space').checked,
+                onlyDiff: $('opt-only-diff').checked
+            };
+        }
+
+        // 判断值的逻辑类型
+        function typeOf(v) {
+            if (Array.isArray(v)) return 'array';
+            if (v !== null && typeof v === 'object') return 'object';
+            return typeof v; // 'string' | 'number' | 'boolean' | 'null' | ...
+        }
+
+        // 深度相等比较（考虑忽略空白选项）
+        function deepEqual(a, b, options) {
+            var ta = typeOf(a), tb = typeOf(b);
+            if (ta !== tb) return false;
+            if (ta === 'array') {
+                if (a.length !== b.length) return false;
+                for (var i = 0; i < a.length; i++) {
+                    if (!deepEqual(a[i], b[i], options)) return false;
+                }
+                return true;
+            }
+            if (ta === 'object') {
+                var ka = Object.keys(a), kb = Object.keys(b);
+                if (ka.length !== kb.length) return false;
+                for (var k = 0; k < ka.length; k++) {
+                    if (!(ka[k] in b) || !deepEqual(a[ka[k]], b[ka[k]], options)) return false;
+                }
+                return true;
+            }
+            if (typeof a === 'string' && typeof b === 'string' && options.ignoreWhitespace) {
+                return a.trim() === b.trim();
+            }
+            return a === b;
+        }
+
+        function childPath(parentPath, key, isArrayIndex) {
+            if (isArrayIndex) {
+                return parentPath + '[' + key + ']';
+            }
+            return parentPath === '' ? key : parentPath + '.' + key;
+        }
+
+        // 递归构建差异树
+        function buildDiff(left, right, parentPath, key, isArrayIndex, options) {
+            var path = childPath(parentPath, key, isArrayIndex);
+            var node = { key: key, path: path, status: 'unchanged', left: left, right: right, children: null };
+            var lType = typeOf(left), rType = typeOf(right);
+
+            if (left === undefined) {
+                node.status = 'added';
+                return node;
+            }
+            if (right === undefined) {
+                node.status = 'removed';
+                return node;
+            }
+            if (lType !== rType) {
+                node.status = 'modified';
+                return node;
+            }
+            if (lType === 'object') {
+                var keys = Object.keys(left).concat(Object.keys(right).filter(function (k) {
+                    return !(k in left);
+                }));
+                var children = [];
+                keys.forEach(function (k) {
+                    children.push(buildDiff(left[k], right[k], path, k, false, options));
+                });
+                node.children = children;
+                node.status = children.every(function (c) { return c.status === 'unchanged'; })
+                    ? 'unchanged' : 'modified';
+                return node;
+            }
+            if (lType === 'array') {
+                return buildArrayDiff(left, right, path, key, options);
+            }
+            // 叶子节点
+            node.status = deepEqual(left, right, options) ? 'unchanged' : 'modified';
+            return node;
+        }
+
+        // 构建数组差异
+        function buildArrayDiff(leftArr, rightArr, path, key, options) {
+            var children = [];
+            if (options.ignoreArrayOrder) {
+                var rightUsed = new Array(rightArr.length).fill(false);
+                var leftMatched = new Array(leftArr.length).fill(false);
+                for (var li = 0; li < leftArr.length; li++) {
+                    for (var ri = 0; ri < rightArr.length; ri++) {
+                        if (!rightUsed[ri] && deepEqual(leftArr[li], rightArr[ri], options)) {
+                            rightUsed[ri] = true;
+                            leftMatched[li] = true;
+                            children.push(buildDiff(leftArr[li], rightArr[ri], path, String(li), true, options));
+                            break;
+                        }
+                    }
+                }
+                for (var li2 = 0; li2 < leftArr.length; li2++) {
+                    if (!leftMatched[li2]) {
+                        children.push(buildDiff(leftArr[li2], undefined, path, String(li2), true, options));
+                    }
+                }
+                for (var ri2 = 0; ri2 < rightArr.length; ri2++) {
+                    if (!rightUsed[ri2]) {
+                        children.push(buildDiff(undefined, rightArr[ri2], path, String(ri2), true, options));
+                    }
+                }
+            } else {
+                var max = Math.max(leftArr.length, rightArr.length);
+                for (var i = 0; i < max; i++) {
+                    var l = i < leftArr.length ? leftArr[i] : undefined;
+                    var r = i < rightArr.length ? rightArr[i] : undefined;
+                    children.push(buildDiff(l, r, path, String(i), true, options));
+                }
+            }
+            var allUnchanged = children.every(function (c) { return c.status === 'unchanged'; });
+            return {
+                key: key,
+                path: path,
+                status: allUnchanged ? 'unchanged' : 'modified',
+                left: leftArr,
+                right: rightArr,
+                children: children
+            };
+        }
+
+        // 收集叶子差异节点
+        function collectRows(node, options, rows) {
+            if (node.children) {
+                node.children.forEach(function (c) { collectRows(c, options, rows); });
+                return;
+            }
+            if (options.onlyDiff && node.status === 'unchanged') return;
+            rows.push(node);
+        }
+
+        function fmtValue(v) {
+            if (v === undefined) return '';
+            if (v === null) return 'null';
+            if (typeof v === 'object') return JSON.stringify(v);
+            return String(v);
+        }
+
+        function renderDiff(leftObj, rightObj, options) {
+            var root = buildDiff(leftObj, rightObj, '', '', false, options);
+            var rows = [];
+            collectRows(root, options, rows);
+
+            var counts = { added: 0, removed: 0, modified: 0, unchanged: 0 };
+            rows.forEach(function (r) { counts[r.status]++; });
+
+            renderSummary(counts, rows.length);
+
+            var box = $('diffResult');
+            if (rows.length === 0) {
+                box.innerHTML = '<div class="empty-hint">两份 JSON 完全相同，没有差异</div>';
+                return;
+            }
+
+            var table = document.createElement('table');
+            table.className = 'diff-table';
+
+            var thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th class="col-path">字段路径</th><th class="col-val">原始值</th><th class="col-val">新值</th></tr>';
+            table.appendChild(thead);
+
+            var tbody = document.createElement('tbody');
+            rows.forEach(function (r) {
+                var tr = document.createElement('tr');
+                tr.className = 'row-' + r.status;
+
+                var tdPath = document.createElement('td');
+                tdPath.className = 'col-path';
+                tdPath.textContent = r.path === '' ? '(根)' : r.path;
+
+                var tdLeft = document.createElement('td');
+                tdLeft.className = 'col-val col-val-left';
+                tdLeft.textContent = fmtValue(r.left);
+
+                var tdRight = document.createElement('td');
+                tdRight.className = 'col-val col-val-right';
+                tdRight.textContent = fmtValue(r.right);
+
+                tr.appendChild(tdPath);
+                tr.appendChild(tdLeft);
+                tr.appendChild(tdRight);
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            box.innerHTML = '';
+            box.appendChild(table);
+        }
+
+        function renderSummary(counts, total) {
+            var box = $('summary');
+            var same = counts.added === 0 && counts.removed === 0 && counts.modified === 0;
+            var html = '';
+            if (same) {
+                html += '<span class="badge badge-same">两份 JSON 完全相同</span>';
+            } else {
+                html += '<span class="badge badge-added">新增 ' + counts.added + '</span>';
+                html += '<span class="badge badge-removed">删除 ' + counts.removed + '</span>';
+                html += '<span class="badge badge-modified">修改 ' + counts.modified + '</span>';
+            }
+            html += '<span class="badge badge-same">共 ' + total + ' 处</span>';
+            box.innerHTML = html;
+        }
+
+        function parseInput(value, label) {
+            var text = value.trim();
+            if (!text) {
+                throw new Error(label + '为空');
+            }
+            return JSON.parse(text);
+        }
+
+        function compareJson() {
+            var options = getOptions();
+            try {
+                var left = parseInput($('json-left').value, '左侧 JSON');
+                var right = parseInput($('json-right').value, '右侧 JSON');
+                renderDiff(left, right, options);
+                showToast('对比完成');
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    showToast('JSON 格式错误：' + error.message, 'error');
+                } else {
+                    showToast(error.message, 'error');
+                }
+            }
+        }
+
+        function swapSides() {
+            var l = $('json-left').value;
+            $('json-left').value = $('json-right').value;
+            $('json-right').value = l;
+        }
+
+        function formatSide(id) {
+            var el = $(id);
+            var text = el.value.trim();
+            if (!text) {
+                showToast('内容为空', 'error');
+                return;
+            }
+            try {
+                el.value = JSON.stringify(JSON.parse(text), null, 2);
+                showToast('格式化成功');
+            } catch (error) {
+                showToast('JSON 格式错误：' + error.message, 'error');
+            }
+        }
+
+        function formatLeft() { formatSide('json-left'); }
+        function formatRight() { formatSide('json-right'); }
+
+        function loadSample() {
+            $('json-left').value = JSON.stringify({
+                name: "张三",
+                age: 30,
+                active: true,
+                tags: ["a", "b", "c"],
+                profile: { city: "北京", vip: false }
+            }, null, 2);
+            $('json-right').value = JSON.stringify({
+                name: "张三",
+                age: 31,
+                active: true,
+                tags: ["a", "c", "d"],
+                profile: { city: "上海", vip: true }
+            }, null, 2);
+            showToast('已加载示例');
+        }
+
+        function clearAll() {
+            $('json-left').value = '';
+            $('json-right').value = '';
+            $('summary').innerHTML = '';
+            $('diffResult').innerHTML = '<div class="empty-hint">点击「比较」查看两份 JSON 的差异</div>';
+        }
+
+        function showToast(message, type) {
+            type = type || 'success';
+            var toast = document.createElement('div');
+            toast.className = 'toast' + (type === 'error' ? ' error' : '');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function () {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(function () { document.body.removeChild(toast); }, 300);
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

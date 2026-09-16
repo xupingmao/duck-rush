@@ -74,6 +74,12 @@ const menuConfig = [
                 name: '提取',
                 url: 'pages/json/json-extract.html',
                 description: "用于从 JSON 数据中提取指定字段的工具，方便数据处理。"
+            },
+            {
+                id: 'json-diff',
+                name: 'Diff对比',
+                url: 'pages/json/json-diff.html',
+                description: "用于对比两份 JSON 数据的差异，高亮新增、删除与修改的字段。"
             }
         ],
         description: "用于格式化和验证 JSON 数据的工具，方便阅读和处理。"
@@ -139,6 +145,12 @@ const menuConfig = [
                 name: "图片diff",
                 description: "图片像素对比工具",
                 url: "pages/image-diff.html"
+            },
+            {
+                id: "pixel-editor",
+                name: "像素编辑器",
+                description: "在画布上绘制像素画，支持铅笔/橡皮/填充/取色、网格、撤销重做、缩放，并导出 PNG 或 JSON",
+                url: "pages/pixel-editor.html"
             }
         ]
     },
