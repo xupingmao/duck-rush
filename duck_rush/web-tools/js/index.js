@@ -166,8 +166,11 @@ function generateCollapsedNavMenu() {
         a.href = '#';
         a.dataset.url = item.url;
         a.dataset.title = item.name;
-        // 只显示图标，不显示文字
-        a.innerHTML = `<span class="menu-content"><span>${item.icon}</span></span>`;
+        // 折叠态只显示图标：补全缺省图标，并加 title/aria-label 便于识别
+        const icon = item.icon || '⚙️';
+        a.title = item.name;
+        a.setAttribute('aria-label', item.name);
+        a.innerHTML = `<span class="menu-content"><span>${icon}</span></span>`;
 
         li.appendChild(a);
 

@@ -17,7 +17,7 @@
   --content-bg: rgba(15, 17, 23, 0.35);
   --hover-bg: rgba(255, 255, 255, 0.06);
   --nav-w: 240px;
-  --nav-collapsed-w: 64px;
+  --nav-collapsed-w: 76px;
   --nav-h: 58px;
 }
 
@@ -212,17 +212,44 @@ body {
 /* ============================================================
  * 折叠状态（PC）
  * ============================================================ */
-.sidebar.collapsed { width: var(--nav-collapsed-w); }
+.sidebar.collapsed {
+  width: var(--nav-collapsed-w);
+  /* 收窄左右内边距，给图标留出更宽的居中轨道 */
+  padding-left: 12px;
+  padding-right: 12px;
+}
 
+/* 品牌圆点在图标栏中居中 */
+.sidebar.collapsed .brand {
+  justify-content: center;
+  padding: 4px 0;
+}
 .sidebar.collapsed .brand-name { display: none; }
 
 .sidebar.collapsed .nav-item a {
   justify-content: center;
-  padding: 11px 0;
+  padding: 10px 0;
+  min-height: 42px;
   font-size: 0; /* 隐藏文字节点 */
 }
-.sidebar.collapsed .nav-item a .menu-content { flex: 0; gap: 0; }
-.sidebar.collapsed .nav-item a .menu-content span:first-child { font-size: 18px; }
+
+/* 图标容器占满整行并居中，保证图标完整不被裁切 */
+.sidebar.collapsed .nav-item a .menu-content {
+  flex: 0 0 100%;
+  width: 100%;
+  justify-content: center;
+  gap: 0;
+}
+
+/* 图标自身禁止收缩，避免在窄栏中被压扁 / 裁切 */
+.sidebar.collapsed .nav-item a .menu-content span:first-child {
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .sidebar.collapsed .nav-item a .toggle-icon { display: none; }
 
 .sidebar.collapsed .theme-toggle .tt-label { display: none; }
@@ -357,7 +384,14 @@ body {
     padding: 9px 6px;
     font-size: 12px;
   }
-  .nav-item a .menu-content { gap: 4px; }
+  /* 底部导航为横向布局，重置折叠态的整行宽度，避免撑破单列 */
+  .nav-item a .menu-content,
+  .sidebar.collapsed .nav-item a .menu-content {
+    flex: 1;
+    width: auto;
+    justify-content: center;
+    gap: 4px;
+  }
   .nav-item a .menu-content span:first-child,
   .sidebar.collapsed .nav-item a .menu-content span:first-child { font-size: 14px; }
   .nav-item a .toggle-icon { display: none; }
