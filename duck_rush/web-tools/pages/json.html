@@ -300,6 +300,7 @@
     </div>
 
     <script src="../js/json.js"></script>
+    <script src="../js/json-int64.js"></script>
     <script>
         // DOM 元素
         const inputTextarea = document.getElementById('inputTextarea');
@@ -326,9 +327,9 @@
             // 替换所有匹配的 JSON 部分
             return text.replace(jsonPattern, (match) => {
                 try {
-                    // 尝试解析和格式化 JSON
-                    const jsonObj = JSON.parse(match);
-                    return JSON.stringify(jsonObj, null, 2);
+                    // 尝试解析和格式化 JSON（int64 安全）
+                    const jsonObj = JSONInt64.parse(match);
+                    return JSONInt64.stringify(jsonObj, null, 2);
                 } catch {
                     // 如果解析失败，返回原始匹配内容
                     return match;
@@ -423,18 +424,18 @@
                 const results = [];
                 jsonTexts.forEach((jsonText, index) => {
                     try {
-                        // 解析 JSON
-                        const jsonObj = JSON.parse(jsonText);
+                        // 解析 JSON（int64 安全）
+                        const jsonObj = JSONInt64.parse(jsonText);
                         // 提取 JSONPath 属性
                         const extractedValue = parseJSONPath(jsonObj, jsonpath);
                         
                         if (extractedValue === undefined) {
                             results.push(`JSON ${index + 1}: 未找到匹配的属性`);
                         } else {
-                            // 格式化提取的值
-                            const formattedValue = typeof extractedValue === 'object' ? 
-                                JSON.stringify(extractedValue, null, 2) : 
-                                extractedValue.toString();
+                        // 格式化提取的值
+                        const formattedValue = typeof extractedValue === 'object' ? 
+                            JSONInt64.stringify(extractedValue, null, 2) : 
+                            extractedValue.toString();
                             results.push(`JSON ${index + 1}:\n${formattedValue}`);
                         }
                     } catch (error) {

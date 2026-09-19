@@ -324,6 +324,7 @@
         </div>
     </div>
 
+    <script src="../../js/json-int64.js"></script>
     <script>
         function extractField() {
             var jsonInput = document.getElementById('json-input').value.trim();
@@ -340,7 +341,7 @@
             }
 
             try {
-                var jsonObj = JSON.parse(jsonInput);
+                var jsonObj = JSONInt64.parse(jsonInput);
                 var result = extractByPath(jsonObj, fieldPath);
 
                 displayResult(result);
@@ -453,7 +454,7 @@
             var resultOutput = document.getElementById('result-output');
 
             if (typeof result === 'object') {
-                resultOutput.value = JSON.stringify(result, null, 2);
+                resultOutput.value = JSONInt64.stringify(result, null, 2);
             } else {
                 resultOutput.value = String(result);
             }
@@ -468,8 +469,8 @@
             }
 
             try {
-                var jsonObj = JSON.parse(jsonInput);
-                document.getElementById('json-input').value = JSON.stringify(jsonObj, null, 2);
+                var jsonObj = JSONInt64.parse(jsonInput);
+                document.getElementById('json-input').value = JSONInt64.stringify(jsonObj, null, 2);
                 showToast('格式化成功');
             } catch (error) {
                 showToast('JSON格式错误：' + error.message, 'error');

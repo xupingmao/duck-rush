@@ -370,6 +370,7 @@
         </div>
     </div>
 
+    <script src="../../js/json-int64.js"></script>
     <script>
         function $(id) {
             return document.getElementById(id);
@@ -411,6 +412,11 @@
             }
             if (typeof a === 'string' && typeof b === 'string' && options.ignoreWhitespace) {
                 return a.trim() === b.trim();
+            }
+            // BigInt 与原生 number 比较：数值相等视为相同（避免 int64 被当作 number 时误判差异）
+            if (typeof a === 'bigint' || typeof b === 'bigint') {
+                if (typeof a === 'bigint' && typeof b === 'bigint') return a === b;
+                return Number(a) === Number(b);
             }
             return a === b;
         }
@@ -519,7 +525,7 @@
         function fmtValue(v) {
             if (v === undefined) return '';
             if (v === null) return 'null';
-            if (typeof v === 'object') return JSON.stringify(v);
+            if (typeof v === 'object') return JSONInt64.stringify(v);
             return String(v);
         }
 
@@ -593,7 +599,7 @@
             if (!text) {
                 throw new Error(label + '为空');
             }
-            return JSON.parse(text);
+            return JSONInt64.parse(text);
         }
 
         function compareJson() {
@@ -626,7 +632,7 @@
                 return;
             }
             try {
-                el.value = JSON.stringify(JSON.parse(text), null, 2);
+                el.value = JSONInt64.stringify(JSONInt64.parse(text), null, 2);
                 showToast('格式化成功');
             } catch (error) {
                 showToast('JSON 格式错误：' + error.message, 'error');
