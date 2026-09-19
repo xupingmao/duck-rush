@@ -202,15 +202,7 @@ function generateCollapsedNavMenu() {
  * @param {boolean} isInitOrResize - 是否是初始化调用或窗口大小变化调用
  */
 function generateNavMenu(isInitOrResize) {
-    if (isInitOrResize) {
-        // 检查是否是移动端
-        const isMobile = window.innerWidth <= 768;
-
-        if (isMobile) {
-            sidebar.classList.add('collapsed');
-        }
-    }
-
+    // 移动端由 CSS 媒体查询渲染为底部导航栏，不再强制折叠为图标栏
     if (sidebar && sidebar.classList.contains('collapsed')) {
         generateCollapsedNavMenu();
     } else {
