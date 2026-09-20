@@ -101,6 +101,99 @@
             width: 180px;
         }
 
+        /* 分批设置 */
+        .batch-settings {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #dee2e6;
+        }
+
+        .batch-settings.disabled {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .batch-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .batch-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .batch-inline {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .batch-label {
+            font-size: 0.85rem;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .num-input {
+            padding: 3px 6px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 72px;
+        }
+
+        .text-input {
+            padding: 3px 6px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 150px;
+        }
+
+        .batch-hint {
+            font-size: 0.78rem;
+            color: #868e96;
+        }
+
+        .auto-convert {
+            margin-left: auto;
+            align-self: center;
+        }
+
+        /* 状态栏 */
+        .status {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status.ok {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .status.err {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .status.idle {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #e9ecef;
+        }
+
         .controls-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -246,7 +339,7 @@
     <div class="container">
         <header>
             <h1 class="header-title">文本分割工具</h1>
-            <p class="header-subtitle">将文本按照指定分隔符分割，并使用新的分隔符重新组合</p>
+            <p class="header-subtitle">将文本按照指定分隔符分割，并使用新的分隔符重新组合；支持分成 N 批分别转换</p>
         </header>
 
         <main>
@@ -341,11 +434,68 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="control-group">
+                        <label>分批（把条目分成多批，每批各自转换，输出也是多批）</label>
+                        <div class="options">
+                            <div class="option-item">
+                                <input type="checkbox" id="batchEnabled">
+                                <label for="batchEnabled">启用分批</label>
+                            </div>
+                        </div>
+                        <div class="batch-settings disabled" id="batchSettings">
+                            <div class="batch-row">
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchMode" value="count" checked>
+                                    <span>平均分成</span>
+                                    <input type="number" id="batchCount" class="num-input" min="1" value="2">
+                                    <span>批</span>
+                                </label>
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchMode" value="size">
+                                    <span>每批最多</span>
+                                    <input type="number" id="batchSize" class="num-input" min="1" value="100">
+                                    <span>条</span>
+                                </label>
+                            </div>
+                            <div class="batch-row">
+                                <span class="batch-label">批次分隔</span>
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchSep" value="blankline" checked>
+                                    <span>空行</span>
+                                </label>
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchSep" value="newline">
+                                    <span>换行</span>
+                                </label>
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchSep" value="title">
+                                    <span>批次标题</span>
+                                </label>
+                                <label class="batch-inline">
+                                    <input type="radio" name="batchSep" value="custom">
+                                    <span>自定义</span>
+                                </label>
+                                <input type="text" id="batchCustomSep" class="text-input" placeholder="自定义批次分隔符">
+                            </div>
+                            <div class="batch-row">
+                                <label class="batch-inline">
+                                    <input type="checkbox" id="batchDropEmpty">
+                                    <span>丢弃空批次</span>
+                                </label>
+                            </div>
+                            <div class="batch-hint">去重与排序在每批内部独立生效</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="button-group">
                     <button class="btn btn-primary" id="splitBtn">分割文本</button>
                     <button class="btn btn-secondary" id="clearBtn">清空</button>
+                    <label class="batch-inline auto-convert">
+                        <input type="checkbox" id="autoConvert" checked>
+                        <span>输入时自动转换</span>
+                    </label>
                 </div>
             </div>
 
@@ -365,6 +515,8 @@
                     </div>
                 </div>
             </div>
+
+            <div class="status idle" id="statusBar">就绪</div>
         </main>
     </div>
 
@@ -385,11 +537,28 @@
         const trimOption = document.getElementById('trimOption');
         const sortOption = document.getElementById('sortOption');
         const uniqueOption = document.getElementById('uniqueOption');
+        const statusBar = document.getElementById('statusBar');
+        const batchEnabled = document.getElementById('batchEnabled');
+        const batchSettings = document.getElementById('batchSettings');
+        const batchCount = document.getElementById('batchCount');
+        const batchSize = document.getElementById('batchSize');
+        const batchCustomSep = document.getElementById('batchCustomSep');
+        const batchDropEmpty = document.getElementById('batchDropEmpty');
+        const autoConvert = document.getElementById('autoConvert');
+
+        // 预设分隔符
+        const SEPARATORS = { comma: ',', newline: '\n', space: ' ' };
+
+        function setStatus(msg, kind) {
+            statusBar.textContent = msg;
+            statusBar.className = 'status ' + (kind || 'idle');
+        }
 
         // 初始化
         function init() {
             // 隐藏自定义输入框
             updateCustomInputs();
+            updateBatchSettings();
 
             // 事件监听器
             splitBtn.addEventListener('click', splitText);
@@ -398,14 +567,51 @@
 
             // 监听分割方法变化
             splitMethodRadios.forEach(radio => {
-                radio.addEventListener('change', updateCustomInputs);
+                radio.addEventListener('change', () => {
+                    updateCustomInputs();
+                    splitText();
+                });
             });
 
             // 监听结果分隔符变化
             joinMethodRadios.forEach(radio => {
-                radio.addEventListener('change', updateCustomInputs);
+                radio.addEventListener('change', () => {
+                    updateCustomInputs();
+                    splitText();
+                });
+            });
+
+            // 引号处理变化
+            quoteMethodRadios.forEach(radio => {
+                radio.addEventListener('change', splitText);
+            });
+
+            // 高级选项变化
+            [trimOption, sortOption, uniqueOption].forEach(el => {
+                el.addEventListener('change', splitText);
+            });
+
+            // 分批相关
+            batchEnabled.addEventListener('change', () => {
+                updateBatchSettings();
+                splitText();
+            });
+            document.querySelectorAll('input[name="batchMode"], input[name="batchSep"]')
+                .forEach(el => el.addEventListener('change', splitText));
+            [batchCount, batchSize, batchCustomSep, batchDropEmpty].forEach(el => {
+                el.addEventListener('input', splitText);
+                el.addEventListener('change', splitText);
+            });
+
+            // 输入时自动转换（防抖）
+            inputText.addEventListener('input', () => {
+                if (!autoConvert.checked) return;
+                clearTimeout(convertTimer);
+                convertTimer = setTimeout(splitText, 150);
             });
         }
+
+        let convertTimer = null;
 
         // 更新自定义输入框显示状态
         function updateCustomInputs() {
@@ -416,134 +622,215 @@
             customJoinInput.style.display = joinMethod === 'custom' ? 'block' : 'none';
         }
 
+        // 分批设置仅在启用时可用
+        function updateBatchSettings() {
+            batchSettings.classList.toggle('disabled', !batchEnabled.checked);
+        }
+
         // 获取选中的单选按钮值
         function getSelectedValue(name) {
             const radio = document.querySelector(`input[name="${name}"]:checked`);
             return radio ? radio.value : '';
         }
 
+        /** 读取分隔符；返回 null 表示用户未填写自定义值 */
+        function readSeparator(methodName, customEl) {
+            const method = getSelectedValue(methodName);
+            if (method === 'custom') {
+                return customEl.value || null;
+            }
+            return SEPARATORS[method];
+        }
+
+        /**
+         * 对一批条目执行转换（去空白 → 去重 → 去引号 → 排序 → 加引号）
+         * @param {string[]} parts
+         * @returns {string[]}
+         */
+        function processParts(parts) {
+            let result = parts;
+            if (trimOption.checked) result = result.map(p => p.trim());
+            if (uniqueOption.checked) result = [...new Set(result)];
+
+            const quoteMethod = getSelectedValue('quoteMethod');
+            if (quoteMethod === 'remove') {
+                result = result.map(p => p.replace(/^['"]|['"]$/g, ''));
+            }
+            if (sortOption.checked) result.sort();
+            if (quoteMethod === 'single') result = result.map(p => `'${p}'`);
+            else if (quoteMethod === 'double') result = result.map(p => `"${p}"`);
+            return result;
+        }
+
+        /**
+         * 把条目分成多批
+         * @param {string[]} parts 条目列表
+         * @param {'count'|'size'} mode 分配方式
+         * @returns {string[][]} 批次列表
+         */
+        function splitIntoBatches(parts, mode) {
+            const total = parts.length;
+            if (total === 0) return [];
+
+            if (mode === 'size') {
+                const size = Math.max(1, parseInt(batchSize.value, 10) || 1);
+                const batches = [];
+                for (let i = 0; i < total; i += size) {
+                    batches.push(parts.slice(i, i + size));
+                }
+                return batches;
+            }
+
+            // 平均分成 N 批：前 (total % n) 批各多 1 条，保证尽量均匀
+            const requested = Math.max(1, parseInt(batchCount.value, 10) || 1);
+            const n = Math.min(requested, total); // 批数不能超过条目数
+            const base = Math.floor(total / n);
+            const remainder = total % n;
+            const batches = [];
+            let cursor = 0;
+            for (let i = 0; i < n; i++) {
+                const len = base + (i < remainder ? 1 : 0);
+                batches.push(parts.slice(cursor, cursor + len));
+                cursor += len;
+            }
+            return batches;
+        }
+
+        /** 批次之间的分隔符；'title' 由调用方特殊处理，这里返回 null */
+        function readBatchSeparator() {
+            const kind = getSelectedValue('batchSep');
+            if (kind === 'newline') return '\n';
+            if (kind === 'blankline') return '\n\n';
+            if (kind === 'custom') return batchCustomSep.value || null;
+            return null; // 'title'
+        }
+
         // 分割文本
         function splitText() {
             const text = inputText.value;
+
+            // 空输入：清空输出而不是弹窗打断
             if (!text.trim()) {
-                alert('请输入要分割的文本');
+                outputText.value = '';
+                setStatus('就绪', 'idle');
                 return;
             }
 
-            // 获取分割方法
-            const splitMethod = getSelectedValue('splitMethod');
-            let separator;
+            const separator = readSeparator('splitMethod', splitCustomValue);
+            if (separator === null) {
+                setStatus('请填写自定义分割分隔符', 'err');
+                return;
+            }
+            const joinSeparator = readSeparator('joinMethod', joinCustomValue);
+            if (joinSeparator === null) {
+                setStatus('请填写自定义结果分隔符', 'err');
+                return;
+            }
 
-            switch (splitMethod) {
-                case 'comma':
-                    separator = ',';
-                    break;
-                case 'newline':
-                    separator = '\n';
-                    break;
-                case 'space':
-                    separator = ' ';
-                    break;
-                case 'custom':
-                    separator = splitCustomValue.value;
-                    if (!separator) {
-                        alert('请输入自定义分隔符');
-                        return;
+            // 分割并过滤空条目
+            let parts = text.split(separator).filter(part => part.trim() !== '');
+            if (parts.length === 0) {
+                outputText.value = '';
+                setStatus('未解析出任何有效条目', 'err');
+                return;
+            }
+
+            // ---- 未启用分批：保持原有行为 ----
+            if (!batchEnabled.checked) {
+                const result = processParts(parts).join(joinSeparator);
+                outputText.value = result;
+                setStatus(`共 ${parts.length} 个条目`, 'ok');
+                return;
+            }
+
+            // ---- 启用分批：每批独立转换 ----
+            const mode = getSelectedValue('batchMode');
+            let batches = splitIntoBatches(parts, mode);
+            let batchTexts = batches.map(b => processParts(b).join(joinSeparator));
+
+            if (batchDropEmpty.checked) {
+                const keptBatches = [];
+                const keptTexts = [];
+                for (let i = 0; i < batchTexts.length; i++) {
+                    if (batchTexts[i].trim() !== '') {
+                        keptBatches.push(batches[i]);
+                        keptTexts.push(batchTexts[i]);
                     }
-                    break;
+                }
+                batches = keptBatches;
+                batchTexts = keptTexts;
             }
 
-            // 分割文本
-            let parts = text.split(separator);
-
-            // 过滤空字符串
-            parts = parts.filter(part => part.trim() !== '');
-
-            // 处理trim选项
-            if (trimOption.checked) {
-                parts = parts.map(part => part.trim());
+            if (batchTexts.length === 0) {
+                outputText.value = '';
+                setStatus('丢弃空批次后没有任何内容', 'err');
+                return;
             }
 
-            // 处理去重选项
-            if (uniqueOption.checked) {
-                parts = [...new Set(parts)];
+            const kind = getSelectedValue('batchSep');
+            if (kind === 'title') {
+                outputText.value = batchTexts
+                    .map((t, i) => `第 ${i + 1} 批\n${t}`)
+                    .join('\n\n');
+            } else {
+                const batchSep = readBatchSeparator();
+                if (batchSep === null) {
+                    setStatus('请填写自定义批次分隔符', 'err');
+                    return;
+                }
+                outputText.value = batchTexts.join(batchSep);
             }
 
-            // 获取引号处理方法
-            const quoteMethod = getSelectedValue('quoteMethod');
-
-            // 处理引号移除
-            if (quoteMethod === 'remove') {
-                parts = parts.map(part => {
-                    // 移除首尾的单引号或双引号
-                    return part.replace(/^['"]|['"]$/g, '');
-                });
-            }
-
-            // 处理排序选项
-            if (sortOption.checked) {
-                parts.sort();
-            }
-
-            // 处理添加引号
-            if (quoteMethod === 'single') {
-                parts = parts.map(part => `'${part}'`);
-            } else if (quoteMethod === 'double') {
-                parts = parts.map(part => `"${part}"`);
-            }
-
-            // 获取结果分隔符
-            const joinMethod = getSelectedValue('joinMethod');
-            let joinSeparator;
-
-            switch (joinMethod) {
-                case 'newline':
-                    joinSeparator = '\n';
-                    break;
-                case 'comma':
-                    joinSeparator = ',';
-                    break;
-                case 'space':
-                    joinSeparator = ' ';
-                    break;
-                case 'custom':
-                    joinSeparator = joinCustomValue.value;
-                    if (!joinSeparator) {
-                        alert('请输入自定义分隔符');
-                        return;
-                    }
-                    break;
-            }
-
-            // 重新组合文本
-            const result = parts.join(joinSeparator);
-
-            // 显示结果
-            outputText.value = result;
+            const sizes = batches.map(b => b.length);
+            const min = Math.min(...sizes);
+            const max = Math.max(...sizes);
+            const sizeDesc = min === max ? `每批 ${max} 条` : `每批 ${min}~${max} 条`;
+            setStatus(`共 ${parts.length} 个条目，分成 ${batches.length} 批（${sizeDesc}）`, 'ok');
         }
 
         // 清空文本
         function clearText() {
             inputText.value = '';
             outputText.value = '';
+            setStatus('已清空', 'idle');
         }
 
         // 复制结果
         function copyResult() {
             if (!outputText.value.trim()) {
-                alert('没有可复制的内容');
+                setStatus('没有可复制的内容', 'err');
                 return;
             }
 
-            outputText.select();
-            document.execCommand('copy');
+            const done = () => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '已复制!';
+                setTimeout(() => { copyBtn.textContent = originalText; }, 1000);
+                setStatus('已复制到剪贴板', 'ok');
+            };
 
-            // 显示复制成功提示
-            const originalText = copyBtn.textContent;
-            copyBtn.textContent = '已复制!';
-            setTimeout(() => {
-                copyBtn.textContent = originalText;
-            }, 1000);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(outputText.value).then(done, () => {
+                    legacyCopy() ? done() : setStatus('复制失败，请手动选中复制', 'err');
+                });
+            } else {
+                legacyCopy() ? done() : setStatus('复制失败，请手动选中复制', 'err');
+            }
+        }
+
+        /** file:// 场景下的兜底复制 */
+        function legacyCopy() {
+            try {
+                const prev = outputText.readOnly;
+                outputText.readOnly = false;
+                outputText.select();
+                outputText.setSelectionRange(0, 999999);
+                const ok = document.execCommand('copy');
+                outputText.readOnly = prev;
+                return ok;
+            } catch (e) {
+                return false;
+            }
         }
 
         // 初始化
