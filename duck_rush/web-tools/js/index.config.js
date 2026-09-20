@@ -56,6 +56,12 @@ const menuConfig = [
                 name: "文本shell工具",
                 url: "pages/text/text-shell.html",
                 description: "用于使用shell工具处理文本"
+            },
+            {
+                id: "text-codec",
+                name: "文本编解码",
+                url: "pages/text/text-codec.html",
+                description: "常见的文本编解码工具，支持 URL、Base64、HTML实体、Unicode 转义、十六进制与 JSON 转义，按 UTF-8 正确处理中文与 emoji，纯前端离线可用。"
             }
         ]
     },

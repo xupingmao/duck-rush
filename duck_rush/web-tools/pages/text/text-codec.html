@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本编解码工具 | Duck Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 24px;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            margin-bottom: 14px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group>label.group-label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* 编解码类型切换 */
+        .codec-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .codec-tab {
+            padding: 7px 14px;
+            border: 1px solid #ced4da;
+            background: white;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #495057;
+        }
+
+        .codec-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .codec-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* 方向单选 */
+        .options {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        /* 动态选项 */
+        #optionsArea:empty {
+            display: none;
+        }
+
+        .dynamic-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+
+        .button-group {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: white;
+            color: #495057;
+            border: 1px solid #ced4da;
+        }
+
+        .btn-outline:hover {
+            background: #e9ecef;
+        }
+
+        .text-areas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .text-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-section label {
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .text-area-container {
+            flex: 1;
+            min-height: 260px;
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+
+        .copy-btn:hover {
+            background: #e9ecef;
+        }
+
+        /* 状态栏 */
+        .status {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status.ok {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .status.err {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .status.idle {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #e9ecef;
+        }
+
+        .hint {
+            margin-top: 14px;
+            font-size: 0.82rem;
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        .hint code {
+            background: #f1f3f5;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            main {
+                padding: 16px;
+            }
+
+            .text-areas {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .text-area-container {
+                min-height: 180px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1 class="header-title">文本编解码工具</h1>
+            <p class="header-subtitle">URL / Base64 / HTML实体 / Unicode / Hex / JSON 转义，纯前端离线可用</p>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="control-group">
+                    <label class="group-label">编码类型</label>
+                    <div class="codec-tabs" id="codecTabs"></div>
+                </div>
+
+                <div class="control-group">
+                    <label class="group-label">转换方向</label>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="radio" name="direction" value="encode" checked>
+                            <span>编码</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="direction" value="decode">
+                            <span>解码</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" id="autoTransform" checked>
+                            <span>输入时自动转换</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-group" id="optionsWrap">
+                    <label class="group-label">选项</label>
+                    <div id="optionsArea"></div>
+                    <div style="font-size:0.83rem;color:#6c757d;" id="optionsEmpty">当前编码类型没有可选项</div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="transformBtn">编码</button>
+                    <button class="btn btn-outline" id="swapBtn">交换输入输出</button>
+                    <button class="btn btn-outline" id="sampleBtn">填入示例</button>
+                    <button class="btn btn-secondary" id="clearBtn">清空</button>
+                </div>
+            </div>
+
+            <div class="text-areas">
+                <div class="text-section">
+                    <label for="inputText" id="inputLabel">输入文本</label>
+                    <div class="text-area-container">
+                        <textarea id="inputText" placeholder="请输入要处理的文本..."></textarea>
+                    </div>
+                </div>
+
+                <div class="text-section">
+                    <label for="outputText" id="outputLabel">输出结果</label>
+                    <div class="text-area-container">
+                        <button class="copy-btn" id="copyBtn">复制结果</button>
+                        <textarea id="outputText" placeholder="转换结果将显示在这里..." readonly></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status idle" id="statusBar">就绪</div>
+
+            <div class="hint">
+                说明：Base64 与 Hex 均按 <code>UTF-8</code> 字节处理，可正确编解码中文与 emoji；
+                Unicode 转义中的 emoji 以代理对形式输出（如 <code>\uD83D\uDE00</code>）。
+                全部计算在浏览器本地完成，不上传任何数据。
+            </div>
+        </main>
+    </div>
+
+    <script src="../../js/text-codec.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var inputText = document.getElementById('inputText');
+            var outputText = document.getElementById('outputText');
+            var codecTabs = document.getElementById('codecTabs');
+            var optionsArea = document.getElementById('optionsArea');
+            var optionsEmpty = document.getElementById('optionsEmpty');
+            var statusBar = document.getElementById('statusBar');
+            var transformBtn = document.getElementById('transformBtn');
+            var swapBtn = document.getElementById('swapBtn');
+            var sampleBtn = document.getElementById('sampleBtn');
+            var clearBtn = document.getElementById('clearBtn');
+            var copyBtn = document.getElementById('copyBtn');
+            var autoTransform = document.getElementById('autoTransform');
+            var inputLabel = document.getElementById('inputLabel');
+            var outputLabel = document.getElementById('outputLabel');
+
+            var currentId = 'url';
+
+            function setStatus(msg, kind) {
+                statusBar.textContent = msg;
+                statusBar.className = 'status ' + (kind || 'idle');
+            }
+
+            function getDirection() {
+                var el = document.querySelector('input[name="direction"]:checked');
+                return el ? el.value : 'encode';
+            }
+
+            /** 收集当前编码类型的选项值 */
+            function getOptions() {
+                var opts = {};
+                var codec = TextCodec.getCodec(currentId);
+                (codec.options || []).forEach(function (opt) {
+                    var el = document.getElementById('opt-' + opt.id);
+                    opts[opt.id] = el ? el.checked : !!opt.default;
+                });
+                return opts;
+            }
+
+            /** 渲染编码类型切换按钮 */
+            function renderTabs() {
+                codecTabs.innerHTML = '';
+                TextCodec.codecs.forEach(function (codec) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'codec-tab' + (codec.id === currentId ? ' active' : '');
+                    btn.textContent = codec.name;
+                    btn.dataset.codecId = codec.id;
+                    btn.addEventListener('click', function () {
+                        currentId = codec.id;
+                        renderTabs();
+                        renderOptions();
+                        updateLabels();
+                        transform();
+                    });
+                    codecTabs.appendChild(btn);
+                });
+            }
+
+            /** 渲染当前编码类型的动态选项 */
+            function renderOptions() {
+                var codec = TextCodec.getCodec(currentId);
+                var opts = codec.options || [];
+                optionsArea.innerHTML = '';
+                optionsEmpty.style.display = opts.length ? 'none' : 'block';
+                opts.forEach(function (opt) {
+                    var label = document.createElement('label');
+                    label.className = 'dynamic-option';
+                    var input = document.createElement('input');
+                    input.type = opt.type || 'checkbox';
+                    input.id = 'opt-' + opt.id;
+                    input.checked = !!opt.default;
+                    input.addEventListener('change', function () { transform(); });
+                    var span = document.createElement('span');
+                    span.textContent = opt.label;
+                    label.appendChild(input);
+                    label.appendChild(span);
+                    optionsArea.appendChild(label);
+                });
+            }
+
+            /** 根据编码类型与方向更新标题 / 占位符 */
+            function updateLabels() {
+                var codec = TextCodec.getCodec(currentId);
+                var isDecode = getDirection() === 'decode';
+                transformBtn.textContent = isDecode ? '解码' : '编码';
+                inputLabel.textContent = (isDecode ? '待解码' : '待编码') + '文本（' + codec.name + '）';
+                outputLabel.textContent = isDecode ? '解码结果' : '编码结果';
+                inputText.placeholder = codec.placeholder || '请输入要处理的文本...';
+            }
+
+            /** 执行转换 */
+            function transform() {
+                var text = inputText.value;
+                if (text === '') {
+                    outputText.value = '';
+                    setStatus('就绪', 'idle');
+                    return;
+                }
+                var direction = getDirection();
+                try {
+                    var result = TextCodec.transform(currentId, text, direction, getOptions());
+                    outputText.value = result;
+                    setStatus((direction === 'decode' ? '解码' : '编码') + '成功，共 ' +
+                        result.length + ' 个字符', 'ok');
+                } catch (e) {
+                    outputText.value = '';
+                    setStatus('转换失败：' + (e && e.message ? e.message : e), 'err');
+                }
+            }
+
+            /** 复制到剪贴板，兼容 file:// 场景 */
+            function copyResult() {
+                if (!outputText.value) {
+                    setStatus('没有可复制的内容', 'err');
+                    return;
+                }
+                var done = function () {
+                    var old = copyBtn.textContent;
+                    copyBtn.textContent = '已复制!';
+                    setTimeout(function () { copyBtn.textContent = old; }, 1000);
+                    setStatus('已复制到剪贴板', 'ok');
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(outputText.value).then(done, function () {
+                        legacyCopy() ? done() : setStatus('复制失败，请手动选中复制', 'err');
+                    });
+                } else {
+                    legacyCopy() ? done() : setStatus('复制失败，请手动选中复制', 'err');
+                }
+            }
+
+            function legacyCopy() {
+                try {
+                    var prev = outputText.readOnly;
+                    outputText.readOnly = false;
+                    outputText.select();
+                    outputText.setSelectionRange(0, 999999);
+                    var ok = document.execCommand('copy');
+                    outputText.readOnly = prev;
+                    return ok;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            // 事件绑定
+            transformBtn.addEventListener('click', transform);
+            swapBtn.addEventListener('click', function () {
+                var tmp = inputText.value;
+                inputText.value = outputText.value;
+                outputText.value = tmp;
+                transform();
+            });
+            sampleBtn.addEventListener('click', function () {
+                var codec = TextCodec.getCodec(currentId);
+                inputText.value = codec.sample || '';
+                transform();
+            });
+            clearBtn.addEventListener('click', function () {
+                inputText.value = '';
+                outputText.value = '';
+                setStatus('已清空', 'idle');
+            });
+            copyBtn.addEventListener('click', copyResult);
+            inputText.addEventListener('input', function () {
+                if (autoTransform.checked) transform();
+            });
+            Array.prototype.forEach.call(
+                document.querySelectorAll('input[name="direction"]'),
+                function (radio) {
+                    radio.addEventListener('change', function () {
+                        updateLabels();
+                        transform();
+                    });
+                }
+            );
+
+            // 初始化
+            renderTabs();
+            renderOptions();
+            updateLabels();
+        })();
+    </script>
+</body>
+
+</html>
