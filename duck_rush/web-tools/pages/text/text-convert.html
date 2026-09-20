@@ -32,7 +32,7 @@
         header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 14px 20px;
             text-align: center;
         }
 
@@ -49,30 +49,36 @@
         }
 
         main {
-            padding: 24px;
+            padding: 18px;
         }
 
         .controls {
             background: #f8f9fa;
             border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 20px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
             border: 1px solid #e9ecef;
         }
 
-        .control-group {
-            margin-bottom: 12px;
-            border: 1px solid #ccc;
-            padding: 5px;
-            border-radius: 5px;
+        /* 控制区：一个配置项一行，紧凑排布 */
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 4px 0;
+            border-bottom: 1px dashed #e9ecef;
         }
 
-        .control-group label {
-            display: block;
+        .control-row.last-row {
+            border-bottom: none;
+        }
+
+        .row-label {
+            flex: 0 0 66px;
             font-weight: 600;
             color: #444;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .options {
@@ -87,38 +93,38 @@
             align-items: center;
             gap: 3px;
             font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
         }
 
         .custom-input {
-            margin-top: 6px;
+            display: none;
         }
 
         .custom-input input {
-            padding: 4px 8px;
+            padding: 3px 8px;
             border: 1px solid #ced4da;
             border-radius: 4px;
             font-size: 0.85rem;
-            width: 180px;
+            width: 130px;
         }
 
-        /* 分批设置 */
+        /* 分批设置：未启用分批时整块收起，不占版面 */
         .batch-settings {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed #dee2e6;
-        }
-
-        .batch-settings.disabled {
-            opacity: 0.45;
-            pointer-events: none;
+            display: none;
+            margin: 4px 0 6px;
+            padding: 6px 10px;
+            background: #fff;
+            border: 1px solid #e6e9ee;
+            border-radius: 6px;
         }
 
         .batch-row {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
 
         .batch-row:last-child {
@@ -153,6 +159,11 @@
             border-radius: 4px;
             font-size: 0.85rem;
             width: 150px;
+        }
+
+        .title-format {
+            width: 190px;
+            font-family: 'Courier New', Courier, monospace;
         }
 
         .batch-hint {
@@ -194,15 +205,8 @@
             border: 1px solid #e9ecef;
         }
 
-        .controls-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
         .button-group {
-            margin-top: 12px;
+            margin-top: 10px;
             display: flex;
             gap: 8px;
         }
@@ -317,10 +321,16 @@
                 min-height: 200px;
             }
 
+            .row-label {
+                flex: 0 0 auto;
+            }
+
             .options {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
+                gap: 6px;
+            }
+
+            .control-row {
+                gap: 6px;
             }
 
             .button-group {
@@ -339,154 +349,128 @@
     <div class="container">
         <header>
             <h1 class="header-title">文本分割工具</h1>
-            <p class="header-subtitle">将文本按照指定分隔符分割，并使用新的分隔符重新组合；支持分成 N 批分别转换</p>
+            <p class="header-subtitle">将文本按照指定分隔符分割，并使用新的分隔符重新组合；支持分成 N 批分别转换，每批可加标题说明</p>
         </header>
 
         <main>
             <div class="controls">
-                <div class="controls-grid">
-                    <div class="control-group">
-                        <label>分割方法</label>
-                        <div class="options">
-                            <div class="option-item">
-                                <input type="radio" id="split-newline" name="splitMethod" value="newline" checked>
-                                <label for="split-newline">换行</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="split-comma" name="splitMethod" value="comma">
-                                <label for="split-comma">逗号</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="split-space" name="splitMethod" value="space">
-                                <label for="split-space">空格</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="split-custom" name="splitMethod" value="custom">
-                                <label for="split-custom">自定义</label>
-                            </div>
-                        </div>
-                        <div class="custom-input" id="customSplitInput">
-                            <input type="text" id="splitCustomValue" placeholder="输入自定义分隔符">
-                        </div>
+                <div class="control-row">
+                    <span class="row-label">分割方式</span>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="radio" name="splitMethod" value="newline" checked><span>换行</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="splitMethod" value="comma"><span>逗号</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="splitMethod" value="space"><span>空格</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="splitMethod" value="custom"><span>自定义</span>
+                        </label>
                     </div>
+                    <div class="custom-input" id="customSplitInput">
+                        <input type="text" id="splitCustomValue" placeholder="自定义分隔符">
+                    </div>
+                </div>
 
-                    <div class="control-group">
-                        <label>结果分隔符</label>
-                        <div class="options">
-                            <div class="option-item">
-                                <input type="radio" id="join-comma" name="joinMethod" value="comma" checked>
-                                <label for="join-comma">逗号</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="join-newline" name="joinMethod" value="newline">
-                                <label for="join-newline">换行</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="join-space" name="joinMethod" value="space">
-                                <label for="join-space">空格</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="join-custom" name="joinMethod" value="custom">
-                                <label for="join-custom">自定义</label>
-                            </div>
-                        </div>
-                        <div class="custom-input" id="customJoinInput">
-                            <input type="text" id="joinCustomValue" placeholder="输入自定义分隔符">
-                        </div>
+                <div class="control-row">
+                    <span class="row-label">结果分隔</span>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="radio" name="joinMethod" value="comma" checked><span>逗号</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="joinMethod" value="newline"><span>换行</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="joinMethod" value="space"><span>空格</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="joinMethod" value="custom"><span>自定义</span>
+                        </label>
                     </div>
+                    <div class="custom-input" id="customJoinInput">
+                        <input type="text" id="joinCustomValue" placeholder="自定义分隔符">
+                    </div>
+                </div>
 
-                    <div class="control-group">
-                        <label>高级选项</label>
-                        <div class="options">
-                            <div class="option-item">
-                                <input type="checkbox" id="trimOption" checked>
-                                <label for="trimOption">去除空白字符</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="checkbox" id="sortOption">
-                                <label for="sortOption">排序结果</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="checkbox" id="uniqueOption">
-                                <label for="uniqueOption">去除重复项</label>
-                            </div>
-                        </div>
+                <div class="control-row">
+                    <span class="row-label">条目处理</span>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="checkbox" id="trimOption" checked><span>去空白</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" id="uniqueOption"><span>去重</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" id="sortOption"><span>排序</span>
+                        </label>
                     </div>
+                    <span class="batch-label">引号</span>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="radio" name="quoteMethod" value="none" checked><span>不处理</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="quoteMethod" value="single"><span>单引号</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="quoteMethod" value="double"><span>双引号</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="quoteMethod" value="remove"><span>移除</span>
+                        </label>
+                    </div>
+                </div>
 
-                    <div class="control-group">
-                        <label>引号处理</label>
-                        <div class="options">
-                            <div class="option-item">
-                                <input type="radio" id="quote-none" name="quoteMethod" value="none" checked>
-                                <label for="quote-none">无处理</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="quote-single" name="quoteMethod" value="single">
-                                <label for="quote-single">添加单引号</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="quote-double" name="quoteMethod" value="double">
-                                <label for="quote-double">添加双引号</label>
-                            </div>
-                            <div class="option-item">
-                                <input type="radio" id="quote-remove" name="quoteMethod" value="remove">
-                                <label for="quote-remove">移除引号</label>
-                            </div>
-                        </div>
-                    </div>
+                <div class="control-row last-row">
+                    <span class="row-label">分批</span>
+                    <label class="option-item">
+                        <input type="checkbox" id="batchEnabled"><span>启用分批（每批各自转换，输出也是多批）</span>
+                    </label>
+                </div>
 
-                    <div class="control-group">
-                        <label>分批（把条目分成多批，每批各自转换，输出也是多批）</label>
-                        <div class="options">
-                            <div class="option-item">
-                                <input type="checkbox" id="batchEnabled">
-                                <label for="batchEnabled">启用分批</label>
-                            </div>
-                        </div>
-                        <div class="batch-settings disabled" id="batchSettings">
-                            <div class="batch-row">
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchMode" value="count" checked>
-                                    <span>平均分成</span>
-                                    <input type="number" id="batchCount" class="num-input" min="1" value="2">
-                                    <span>批</span>
-                                </label>
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchMode" value="size">
-                                    <span>每批最多</span>
-                                    <input type="number" id="batchSize" class="num-input" min="1" value="100">
-                                    <span>条</span>
-                                </label>
-                            </div>
-                            <div class="batch-row">
-                                <span class="batch-label">批次分隔</span>
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchSep" value="blankline" checked>
-                                    <span>空行</span>
-                                </label>
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchSep" value="newline">
-                                    <span>换行</span>
-                                </label>
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchSep" value="title">
-                                    <span>批次标题</span>
-                                </label>
-                                <label class="batch-inline">
-                                    <input type="radio" name="batchSep" value="custom">
-                                    <span>自定义</span>
-                                </label>
-                                <input type="text" id="batchCustomSep" class="text-input" placeholder="自定义批次分隔符">
-                            </div>
-                            <div class="batch-row">
-                                <label class="batch-inline">
-                                    <input type="checkbox" id="batchDropEmpty">
-                                    <span>丢弃空批次</span>
-                                </label>
-                            </div>
-                            <div class="batch-hint">去重与排序在每批内部独立生效</div>
-                        </div>
+                <div class="batch-settings" id="batchSettings">
+                    <div class="batch-row">
+                        <span class="batch-label">分配方式</span>
+                        <label class="batch-inline">
+                            <input type="radio" name="batchMode" value="count" checked>
+                            <span>平均分成</span>
+                            <input type="number" id="batchCount" class="num-input" min="1" value="2">
+                            <span>批</span>
+                        </label>
+                        <label class="batch-inline">
+                            <input type="radio" name="batchMode" value="size">
+                            <span>每批最多</span>
+                            <input type="number" id="batchSize" class="num-input" min="1" value="100">
+                            <span>条</span>
+                        </label>
+                        <label class="batch-inline">
+                            <input type="checkbox" id="batchDropEmpty"><span>丢弃空批次</span>
+                        </label>
                     </div>
+                    <div class="batch-row">
+                        <span class="batch-label">批次分隔</span>
+                        <label class="batch-inline">
+                            <input type="radio" name="batchSep" value="blankline" checked><span>空行</span>
+                        </label>
+                        <label class="batch-inline">
+                            <input type="radio" name="batchSep" value="newline"><span>换行</span>
+                        </label>
+                        <label class="batch-inline">
+                            <input type="radio" name="batchSep" value="custom"><span>自定义</span>
+                        </label>
+                        <input type="text" id="batchCustomSep" class="text-input" placeholder="自定义批次分隔符">
+                        <label class="batch-inline">
+                            <input type="checkbox" id="batchTitle"><span>每批加标题</span>
+                        </label>
+                        <input type="text" id="batchTitleFormat" class="text-input title-format"
+                               value="第 {n} 批（共 {total} 批）">
+                    </div>
+                    <div class="batch-hint">标题支持 {n} 批号、{total} 总批数、{size} 本批条数；去重与排序在每批内部独立生效</div>
                 </div>
 
                 <div class="button-group">
@@ -544,6 +528,8 @@
         const batchSize = document.getElementById('batchSize');
         const batchCustomSep = document.getElementById('batchCustomSep');
         const batchDropEmpty = document.getElementById('batchDropEmpty');
+        const batchTitle = document.getElementById('batchTitle');
+        const batchTitleFormat = document.getElementById('batchTitleFormat');
         const autoConvert = document.getElementById('autoConvert');
 
         // 预设分隔符
@@ -581,6 +567,11 @@
                 });
             });
 
+            // 自定义分隔符：打字时即时生效（否则要失焦才更新）
+            [splitCustomValue, joinCustomValue].forEach(el => {
+                el.addEventListener('input', splitText);
+            });
+
             // 引号处理变化
             quoteMethodRadios.forEach(radio => {
                 radio.addEventListener('change', splitText);
@@ -598,7 +589,7 @@
             });
             document.querySelectorAll('input[name="batchMode"], input[name="batchSep"]')
                 .forEach(el => el.addEventListener('change', splitText));
-            [batchCount, batchSize, batchCustomSep, batchDropEmpty].forEach(el => {
+            [batchCount, batchSize, batchCustomSep, batchDropEmpty, batchTitle, batchTitleFormat].forEach(el => {
                 el.addEventListener('input', splitText);
                 el.addEventListener('change', splitText);
             });
@@ -618,13 +609,13 @@
             const splitMethod = getSelectedValue('splitMethod');
             const joinMethod = getSelectedValue('joinMethod');
 
-            customSplitInput.style.display = splitMethod === 'custom' ? 'block' : 'none';
-            customJoinInput.style.display = joinMethod === 'custom' ? 'block' : 'none';
+            customSplitInput.style.display = splitMethod === 'custom' ? 'inline-block' : 'none';
+            customJoinInput.style.display = joinMethod === 'custom' ? 'inline-block' : 'none';
         }
 
-        // 分批设置仅在启用时可用
+        // 分批设置仅在启用时展开，未启用时不占版面
         function updateBatchSettings() {
-            batchSettings.classList.toggle('disabled', !batchEnabled.checked);
+            batchSettings.style.display = batchEnabled.checked ? 'block' : 'none';
         }
 
         // 获取选中的单选按钮值
@@ -696,13 +687,24 @@
             return batches;
         }
 
-        /** 批次之间的分隔符；'title' 由调用方特殊处理，这里返回 null */
+        /** 批次之间的分隔符；自定义未填写时返回 null */
         function readBatchSeparator() {
             const kind = getSelectedValue('batchSep');
             if (kind === 'newline') return '\n';
-            if (kind === 'blankline') return '\n\n';
             if (kind === 'custom') return batchCustomSep.value || null;
-            return null; // 'title'
+            return '\n\n'; // 'blankline'
+        }
+
+        /**
+         * 生成批次标题，默认形如 "第 1 批（共 3 批）"
+         * 支持占位符：{n} 批号、{total} 总批数、{size} 本批条数
+         */
+        function renderBatchTitle(index, total, size) {
+            const tpl = (batchTitleFormat.value || '').trim() || '第 {n} 批（共 {total} 批）';
+            return tpl
+                .replace(/\{n\}/g, String(index))
+                .replace(/\{total\}/g, String(total))
+                .replace(/\{size\}/g, String(size));
         }
 
         // 分割文本
@@ -767,19 +769,19 @@
                 return;
             }
 
-            const kind = getSelectedValue('batchSep');
-            if (kind === 'title') {
-                outputText.value = batchTexts
-                    .map((t, i) => `第 ${i + 1} 批\n${t}`)
-                    .join('\n\n');
-            } else {
-                const batchSep = readBatchSeparator();
-                if (batchSep === null) {
-                    setStatus('请填写自定义批次分隔符', 'err');
-                    return;
-                }
-                outputText.value = batchTexts.join(batchSep);
+            // 每批开头加上批次标题，方便识别（与批次分隔方式互不干扰）
+            if (batchTitle.checked) {
+                const total = batchTexts.length;
+                batchTexts = batchTexts.map((t, i) =>
+                    `${renderBatchTitle(i + 1, total, batches[i].length)}\n${t}`);
             }
+
+            const batchSep = readBatchSeparator();
+            if (batchSep === null) {
+                setStatus('请填写自定义批次分隔符', 'err');
+                return;
+            }
+            outputText.value = batchTexts.join(batchSep);
 
             const sizes = batches.map(b => b.length);
             const min = Math.min(...sizes);
