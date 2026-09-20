@@ -97,6 +97,28 @@
             display: flex;
             gap: 12px;
             align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .path-tip {
+            font-size: 0.78rem;
+            color: #868e96;
+        }
+
+        .usage-tip {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .usage-tip code {
+            background: #fff;
+            border: 1px solid #e3e6ea;
+            border-radius: 3px;
+            padding: 1px 5px;
+            margin-right: 4px;
+            font-family: 'Courier New', monospace;
+            color: #495057;
         }
 
         .btn {
@@ -260,19 +282,23 @@
     <div class="container">
         <header>
             <h1 class="header-title">JSON 工具</h1>
-            <p class="header-subtitle">格式化 JSON 文本并通过 JSONPath 提取特定属性</p>
+            <p class="header-subtitle">格式化 / 美化 JSON，并按路径表达式提取指定属性</p>
         </header>
 
         <main>
             <section class="controls-section">
                 <div class="controls-grid">
                     <div class="control-group">
-                        <label class="control-label" for="jsonpathInput">JSONPath 表达式</label>
-                        <input type="text" id="jsonpathInput" class="jsonpath-input" placeholder="例如: $.name, $.users[0].age">
+                        <label class="control-label" for="jsonpathInput">路径表达式（点击「提取属性」时使用）</label>
+                        <input type="text" id="jsonpathInput" class="jsonpath-input"
+                               placeholder="例如: $.name、data.users[0].age、data.users[*].name">
+                        <div class="path-tip">支持 $.a.b / a.b / a[0] / * 通配 / name:正则；命中多个值时结果以数组输出</div>
                     </div>
                     <div class="buttons-group">
-                        <button class="btn btn-primary" id="formatBtn">格式化 JSON</button>
-                        <button class="btn btn-secondary" id="extractBtn">提取属性</button>
+                        <button class="btn btn-primary" id="formatBtn">格式化</button>
+                        <button class="btn btn-primary" id="extractBtn">提取属性</button>
+                        <button class="btn btn-secondary" id="tidyBtn">美化输入</button>
+                        <button class="btn btn-secondary" id="copyBtn">复制结果</button>
                         <button class="btn btn-secondary" id="clearBtn">清空</button>
                     </div>
                 </div>
@@ -295,12 +321,18 @@
 
             <section class="status-section">
                 <div id="statusMessage" class="status-message">准备就绪</div>
+                <div class="usage-tip">
+                    路径示例：
+                    <code>$.name</code><code>data.user.name</code><code>data.users[0].name</code>
+                    <code>data.users[*].name</code><code>data.*</code><code>data.users[*].name:^A</code>
+                </div>
             </section>
         </main>
     </div>
 
     <script src="../js/json.js"></script>
     <script src="../js/json-int64.js"></script>
+    <script src="../js/json-path.js"></script>
     <script>
         // DOM 元素
         const inputTextarea = document.getElementById('inputTextarea');
@@ -308,6 +340,8 @@
         const jsonpathInput = document.getElementById('jsonpathInput');
         const formatBtn = document.getElementById('formatBtn');
         const extractBtn = document.getElementById('extractBtn');
+        const tidyBtn = document.getElementById('tidyBtn');
+        const copyBtn = document.getElementById('copyBtn');
         const clearBtn = document.getElementById('clearBtn');
         const statusMessage = document.getElementById('statusMessage');
 
@@ -316,7 +350,13 @@
             // 添加事件监听器
             formatBtn.addEventListener('click', formatJSON);
             extractBtn.addEventListener('click', extractJSONPath);
+            tidyBtn.addEventListener('click', tidyInput);
+            copyBtn.addEventListener('click', copyResult);
             clearBtn.addEventListener('click', clearAll);
+            // 回车即提取
+            jsonpathInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') extractJSONPath();
+            });
         }
 
         // 格式化文本中的所有 JSON 部分，保留非 JSON 部分
@@ -358,97 +398,125 @@
             }
         }
 
-        // 简化版 JSONPath 解析
-        function parseJSONPath(jsonObj, path) {
-            if (!path || path === '$') {
-                return jsonObj;
+        /** 把提取到的值转成可展示文本；对象/数组走缩进序列化 */
+        function stringifyValue(value) {
+            if (value !== null && typeof value === 'object') {
+                return JSONInt64.stringify(value, null, 2);
             }
-
-            // 移除开头的 $.
-            const cleanPath = path.replace(/^\$\./, '');
-            const parts = cleanPath.split('.');
-            let result = jsonObj;
-
-            for (const part of parts) {
-                // 处理数组索引
-                const arrayMatch = part.match(/(\w+)?\[(\d+)\]/);
-                if (arrayMatch) {
-                    const [, arrayName, index] = arrayMatch;
-                    if (arrayName) {
-                        result = result[arrayName];
-                    }
-                    if (Array.isArray(result)) {
-                        result = result[parseInt(index)];
-                    } else {
-                        return undefined;
-                    }
-                } else {
-                    // 处理普通属性
-                    if (result && typeof result === 'object' && part in result) {
-                        result = result[part];
-                    } else {
-                        return undefined;
-                    }
-                }
-            }
-
-            return result;
+            return String(value);
         }
 
-        // 提取 JSONPath 属性
+        // 提取路径属性（支持 $ 前缀、数组下标、* 通配、正则过滤）
         function extractJSONPath() {
             const inputText = inputTextarea.value;
             const jsonpath = jsonpathInput.value.trim();
-            
+
             if (!inputText.trim()) {
                 updateStatus('请输入文本', 'error');
                 return;
             }
 
             if (!jsonpath) {
-                updateStatus('请输入 JSONPath 表达式', 'error');
+                updateStatus('请输入路径表达式', 'error');
                 return;
             }
 
             try {
                 // 提取文本中的所有 JSON
-                const jsonTexts = extractAllJSONFromText(inputText);
-                
-                if (jsonTexts.length === 0) {
+                const jsonMatches = extractAllJSONFromText(inputText);
+
+                if (jsonMatches.length === 0) {
                     updateStatus('未找到 JSON 内容', 'error');
                     outputTextarea.value = '未找到 JSON 内容';
                     return;
                 }
 
-                // 对每个 JSON 应用 JSONPath 表达式
                 const results = [];
-                jsonTexts.forEach((jsonText, index) => {
+                let hits = 0;
+                jsonMatches.forEach((match, index) => {
                     try {
-                        // 解析 JSON（int64 安全）
-                        const jsonObj = JSONInt64.parse(jsonText);
-                        // 提取 JSONPath 属性
-                        const extractedValue = parseJSONPath(jsonObj, jsonpath);
-                        
-                        if (extractedValue === undefined) {
+                        const jsonObj = JSONInt64.parse(match.json);
+                        const values = JSONPath.extract(jsonObj, jsonpath);
+
+                        if (values.length === 0) {
                             results.push(`JSON ${index + 1}: 未找到匹配的属性`);
                         } else {
-                        // 格式化提取的值
-                        const formattedValue = typeof extractedValue === 'object' ? 
-                            JSONInt64.stringify(extractedValue, null, 2) : 
-                            extractedValue.toString();
-                            results.push(`JSON ${index + 1}:\n${formattedValue}`);
+                            hits += values.length;
+                            const formatted = values.length === 1
+                                ? stringifyValue(values[0])
+                                : JSONInt64.stringify(values, null, 2);
+                            results.push(`JSON ${index + 1}:\n${formatted}`);
                         }
                     } catch (error) {
-                        results.push(`JSON ${index + 1}: 解析错误 - ${error.message}`);
+                        results.push(`JSON ${index + 1}: ${error.message}`);
                     }
                 });
 
-                // 显示结果
                 outputTextarea.value = results.join('\n\n');
-                updateStatus(`成功处理 ${jsonTexts.length} 个 JSON`, 'success');
+                if (hits === 0) {
+                    updateStatus(`已处理 ${jsonMatches.length} 个 JSON，但没有命中任何属性`, 'error');
+                } else {
+                    updateStatus(`成功处理 ${jsonMatches.length} 个 JSON，命中 ${hits} 个值`, 'success');
+                }
             } catch (error) {
                 updateStatus(`错误: ${error.message}`, 'error');
                 outputTextarea.value = `错误: ${error.message}`;
+            }
+        }
+
+        // 美化输入：整段是合法 JSON 时整体缩进，否则退化为「只美化其中的 JSON 片段」
+        function tidyInput() {
+            const inputText = inputTextarea.value;
+
+            if (!inputText.trim()) {
+                updateStatus('请输入文本', 'error');
+                return;
+            }
+
+            try {
+                inputTextarea.value = JSONInt64.stringify(JSONInt64.parse(inputText), null, 2);
+                updateStatus('输入已美化', 'success');
+            } catch (error) {
+                inputTextarea.value = formatJSONInText(inputText);
+                updateStatus('输入不是完整 JSON，已美化其中的 JSON 片段', 'success');
+            }
+        }
+
+        // 复制结果
+        function copyResult() {
+            if (!outputTextarea.value.trim()) {
+                updateStatus('没有可复制的内容', 'error');
+                return;
+            }
+
+            const done = () => {
+                const original = copyBtn.textContent;
+                copyBtn.textContent = '已复制!';
+                setTimeout(() => { copyBtn.textContent = original; }, 1000);
+                updateStatus('已复制到剪贴板', 'success');
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(outputTextarea.value).then(done, () => {
+                    legacyCopy() ? done() : updateStatus('复制失败，请手动选中复制', 'error');
+                });
+            } else {
+                legacyCopy() ? done() : updateStatus('复制失败，请手动选中复制', 'error');
+            }
+        }
+
+        /** file:// 场景下的兜底复制 */
+        function legacyCopy() {
+            try {
+                const prev = outputTextarea.readOnly;
+                outputTextarea.readOnly = false;
+                outputTextarea.select();
+                outputTextarea.setSelectionRange(0, 999999);
+                const ok = document.execCommand('copy');
+                outputTextarea.readOnly = prev;
+                return ok;
+            } catch (e) {
+                return false;
             }
         }
 

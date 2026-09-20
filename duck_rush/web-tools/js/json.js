@@ -1,7 +1,7 @@
 class JsonExtractResult {
     constructor(json, start, end) {
         this.json = json;
-        this.text = text
+        this.text = json;
         this.start = start;
         this.end = end;
     }

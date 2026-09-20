@@ -71,15 +71,9 @@ const menuConfig = [
         tabs: [
             {
                 id: 'json-formatter',
-                name: '格式化',
+                name: '格式化提取',
                 url: 'pages/json.html',
-                description: "用于格式化 JSON 数据的工具，方便阅读和处理。"
-            },
-            {
-                id: 'json-extract',
-                name: '提取',
-                url: 'pages/json/json-extract.html',
-                description: "用于从 JSON 数据中提取指定字段的工具，方便数据处理。"
+                description: "用于格式化 JSON 数据并按路径提取字段的工具，支持 $ 前缀、数组下标、* 通配与正则过滤。"
             },
             {
                 id: 'json-diff',
@@ -88,7 +82,7 @@ const menuConfig = [
                 description: "用于对比两份 JSON 数据的差异，高亮新增、删除与修改的字段。"
             }
         ],
-        description: "用于格式化和验证 JSON 数据的工具，方便阅读和处理。"
+        description: "用于格式化、提取和验证 JSON 数据的工具，方便阅读和处理。"
     },
     {
         id: 'run-script',
