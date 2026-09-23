@@ -260,6 +260,22 @@
             color: #666;
         }
 
+        .help-note {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.7;
+        }
+
+        .help-note code {
+            background: #1e1e1e;
+            color: #9cdcfe;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+        }
+
         @media (max-width: 768px) {
             body { padding: 8px; }
             main { padding: 16px; }
@@ -278,7 +294,7 @@
     <div class="container">
         <header>
             <h1 class="header-title">⌨ Shell文本处理</h1>
-            <p class="header-subtitle">用 Shell 命令处理文本 — 输入 → 管道 → 输出</p>
+            <p class="header-subtitle">用 Shell 命令处理文本 — 输入 → 管道 → 输出（纯前端模拟，不依赖服务端）</p>
         </header>
 
         <main>
@@ -313,64 +329,30 @@
             </div>
 
             <div class="help-section">
-                <details>
-                    <summary>📖 常用命令示例 (点击展开)</summary>
-                    <div class="help-content">
-                        <div class="help-card">
-                            <code>sort</code>
-                            <p>按字母顺序排序行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>sort -u</code>
-                            <p>排序并去重</p>
-                        </div>
-                        <div class="help-card">
-                            <code>sort -n</code>
-                            <p>按数值排序</p>
-                        </div>
-                        <div class="help-card">
-                            <code>uniq</code>
-                            <p>去除连续重复行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>head -5</code>
-                            <p>取前5行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>tail -5</code>
-                            <p>取后5行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>grep foo</code>
-                            <p>筛选包含 foo 的行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>grep -v foo</code>
-                            <p>排除包含 foo 的行</p>
-                        </div>
-                        <div class="help-card">
-                            <code>sed 's/foo/bar/g'</code>
-                            <p>将 foo 替换为 bar</p>
-                        </div>
-                        <div class="help-card">
-                            <code>wc -l</code>
-                            <p>统计行数</p>
-                        </div>
-                        <div class="help-card">
-                            <code>awk '{print $1}'</code>
-                            <p>取每行第一个字段</p>
-                        </div>
-                        <div class="help-card">
-                            <code>rev</code>
-                            <p>反转每行字符顺序</p>
-                        </div>
+                <details open>
+                    <summary>📖 命令速查（<span id="cmdCount">0</span> 个，点击折叠）</summary>
+                    <div class="help-content" id="helpContent"></div>
+                    <div class="help-note">
+                        命令由 <code>TextShell.register(name, ctx =&gt; {...})</code> 注册，
+                        ctx 内含管道：<code>ctx.lines</code> 读上游、<code>ctx.pipe.write()</code> 写下游，
+                        也可直接 <code>return</code> 字符串或行数组。
                     </div>
                 </details>
             </div>
         </main>
     </div>
 
+    <script src="../../js/text-shell.js"></script>
     <script>
+        // 页面级自定义命令：演示如何用 TextShell.register 扩展命令表
+        TextShell.register('upper', function (ctx) {
+            ctx.pipe.write(ctx.lines.map(function (l) { return l.toUpperCase(); }));
+        }, { usage: 'upper', desc: '整行转大写（页面注册的示例命令）' });
+
+        TextShell.register('len', function (ctx) {
+            ctx.pipe.write(ctx.lines.map(function (l) { return l.length + ' ' + l; }));
+        }, { usage: 'len', desc: '在每行前加上长度（页面注册的示例命令）' });
+
         const inputText = document.getElementById('inputText');
         const outputText = document.getElementById('outputText');
         const shellCommand = document.getElementById('shellCommand');
@@ -379,6 +361,8 @@
         const copyBtn = document.getElementById('copyBtn');
         const inputStatus = document.getElementById('inputStatus');
         const outputStatus = document.getElementById('outputStatus');
+        const helpContent = document.getElementById('helpContent');
+        const cmdCount = document.getElementById('cmdCount');
 
         runBtn.addEventListener('click', runCommand);
         clearBtn.addEventListener('click', clearAll);
@@ -390,6 +374,23 @@
                 runCommand();
             }
         });
+
+        renderHelp();
+
+        /** 按命令注册表渲染帮助卡片 */
+        function renderHelp() {
+            const commands = TextShell.list();
+            cmdCount.textContent = commands.length;
+            helpContent.innerHTML = commands.map(function (c) {
+                return '<div class="help-card"><code></code><p></p></div>';
+            }).join('');
+
+            const cards = helpContent.querySelectorAll('.help-card');
+            commands.forEach(function (c, i) {
+                cards[i].querySelector('code').textContent = c.usage;
+                cards[i].querySelector('p').textContent = c.desc;
+            });
+        }
 
         function setStatus(el, text, type) {
             el.textContent = text;
@@ -409,54 +410,22 @@
                 return;
             }
 
-            setStatus(inputStatus, '⏳ 运行中...', 'running');
-            setStatus(outputStatus, '⏳ 运行中...', 'running');
-            outputText.value = '';
-            runBtn.disabled = true;
-            runBtn.textContent = '⏳ 执行...';
+            const started = performance.now();
+            const result = TextShell.run(cmd, text);
 
-            const apiUrl = '/api/run-shell';
-            const payload = { text: text, command: cmd };
-
-            fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            })
-            .then(function(res) {
-                if (!res.ok) {
-                    return res.json().then(function(err) {
-                        throw new Error(err.message || '请求失败');
-                    });
-                }
-                return res.json();
-            })
-            .then(function(resp) {
-                if (resp.code !== 0) {
-                    var msg = resp.message || '未知错误';
-                    outputText.value = '错误: ' + msg;
-                    setStatus(outputStatus, '✗ ' + msg, 'error');
-                    setStatus(inputStatus, '', '');
-                    return;
-                }
-                var d = resp.data || {};
-                outputText.value = d.output || '';
-                setStatus(inputStatus, '✓ 就绪', 'done');
-                if (d.returncode === 0) {
-                    setStatus(outputStatus, '✓ 完成 (exit 0)', 'done');
-                } else {
-                    setStatus(outputStatus, '✗ 退出码 ' + (d.returncode != null ? d.returncode : '?'), 'error');
-                }
-            })
-            .catch(function(err) {
-                outputText.value = '错误: ' + err.message;
-                setStatus(outputStatus, '✗ ' + err.message, 'error');
+            if (result.error) {
+                outputText.value = '';
+                setStatus(outputStatus, '✗ ' + result.error, 'error');
                 setStatus(inputStatus, '', '');
-            })
-            .finally(function() {
-                runBtn.disabled = false;
-                runBtn.textContent = '▶ 运行';
-            });
+                return;
+            }
+
+            outputText.value = result.output;
+            const cost = (performance.now() - started).toFixed(1);
+            let info = '✓ ' + result.commands.length + ' 个命令 · ' + cost + 'ms';
+            if (result.log.length) info += ' · ' + result.log.length + ' 条诊断';
+            setStatus(inputStatus, '✓ 就绪', 'done');
+            setStatus(outputStatus, info, 'done');
         }
 
         function clearAll() {
