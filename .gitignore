@@ -9,6 +9,11 @@
 /lib_duck_rush/build
 /lib_duck_rush/dist
 
+# 根目录打包产物(install.py 生成的 egg / sdist / bdist 临时目录)
+/build/
+/dist/
+*.egg-info/
+
 id_rsa_github*
 
 *.local.json
