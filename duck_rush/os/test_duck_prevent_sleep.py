@@ -27,7 +27,14 @@ dps = _load()
 
 class TestWindowsFlags(unittest.TestCase):
 
-    def test_default_allows_screen_off(self):
+    def test_default_keeps_screen_on(self):
+        flags = dps.windows_execution_flags()
+        self.assertEqual(
+            flags,
+            dps.ES_CONTINUOUS | dps.ES_SYSTEM_REQUIRED | dps.ES_DISPLAY_REQUIRED,
+        )
+
+    def test_allow_screen_off_drops_display_required(self):
         flags = dps.windows_execution_flags(False)
         self.assertEqual(flags, dps.ES_CONTINUOUS | dps.ES_SYSTEM_REQUIRED)
         self.assertEqual(flags & dps.ES_DISPLAY_REQUIRED, 0)
@@ -42,7 +49,13 @@ class TestWindowsFlags(unittest.TestCase):
 
 class TestMacArgs(unittest.TestCase):
 
-    def test_default_allows_screen_off(self):
+    def test_default_keeps_screen_on(self):
+        self.assertEqual(
+            dps.mac_caffeinate_args(),
+            ["caffeinate", "-d", "-i", "-m", "-u"],
+        )
+
+    def test_allow_screen_off_drops_display_flags(self):
         self.assertEqual(dps.mac_caffeinate_args(False), ["caffeinate", "-i", "-m"])
 
     def test_keep_screen_adds_display_flags(self):
@@ -50,6 +63,20 @@ class TestMacArgs(unittest.TestCase):
             dps.mac_caffeinate_args(True),
             ["caffeinate", "-d", "-i", "-m", "-u"],
         )
+
+
+class TestResolveKeepScreen(unittest.TestCase):
+
+    def test_default_is_true(self):
+        self.assertTrue(dps.resolve_keep_screen(False, False))
+
+    def test_explicit_screen_flag(self):
+        self.assertTrue(dps.resolve_keep_screen(True, False))
+
+    def test_allow_screen_off_wins(self):
+        self.assertFalse(dps.resolve_keep_screen(False, True))
+        # 两个互斥选项同时给出时，允许息屏优先
+        self.assertFalse(dps.resolve_keep_screen(True, True))
 
 
 class TestFormatRemaining(unittest.TestCase):
