@@ -211,6 +211,50 @@ def list_command_func(args: argparse.Namespace) -> None:
 _UNKNOWN_ARGS: List[str] = []
 
 
+# pip 镜像源列表（官方源用空字符串占位）。安装失败时会依次回退尝试，
+# 任一源成功即返回。macOS 等网络环境下官方源(pypi.org)经常超时，
+# 依次尝试国内镜像可显著提升安装成功率。
+_PIP_INDEX_URLS = [
+    "",  # 官方源（不设 -i）
+    "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "https://mirrors.aliyun.com/pypi/simple",
+    "https://pypi.mirrors.ustc.edu.cn/simple",
+    "https://mirrors.cloud.tencent.com/pypi/simple",
+    "https://repo.huaweicloud.com/repository/pypi/simple",
+]
+
+
+def pip_install(python: str, pip_args: List[str]) -> int:
+    """使用 pip 安装, 依次尝试多个镜像源, 任一成功即返回。
+
+    pip_args: 除 `python -m pip install` 之外的参数列表,
+              例如 ["textual"] 或 ["-r", "requirements.txt"]。
+    返回最终退出码 (0 表示成功)。
+    """
+    for index_url in _PIP_INDEX_URLS:
+        label = index_url or "官方源(pypi.org)"
+        cmdline = [
+            python, "-m", "pip", "install",
+            "--disable-pip-version-check",
+            "--timeout", "60",
+            "--retries", "5",
+        ]
+        if index_url:
+            cmdline += ["-i", index_url]
+        cmdline += pip_args
+        print("尝试 pip 源安装: %s" % label)
+        rc = subprocess.run(cmdline, shell=False).returncode
+        if rc == 0:
+            print("pip 安装成功（源: %s）" % label)
+            return 0
+        print("pip 源失败，尝试下一个: %s" % label)
+    sys.stderr.write(
+        "所有 pip 源均安装失败，请检查网络或手动安装: %s\n"
+        % " ".join(pip_args)
+    )
+    return 1
+
+
 def _run_full_install() -> None:
     """运行完整安装 (install.py, 不附加任何参数)。
 
@@ -423,6 +467,38 @@ def rm_tool_func(args: argparse.Namespace) -> None:
     print("正在重新安装以清理脚本链接 ...")
     _run_full_install()
 
+PIP_INSTALL_USAGE = "用法: duck pip-install <包名> [<包名> ...] [其它 pip 参数]\n" \
+                    "  在 duck-rush 的虚拟环境(venv)中安装 Python 库, 使其对所有 duck 命令可用:\n" \
+                    "  默认依次尝试官方源与多个国内镜像, 任一成功即返回\n" \
+                    "  支持额外的 pip 参数, 如 -r requirements.txt / --upgrade / -i 指定源"
+
+def pip_install_func(args: argparse.Namespace) -> None:
+    """在 duck-rush 的虚拟环境中安装 Python 库。
+
+    安装目标为 ~/.duck-rush/duck.json 记录的 venv python; 该环境未创建时
+    提示先执行 `duck install`。会用多个镜像源依次重试以提升安装成功率。
+    调用处未识别的参数(如 -i / -r 及其取值)通过 _UNKNOWN_ARGS 一并透传给 pip。
+    """
+    if args.args and args.args[0] in ("-h", "--help"):
+        print(PIP_INSTALL_USAGE)
+        return
+    if not args.args:
+        sys.stderr.write(PIP_INSTALL_USAGE + "\n")
+        sys.exit(1)
+
+    meta = InstallMeta.load()
+    venv_python = meta.python
+    if not venv_python or not os.path.exists(venv_python):
+        sys.stderr.write(
+            "未找到 duck-rush 的虚拟环境 Python, 请先执行 `duck install` 完成安装。\n")
+        sys.exit(1)
+
+    pip_args = list(args.args) + _UNKNOWN_ARGS
+    rc = pip_install(venv_python, pip_args)
+    if rc != 0:
+        sys.exit(rc)
+
+
 def upgrade_func(args):
     project_root = get_project_root()
     os.chdir(project_root)
@@ -507,6 +583,7 @@ ACTION_FUNC_DICT = {
     "add": add_tool_func,
     "rm-src-dir": rm_src_dir_func,
     "rm": rm_tool_func,
+    "pip-install": pip_install_func,
     "dir": dir_func,
     "meta": meta_func,
     "help": help_func,
@@ -521,6 +598,7 @@ ACTION_DESC = {
     "add": "把单个脚本文件(.py/.sh)注册为 duck 工具: 复制到外部工具目录、登记并生成包装脚本",
     "rm-src-dir": "移除已登记的外部工具源码目录(只删 duck.json 登记, 不删源文件), 并重装清理脚本链接",
     "rm": "移除已用 duck add 添加的单脚本命令(.py 删登记/.sh 删副本), 并重装清理包装脚本",
+    "pip-install": "在 duck-rush 的虚拟环境(venv)中安装 Python 库, 默认多镜像源重试",
     "dir": "打印 duck-rush 项目根目录的绝对路径",
     "meta": "展示安装元数据 (~/.duck-rush/duck.json) 的关键信息",
     "help": "进入交互式帮助浏览器 (TUI): 方向键浏览全部 duck-* 工具, Enter 启动, `/` 筛选",
@@ -543,6 +621,7 @@ EPILOG = (
     + "  duck rm-src-dir ~/my-tools    移除已登记的外部源码目录并清理脚本链接\n"
     + "  duck rm my-tool               移除已用 duck add 添加的单脚本命令并清理包装脚本\n"
     + "  duck install <命令>           只安装指定命令(生成其包装脚本, 跳过完整安装)\n"
+    + "  duck pip-install textual      在 duck-rush 的虚拟环境中安装 Python 库\n"
 )
 
 PARSER = argparse.ArgumentParser(
