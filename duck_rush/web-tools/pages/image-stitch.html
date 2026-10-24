@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片拼接</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: #f5f6f8; padding: 16px; color: #2c3e50; }
+  h1 { text-align: center; margin-bottom: 14px; font-size: 22px; color: #2c3e50; }
+  .container { max-width: 1200px; margin: 0 auto; display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .panel { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+           width: 300px; flex-shrink: 0; }
+  .panel h2 { font-size: 14px; color: #34495e; margin: 16px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  .panel h2:first-child { margin-top: 0; }
+  .field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+  .field > label { width: 64px; color: #607080; flex-shrink: 0; }
+  .field select, .field input[type="number"] { flex: 1; padding: 6px; border: 1px solid #ccd3da; border-radius: 6px; font-size: 13px; }
+  .field input[type="color"] { width: 44px; height: 30px; border: 1px solid #ccd3da; border-radius: 6px; padding: 2px; background: #fff; }
+  .field input[type="range"] { flex: 1; }
+  .btn { padding: 8px 14px; border: none; border-radius: 8px; background: #4a90d9; color: #fff; font-size: 13px;
+         cursor: pointer; transition: background .2s; }
+  .btn:hover { background: #357abd; }
+  .btn:active { background: #2a6aa8; }
+  .btn.ghost { background: #ecf0f1; color: #333; }
+  .btn.ghost:hover { background: #dfe6e9; }
+  .btn.danger { background: #e74c3c; }
+  .btn.danger:hover { background: #c0392b; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .drop-zone { border: 2px dashed #b3c0cc; border-radius: 10px; padding: 18px; text-align: center; color: #7a8a99;
+               font-size: 13px; cursor: pointer; transition: background .2s, border-color .2s; }
+  .drop-zone.drag { background: #eaf3fb; border-color: #4a90d9; color: #357abd; }
+  .img-list { list-style: none; max-height: 320px; overflow-y: auto; margin-top: 8px; }
+  .img-list li { display: flex; align-items: center; gap: 8px; padding: 6px; border: 1px solid #eee; border-radius: 8px;
+                 margin-bottom: 6px; background: #fafbfc; }
+  .img-list .thumb { width: 44px; height: 44px; object-fit: contain; background: #fff; border: 1px solid #eee; border-radius: 6px; flex-shrink: 0; }
+  .img-list .meta { flex: 1; font-size: 12px; color: #607080; overflow: hidden; }
+  .img-list .meta .name { color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .img-list .ops { display: flex; gap: 4px; flex-shrink: 0; }
+  .img-list .ops button { width: 26px; height: 26px; border: 1px solid #ccd3da; background: #fff; border-radius: 6px;
+                          cursor: pointer; font-size: 13px; line-height: 1; color: #4a90d9; }
+  .img-list .ops button:hover { background: #eaf3fb; }
+  .img-list .ops button:disabled { color: #c0c8d0; cursor: not-allowed; background: #f5f6f8; }
+  .preview-wrap { flex: 1; min-width: 320px; background: #fff; border-radius: 10px; padding: 16px;
+                  box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; flex-direction: column; }
+  .preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .preview-head .dim { font-size: 13px; color: #607080; }
+  .canvas-area { flex: 1; overflow: auto; background: #f0f2f5; border-radius: 8px; padding: 12px;
+                 display: flex; align-items: center; justify-content: center; min-height: 360px; }
+  #preview { max-width: 100%; max-height: 70vh; background:
+             repeating-conic-gradient(#e9ecef 0% 25%, #fff 0% 50%) 50% / 20px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .empty-tip { color: #97a3b0; font-size: 14px; }
+  .hidden { display: none !important; }
+  .quality-val { width: 30px; text-align: right; color: #607080; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>图片拼接</h1>
+  <div class="container">
+    <!-- 左侧控制面板 -->
+    <div class="panel">
+      <h2>导入图片</h2>
+      <div class="drop-zone" id="dropZone">点击选择，或将图片拖拽到此处<br>（可多选）</div>
+      <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+      <ul class="img-list" id="imgList"></ul>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn ghost" id="btnClear" type="button">清空</button>
+      </div>
+
+      <h2>拼接设置</h2>
+      <div class="field">
+        <label>模式</label>
+        <select id="mode">
+          <option value="horizontal">横向</option>
+          <option value="vertical">纵向</option>
+          <option value="grid">网格</option>
+        </select>
+      </div>
+      <div class="field hidden" id="fieldColumns">
+        <label>列数</label>
+        <input type="number" id="columns" min="1" value="2">
+      </div>
+      <div class="field">
+        <label>间距</label>
+        <input type="number" id="gap" min="0" value="10">
+      </div>
+      <div class="field">
+        <label>缩放</label>
+        <select id="scale">
+          <option value="none">保持原尺寸</option>
+          <option value="fit-width">统一宽度</option>
+          <option value="fit-height">统一高度</option>
+        </select>
+      </div>
+      <div class="field hidden" id="fieldBase">
+        <label>基准(px)</label>
+        <input type="number" id="base" min="1" value="400">
+      </div>
+      <div class="field">
+        <label>对齐</label>
+        <select id="align">
+          <option value="start">起始边</option>
+          <option value="center">居中</option>
+          <option value="end">末尾边</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>背景</label>
+        <input type="color" id="bgColor" value="#ffffff">
+      </div>
+
+      <h2>导出</h2>
+      <div class="field">
+        <label>格式</label>
+        <select id="format">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPEG</option>
+        </select>
+      </div>
+      <div class="field hidden" id="fieldQuality">
+        <label>质量</label>
+        <input type="range" id="quality" min="0.1" max="1" step="0.05" value="0.92">
+        <span class="quality-val" id="qualityVal">0.92</span>
+      </div>
+      <button class="btn" id="btnExport" type="button" style="width:100%;">导出拼接图片</button>
+    </div>
+
+    <!-- 右侧预览 -->
+    <div class="preview-wrap">
+      <div class="preview-head">
+        <span class="dim" id="dimLabel">尚未导入图片</span>
+      </div>
+      <div class="canvas-area" id="canvasArea">
+        <span class="empty-tip" id="emptyTip">请先在左侧导入至少一张图片</span>
+        <canvas id="preview" class="hidden"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/image-stitch-core.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var images = []; // { img:Image, natW, natH, rot }
+    var $ = function (id) { return document.getElementById(id); };
+
+    var fileInput = $('fileInput');
+    var dropZone = $('dropZone');
+    var imgList = $('imgList');
+    var modeSel = $('mode');
+    var columnsInput = $('columns');
+    var gapInput = $('gap');
+    var scaleSel = $('scale');
+    var baseInput = $('base');
+    var alignSel = $('align');
+    var bgColor = $('bgColor');
+    var formatSel = $('format');
+    var qualityInput = $('quality');
+    var canvas = $('preview');
+    var ctx = canvas.getContext('2d');
+    var emptyTip = $('emptyTip');
+    var dimLabel = $('dimLabel');
+
+    // ── 导入 ──
+    dropZone.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function (e) { addFiles(e.target.files); fileInput.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      dropZone.addEventListener(ev, function (e) { e.preventDefault(); dropZone.classList.add('drag'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dropZone.addEventListener(ev, function (e) { e.preventDefault(); dropZone.classList.remove('drag'); });
+    });
+    dropZone.addEventListener('drop', function (e) {
+      if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+    });
+
+    function addFiles(fileList) {
+      Array.prototype.forEach.call(fileList, function (file) {
+        if (!file.type || file.type.indexOf('image/') !== 0) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          var img = new Image();
+          img.onload = function () {
+            images.push({ img: img, natW: img.naturalWidth, natH: img.naturalHeight, rot: 0 });
+            renderList();
+            renderPreview();
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ── 缩略图列表 ──
+    function renderList() {
+      imgList.innerHTML = '';
+      images.forEach(function (item, i) {
+        var li = document.createElement('li');
+        var thumb = document.createElement('img');
+        thumb.className = 'thumb';
+        thumb.src = item.img.src;
+        thumb.style.transform = 'rotate(' + item.rot + 'deg)';
+        var meta = document.createElement('div');
+        meta.className = 'meta';
+        var name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = '图 ' + (i + 1) + (item.rot % 180 !== 0 ? ' (旋转)' : '');
+        var size = document.createElement('div');
+        size.textContent = item.natW + '×' + item.natH;
+        meta.appendChild(name);
+        meta.appendChild(size);
+        var ops = document.createElement('div');
+        ops.className = 'ops';
+        ops.appendChild(makeBtn('↑', i === 0, function () { move(i, -1); }));
+        ops.appendChild(makeBtn('↓', i === images.length - 1, function () { move(i, 1); }));
+        ops.appendChild(makeBtn('⟳', false, function () { rotate(i); }));
+        ops.appendChild(makeBtn('×', false, function () { remove(i); }, true));
+        li.appendChild(thumb);
+        li.appendChild(meta);
+        li.appendChild(ops);
+        imgList.appendChild(li);
+      });
+    }
+
+    function makeBtn(label, disabled, fn, danger) {
+      var b = document.createElement('button');
+      b.textContent = label;
+      b.disabled = disabled;
+      if (danger) b.style.color = '#e74c3c';
+      b.addEventListener('click', fn);
+      return b;
+    }
+
+    function move(i, d) {
+      var j = i + d;
+      if (j < 0 || j >= images.length) return;
+      var t = images[i]; images[i] = images[j]; images[j] = t;
+      renderList(); renderPreview();
+    }
+    function rotate(i) {
+      var it = images[i];
+      it.rot = (it.rot + 90) % 360;
+      renderList(); renderPreview();
+    }
+    function remove(i) {
+      images.splice(i, 1);
+      renderList(); renderPreview();
+    }
+
+    // 旋转后的（用于布局计算的）尺寸
+    function layoutSize(it) {
+      if (it.rot % 180 !== 0) return { width: it.natH, height: it.natW };
+      return { width: it.natW, height: it.natH };
+    }
+
+    // ── 预览渲染 ──
+    function currentOpts() {
+      return {
+        mode: modeSel.value,
+        columns: parseInt(columnsInput.value, 10) || 1,
+        gap: Math.max(0, parseInt(gapInput.value, 10) || 0),
+        scale: scaleSel.value,
+        base: Math.max(1, parseInt(baseInput.value, 10) || 1),
+        align: alignSel.value
+      };
+    }
+
+    function renderPreview() {
+      if (images.length === 0) {
+        canvas.classList.add('hidden');
+        emptyTip.classList.remove('hidden');
+        dimLabel.textContent = '尚未导入图片';
+        return;
+      }
+      emptyTip.classList.add('hidden');
+      canvas.classList.remove('hidden');
+      var layout = ImageStitchCore.computeLayout(images.map(layoutSize), currentOpts());
+      canvas.width = Math.max(1, layout.canvasWidth);
+      canvas.height = Math.max(1, layout.canvasHeight);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = bgColor.value;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      layout.items.forEach(function (p) {
+        var it = images[p.index];
+        var dw = (it.rot % 180 === 0) ? it.natW : it.natH;
+        var dh = (it.rot % 180 === 0) ? it.natH : it.natW;
+        var sx = p.w / dw, sy = p.h / dh;
+        ctx.save();
+        ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+        ctx.rotate(it.rot * Math.PI / 180);
+        ctx.scale(sx, sy);
+        ctx.drawImage(it.img, -it.natW / 2, -it.natH / 2, it.natW, it.natH);
+        ctx.restore();
+      });
+      dimLabel.textContent = '输出尺寸：' + canvas.width + ' × ' + canvas.height + ' px（共 ' + images.length + ' 张）';
+    }
+
+    // ── 控件联动 ──
+    modeSel.addEventListener('change', function () {
+      $('fieldColumns').classList.toggle('hidden', modeSel.value !== 'grid');
+      renderPreview();
+    });
+    scaleSel.addEventListener('change', function () {
+      $('fieldBase').classList.toggle('hidden', scaleSel.value === 'none');
+      renderPreview();
+    });
+    formatSel.addEventListener('change', function () {
+      $('fieldQuality').classList.toggle('hidden', formatSel.value !== 'image/jpeg');
+    });
+    qualityInput.addEventListener('input', function () {
+      $('qualityVal').textContent = parseFloat(qualityInput.value).toFixed(2);
+    });
+    [columnsInput, gapInput, baseInput, alignSel, bgColor].forEach(function (el) {
+      el.addEventListener('input', renderPreview);
+      el.addEventListener('change', renderPreview);
+    });
+    $('btnClear').addEventListener('click', function () {
+      images = [];
+      renderList(); renderPreview();
+    });
+
+    // ── 导出 ──
+    $('btnExport').addEventListener('click', function () {
+      if (images.length === 0) { alert('请先导入至少一张图片'); return; }
+      var type = formatSel.value;
+      var quality = type === 'image/jpeg' ? parseFloat(qualityInput.value) : undefined;
+      canvas.toBlob(function (blob) {
+        if (!blob) { alert('导出失败'); return; }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'stitched.' + (type === 'image/jpeg' ? 'jpg' : 'png');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }, type, quality);
+    });
+
+    renderList();
+    renderPreview();
+  })();
+  </script>
+</body>
+</html>

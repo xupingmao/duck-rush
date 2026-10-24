@@ -151,6 +151,12 @@ const menuConfig = [
                 name: "像素编辑器",
                 description: "在画布上绘制像素画，支持铅笔/橡皮/填充/取色、网格、撤销重做、缩放，并导出 PNG 或 JSON",
                 url: "pages/pixel-editor.html"
+            },
+            {
+                id: "image-stitch",
+                name: "图片拼接",
+                description: "将多张图片横向/纵向/网格拼接成一张大图，支持间距、对齐、统一尺寸、背景色与 PNG/JPEG 导出",
+                url: "pages/image-stitch.html"
             }
         ]
     },
