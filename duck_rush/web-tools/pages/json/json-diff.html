@@ -243,7 +243,8 @@
 
         .diff-table .col-path {
             width: 32%;
-            color: #555;
+            color: #fff;
+            background: #34495e;
         }
 
         .diff-table .col-val {
@@ -371,6 +372,9 @@
                 <label class="option-item">
                     <input type="checkbox" id="opt-only-diff"> 仅显示差异
                 </label>
+                <label class="option-item">
+                    <input type="checkbox" id="opt-parse-embedded"> 解析字符串 JSON
+                </label>
             </div>
         </div>
 
@@ -394,6 +398,7 @@
     </div>
 
     <script src="../../js/json-int64.js"></script>
+    <script src="../../js/json-embedded.js"></script>
     <script>
         function $(id) {
             return document.getElementById(id);
@@ -403,7 +408,8 @@
             return {
                 ignoreArrayOrder: $('opt-ignore-order').checked,
                 ignoreWhitespace: $('opt-ignore-space').checked,
-                onlyDiff: $('opt-only-diff').checked
+                onlyDiff: $('opt-only-diff').checked,
+                parseEmbedded: $('opt-parse-embedded').checked
             };
         }
 
@@ -630,6 +636,10 @@
             try {
                 var left = parseInput($('json-left').value, '左侧 JSON');
                 var right = parseInput($('json-right').value, '右侧 JSON');
+                if (options.parseEmbedded) {
+                    left = parseEmbeddedJson(left);
+                    right = parseEmbeddedJson(right);
+                }
                 renderDiff(left, right, options);
                 showToast('对比完成');
             } catch (error) {
@@ -655,7 +665,10 @@
                 return;
             }
             try {
-                el.value = JSONInt64.stringify(JSONInt64.parse(text), null, 2);
+                var opts = getOptions();
+                var obj = JSONInt64.parse(text);
+                if (opts.parseEmbedded) obj = parseEmbeddedJson(obj);
+                el.value = JSONInt64.stringify(obj, null, 2);
                 showToast('格式化成功');
             } catch (error) {
                 showToast('JSON 格式错误：' + error.message, 'error');

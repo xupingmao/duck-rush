@@ -90,6 +90,23 @@
             flex-wrap: wrap;
         }
 
+        .chk-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            color: #495057;
+            white-space: nowrap;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .chk-label input {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
         .btn {
             padding: 9px 16px;
             border: none;
@@ -232,6 +249,10 @@
         <div class="toolbar">
             <input type="text" id="jsonpathInput" class="jsonpath-input"
                    placeholder="路径表达式，例如: $.name、data.users[0].age、data.users[*].name">
+            <label class="chk-label" title="把字符串形式的 JSON 字段解析成真正的嵌套结构">
+                <input type="checkbox" id="parseEmbeddedChk">
+                解析字符串 JSON
+            </label>
             <div class="buttons-group">
                 <button class="btn btn-primary" id="formatBtn">格式化</button>
                 <button class="btn btn-primary" id="extractBtn">提取属性</button>
@@ -267,6 +288,7 @@
 
     <script src="../js/json.js"></script>
     <script src="../js/json-int64.js"></script>
+    <script src="../js/json-embedded.js"></script>
     <script src="../js/json-path.js"></script>
     <script>
         // DOM 元素
@@ -278,6 +300,7 @@
         const tidyBtn = document.getElementById('tidyBtn');
         const copyBtn = document.getElementById('copyBtn');
         const clearBtn = document.getElementById('clearBtn');
+        const parseEmbeddedChk = document.getElementById('parseEmbeddedChk');
         const statusMessage = document.getElementById('statusMessage');
 
         // 初始化
@@ -312,6 +335,29 @@
             });
         }
 
+        // 格式化并自动解析字符串中的 JSON：用字符串感知的提取器定位完整 JSON 片段，
+        // 解析后递归解开字符串 JSON，再缩进序列化，非 JSON 文本原样保留
+        function formatWithEmbedded(text) {
+            const matches = extractAllJSONFromText(text);
+            if (matches.length === 0) {
+                return text;
+            }
+            let result = '';
+            let cursor = 0;
+            matches.forEach((m) => {
+                result += text.slice(cursor, m.start);
+                try {
+                    const obj = JSONInt64.parse(m.json);
+                    result += JSONInt64.stringify(parseEmbeddedJson(obj), null, 2);
+                } catch (e) {
+                    result += m.json; // 解析失败保留原样
+                }
+                cursor = m.end + 1;
+            });
+            result += text.slice(cursor);
+            return result;
+        }
+
         // 格式化 JSON
         function formatJSON() {
             const inputText = inputTextarea.value;
@@ -322,8 +368,10 @@
             }
 
             try {
-                // 格式化文本中的所有 JSON 部分，保留非 JSON 部分
-                const formattedText = formatJSONInText(inputText);
+                // 勾选「解析字符串 JSON」时走字符串感知的提取+嵌套解析；否则保持原行为
+                const formattedText = parseEmbeddedChk.checked
+                    ? formatWithEmbedded(inputText)
+                    : formatJSONInText(inputText);
                 // 显示结果
                 outputTextarea.value = formattedText;
                 updateStatus('JSON 格式化成功', 'success');
@@ -370,7 +418,10 @@
                 let hits = 0;
                 jsonMatches.forEach((match, index) => {
                     try {
-                        const jsonObj = JSONInt64.parse(match.json);
+                        const baseObj = JSONInt64.parse(match.json);
+                        const jsonObj = parseEmbeddedChk.checked
+                            ? parseEmbeddedJson(baseObj)
+                            : baseObj;
                         const values = JSONPath.extract(jsonObj, jsonpath);
 
                         if (values.length === 0) {
@@ -409,10 +460,15 @@
             }
 
             try {
-                inputTextarea.value = JSONInt64.stringify(JSONInt64.parse(inputText), null, 2);
+                const tidyObj = parseEmbeddedChk.checked
+                    ? parseEmbeddedJson(JSONInt64.parse(inputText))
+                    : JSONInt64.parse(inputText);
+                inputTextarea.value = JSONInt64.stringify(tidyObj, null, 2);
                 updateStatus('输入已美化', 'success');
             } catch (error) {
-                inputTextarea.value = formatJSONInText(inputText);
+                inputTextarea.value = parseEmbeddedChk.checked
+                    ? formatWithEmbedded(inputText)
+                    : formatJSONInText(inputText);
                 updateStatus('输入不是完整 JSON，已美化其中的 JSON 片段', 'success');
             }
         }
