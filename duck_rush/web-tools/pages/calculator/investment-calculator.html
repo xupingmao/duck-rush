@@ -15,15 +15,15 @@
         }
 
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: #eef1f6;
             color: #333;
             min-height: 100vh;
-            padding: 20px;
+            padding: 14px;
         }
 
         .container {
-            max-width: 900px;
-            margin: 0 auto;
+            max-width: none;
+            margin: 0;
             background: white;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -33,24 +33,24 @@
         header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px 30px;
-            text-align: center;
+            padding: 12px 16px;
+            text-align: left;
         }
 
         .header-title {
-            font-size: 2.2rem;
+            font-size: 1.15rem;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 2px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .header-subtitle {
-            font-size: 1.1rem;
+            font-size: 0.8rem;
             opacity: 0.9;
         }
 
         main {
-            padding: 40px 30px;
+            padding: 16px;
         }
 
         .section {
@@ -128,7 +128,7 @@
 
         .results {
             margin-top: 40px;
-            padding: 30px;
+            padding: 16px;
             background: #f8f9fa;
             border-radius: 12px;
             border: 2px solid #e9ecef;
@@ -238,6 +238,8 @@
         }
 
         .param-item-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -263,25 +265,28 @@
         .no-params {
             text-align: center;
             color: #999;
-            padding: 30px 0;
+            padding: 16px 0;
             font-style: italic;
         }
 
         @media (max-width: 768px) {
             body {
-                padding: 10px;
+            min-height: 100vh;
+                padding: 14px;
             }
 
             header {
-                padding: 30px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+                padding: 12px 16px;
             }
 
             .header-title {
-                font-size: 1.8rem;
+                font-size: 1.15rem;
             }
 
             main {
-                padding: 30px 20px;
+                padding: 16px;
             }
 
             .form-grid {
