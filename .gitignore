@@ -1,7 +1,11 @@
 .DS_Store
 *.out
 *.json
+# LLM 基准测试: 评测剧本与归档报告需要入库
+!duck_utils/llm_chatbench/scenarios/*.json
+!docs/llm-benchmark-*.json
 *.pyc
+__pycache__/
 
 /local/
 /data/

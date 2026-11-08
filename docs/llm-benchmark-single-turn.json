@@ -1,0 +1,747 @@
+{
+  "models": [
+    "qwen3.8:27b",
+    "qwen3.5:9b",
+    "mimo-v2.6:latest",
+    "gemma4:12b",
+    "qwen2.5-coder:14b",
+    "qwen2.5-coder:7b",
+    "gemma4:e4b",
+    "deepseek-r1:14b",
+    "deepseek-r1:8b"
+  ],
+  "tools": [
+    "ollama-speed",
+    "qa-basic",
+    "tool-call",
+    "lm-eval",
+    "opencompass"
+  ],
+  "results": [
+    {
+      "tool": "ollama-speed",
+      "model": "qwen3.8:27b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 30,
+        "first_token_ms": 145.58,
+        "eval_count": 382,
+        "tokens_per_sec": 2.03
+      },
+      "summary": "2.0 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "qwen3.8:27b",
+      "ok": true,
+      "metrics": {
+        "correct": 11,
+        "total": 12,
+        "accuracy": 0.9167
+      },
+      "summary": "11/12 = 91.7%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "qwen3.8:27b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "qwen3.8:27b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.25,
+        "gsm8k/exact_match_stderr,strict-match": 0.0993,
+        "gsm8k/exact_match,flexible-extract": 0.3,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.1051
+      },
+      "summary": "gsm8k=0.300",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen3.8_27b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "qwen3.8:27b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen3.8_27b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "qwen3.5:9b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 30,
+        "first_token_ms": 6.51,
+        "eval_count": 281,
+        "tokens_per_sec": 47.78
+      },
+      "summary": "47.8 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "qwen3.5:9b",
+      "ok": true,
+      "metrics": {
+        "correct": 10,
+        "total": 12,
+        "accuracy": 0.8333
+      },
+      "summary": "10/12 = 83.3%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "qwen3.5:9b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "qwen3.5:9b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.0,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.0
+      },
+      "summary": "gsm8k=0.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen3.5_9b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "qwen3.5:9b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 90.0
+      },
+      "summary": "localqa/accuracy=90.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen3.5_9b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "mimo-v2.6:latest",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 27,
+        "first_token_ms": 8.27,
+        "eval_count": 501,
+        "tokens_per_sec": 51.75
+      },
+      "summary": "51.8 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "mimo-v2.6:latest",
+      "ok": true,
+      "metrics": {
+        "correct": 10,
+        "total": 12,
+        "accuracy": 0.8333
+      },
+      "summary": "10/12 = 83.3%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "mimo-v2.6:latest",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "mimo-v2.6:latest",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.4,
+        "gsm8k/exact_match_stderr,strict-match": 0.1124,
+        "gsm8k/exact_match,flexible-extract": 0.4,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.1124
+      },
+      "summary": "gsm8k=0.400",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\mimo-v2.6_latest\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "mimo-v2.6:latest",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\mimo-v2.6_latest\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "gemma4:12b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 32,
+        "first_token_ms": 5.05,
+        "eval_count": 1314,
+        "tokens_per_sec": 33.87
+      },
+      "summary": "33.9 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "gemma4:12b",
+      "ok": true,
+      "metrics": {
+        "correct": 10,
+        "total": 12,
+        "accuracy": 0.8333
+      },
+      "summary": "10/12 = 83.3%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "gemma4:12b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 7,
+        "call_ok": 7,
+        "total": 8,
+        "format_rate": 0.875,
+        "call_rate": 0.875
+      },
+      "summary": "格式88% 调用88%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "gemma4:12b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 50.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.0,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.0
+      },
+      "summary": "gsm8k=0.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\gemma4_12b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "gemma4:12b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\gemma4_12b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "qwen2.5-coder:14b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 47,
+        "first_token_ms": 1.95,
+        "eval_count": 270,
+        "tokens_per_sec": 32.53
+      },
+      "summary": "32.5 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "qwen2.5-coder:14b",
+      "ok": true,
+      "metrics": {
+        "correct": 11,
+        "total": 12,
+        "accuracy": 0.9167
+      },
+      "summary": "11/12 = 91.7%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "qwen2.5-coder:14b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "qwen2.5-coder:14b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 50.0,
+        "gsm8k/exact_match,strict-match": 0.16,
+        "gsm8k/exact_match_stderr,strict-match": 0.0524,
+        "gsm8k/exact_match,flexible-extract": 0.56,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.0709
+      },
+      "summary": "gsm8k=0.560",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen2.5-coder_14b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "qwen2.5-coder:14b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen2.5-coder_14b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "qwen2.5-coder:7b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 47,
+        "first_token_ms": 1.11,
+        "eval_count": 273,
+        "tokens_per_sec": 58.51
+      },
+      "summary": "58.5 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "qwen2.5-coder:7b",
+      "ok": true,
+      "metrics": {
+        "correct": 9,
+        "total": 12,
+        "accuracy": 0.75
+      },
+      "summary": "9/12 = 75.0%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "qwen2.5-coder:7b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "qwen2.5-coder:7b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 3.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.6667,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.3333
+      },
+      "summary": "gsm8k=0.667",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen2.5-coder_7b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "qwen2.5-coder:7b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\qwen2.5-coder_7b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "gemma4:e4b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 32,
+        "first_token_ms": 4.65,
+        "eval_count": 1223,
+        "tokens_per_sec": 61.4
+      },
+      "summary": "61.4 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "gemma4:e4b",
+      "ok": true,
+      "metrics": {
+        "correct": 11,
+        "total": 12,
+        "accuracy": 0.9167
+      },
+      "summary": "11/12 = 91.7%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "gemma4:e4b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 7,
+        "call_ok": 7,
+        "total": 8,
+        "format_rate": 0.875,
+        "call_rate": 0.875
+      },
+      "summary": "格式88% 调用88%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "gemma4:e4b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.0,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.0
+      },
+      "summary": "gsm8k=0.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\gemma4_e4b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "gemma4:e4b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 75.0
+      },
+      "summary": "localqa/accuracy=75.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\gemma4_e4b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "deepseek-r1:14b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 21,
+        "first_token_ms": 3.41,
+        "eval_count": 575,
+        "tokens_per_sec": 32.25
+      },
+      "summary": "32.2 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "deepseek-r1:14b",
+      "ok": true,
+      "metrics": {
+        "correct": 10,
+        "total": 12,
+        "accuracy": 0.8333
+      },
+      "summary": "10/12 = 83.3%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "deepseek-r1:14b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 8,
+        "call_ok": 8,
+        "total": 8,
+        "format_rate": 1.0,
+        "call_rate": 1.0
+      },
+      "summary": "格式100% 调用100%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "deepseek-r1:14b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.05,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.05
+      },
+      "summary": "gsm8k=0.050",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\deepseek-r1_14b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "deepseek-r1:14b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 100.0
+      },
+      "summary": "localqa/accuracy=100.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\deepseek-r1_14b\\opencompass-out",
+      "error": null
+    },
+    {
+      "tool": "ollama-speed",
+      "model": "deepseek-r1:8b",
+      "ok": true,
+      "metrics": {
+        "prompt_eval_count": 21,
+        "first_token_ms": 10.96,
+        "eval_count": 934,
+        "tokens_per_sec": 52.37
+      },
+      "summary": "52.4 tokens/s",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "qa-basic",
+      "model": "deepseek-r1:8b",
+      "ok": true,
+      "metrics": {
+        "correct": 10,
+        "total": 12,
+        "accuracy": 0.8333
+      },
+      "summary": "10/12 = 83.3%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "tool-call",
+      "model": "deepseek-r1:8b",
+      "ok": true,
+      "metrics": {
+        "format_ok": 5,
+        "call_ok": 5,
+        "total": 8,
+        "format_rate": 0.625,
+        "call_rate": 0.625
+      },
+      "summary": "格式62% 调用62%",
+      "raw_path": null,
+      "error": null
+    },
+    {
+      "tool": "lm-eval",
+      "model": "deepseek-r1:8b",
+      "ok": true,
+      "metrics": {
+        "gsm8k/sample_len": 20.0,
+        "gsm8k/exact_match,strict-match": 0.0,
+        "gsm8k/exact_match_stderr,strict-match": 0.0,
+        "gsm8k/exact_match,flexible-extract": 0.0,
+        "gsm8k/exact_match_stderr,flexible-extract": 0.0
+      },
+      "summary": "gsm8k=0.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\deepseek-r1_8b\\lm-eval-out",
+      "error": null
+    },
+    {
+      "tool": "opencompass",
+      "model": "deepseek-r1:8b",
+      "ok": true,
+      "metrics": {
+        "localqa/accuracy": 95.0
+      },
+      "summary": "localqa/accuracy=95.000",
+      "raw_path": "C:\\Users\\xupingmao\\.duck-rush\\data\\duck-llm-benchmark\\deepseek-r1_8b\\opencompass-out",
+      "error": null
+    }
+  ],
+  "system_metrics": {
+    "qwen3.8:27b": {
+      "cpu_avg": 94.4,
+      "cpu_max": 100.0,
+      "mem_avg_percent": 67.1,
+      "mem_max_percent": 68,
+      "mem_peak_used_gb": 35.0,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 20.7,
+      "gpu_util_max": 100.0,
+      "gpu_mem_peak_mb": 11182.0
+    },
+    "qwen3.5:9b": {
+      "cpu_avg": 37.4,
+      "cpu_max": 43.7,
+      "mem_avg_percent": 33.1,
+      "mem_max_percent": 34,
+      "mem_peak_used_gb": 17.5,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 51.1,
+      "gpu_util_max": 85.0,
+      "gpu_mem_peak_mb": 7129.0
+    },
+    "mimo-v2.6:latest": {
+      "cpu_avg": 41.3,
+      "cpu_max": 51.8,
+      "mem_avg_percent": 33.4,
+      "mem_max_percent": 34,
+      "mem_peak_used_gb": 17.5,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 63.2,
+      "gpu_util_max": 91.0,
+      "gpu_mem_peak_mb": 7129.0
+    },
+    "gemma4:12b": {
+      "cpu_avg": 35.4,
+      "cpu_max": 77.5,
+      "mem_avg_percent": 34.9,
+      "mem_max_percent": 38,
+      "mem_peak_used_gb": 19.6,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 6.4,
+      "gpu_util_max": 99.0,
+      "gpu_mem_peak_mb": 9470.0
+    },
+    "qwen2.5-coder:14b": {
+      "cpu_avg": 36.3,
+      "cpu_max": 77.4,
+      "mem_avg_percent": 34.1,
+      "mem_max_percent": 36,
+      "mem_peak_used_gb": 18.6,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 9.4,
+      "gpu_util_max": 83.0,
+      "gpu_mem_peak_mb": 9952.0
+    },
+    "qwen2.5-coder:7b": {
+      "cpu_avg": 30.4,
+      "cpu_max": 45.7,
+      "mem_avg_percent": 31.6,
+      "mem_max_percent": 32,
+      "mem_peak_used_gb": 16.8,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 4.0,
+      "gpu_util_max": 31.0,
+      "gpu_mem_peak_mb": 5276.0
+    },
+    "gemma4:e4b": {
+      "cpu_avg": 39.8,
+      "cpu_max": 97.5,
+      "mem_avg_percent": 34.1,
+      "mem_max_percent": 36,
+      "mem_peak_used_gb": 18.8,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 2.4,
+      "gpu_util_max": 44.0,
+      "gpu_mem_peak_mb": 5111.0
+    },
+    "deepseek-r1:14b": {
+      "cpu_avg": 42.0,
+      "cpu_max": 91.2,
+      "mem_avg_percent": 35.5,
+      "mem_max_percent": 37,
+      "mem_peak_used_gb": 19.4,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 60.6,
+      "gpu_util_max": 96.0,
+      "gpu_mem_peak_mb": 9943.0
+    },
+    "deepseek-r1:8b": {
+      "cpu_avg": 49.8,
+      "cpu_max": 100.0,
+      "mem_avg_percent": 34.7,
+      "mem_max_percent": 37,
+      "mem_peak_used_gb": 19.3,
+      "mem_total_gb": 51.4,
+      "gpu_util_avg": 27.9,
+      "gpu_util_max": 100.0,
+      "gpu_mem_peak_mb": 6237.0
+    }
+  },
+  "hardware": {
+    "captured_at": "2026-11-08 13:33:47",
+    "os": "Windows 10.0.19045",
+    "cpu": "Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz (4 核 / 4 线程)",
+    "memory": "47.9 GB",
+    "gpu": "NVIDIA GeForce RTX 3060 ｜ 显存 12288 MiB ｜ 驱动 610.88 ｜ CUDA 13.3",
+    "disk": "C: 总 931 GB / 可用 593 GB",
+    "board": "System manufacturer / System Product Name",
+    "ollama": "0.40.15",
+    "python": "3.10.10 (CPython)",
+    "python_exe": "C:\\Users\\xupingmao\\AppData\\Local\\Programs\\Python\\Python310\\python.exe"
+  }
+}

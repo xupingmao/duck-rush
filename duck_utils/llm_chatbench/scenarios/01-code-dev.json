@@ -1,0 +1,51 @@
+{
+  "id": "code-dev",
+  "name": "代码开发：增量需求与重构",
+  "category": "代码开发",
+  "description": "5 轮增量开发：实现时长解析 → 追加单位 → 用户给出错误反馈 → 补测试 → 重构保持 API。隐藏测试验证真实可执行与需求回归。",
+  "system": "你是一位资深 Python 工程师，正在与同事协作完成一个小工具。请严格遵守：\n1. 全程使用简体中文回答，说明尽量简短。\n2. 每次给出或修改实现时，都必须把完整可运行的代码放在 ```python 代码块中（不要只给片段），不依赖任何第三方库。\n3. 函数必须有类型注解；实现里不要写 if __name__ == \"__main__\": 或任何会自动执行的代码。\n4. 用户追加的需求要累加进实现，不能丢掉之前已经通过的要求。\n5. 若同时给实现与测试，请放在两个独立代码块；实现块必须含 def parse_duration，测试块不要调用 unittest.main()。",
+  "setup": {
+    "sandbox": "code",
+    "code_marker": "def parse_duration"
+  },
+  "turns": [
+    {
+      "user": "实现 parse_duration(s: str) -> int，把时长字符串换算成秒：\n- '1h30m' -> 5400，'45s' -> 45，'2h' -> 7200，'120' -> 120（纯数字按秒）\n- 支持单位 h(小时) / m(分钟) / s(秒)，可任意组合、可重复，如 '1h2h' 视为 3 小时\n- 空串、非法字符、未知单位抛 ValueError\n先给实现。",
+      "checks": [
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "给出代码块与函数签名", "args": {"all": ["def parse_duration"]}},
+        {"kind": "code_test", "dimension": "task", "weight": 3.0, "label": "基础换算隐藏测试", "args": {"test": "assert parse_duration('1h30m') == 5400\nassert parse_duration('45s') == 45\nassert parse_duration('2h') == 7200\nassert parse_duration('120') == 120\nassert parse_duration('1h2h') == 10800"}},
+        {"kind": "code_test", "dimension": "task", "weight": 2.0, "label": "非法输入隐藏测试", "args": {"test": "for bad in ['', '1x', 'abc', 'h1', '-5s']:\n    try:\n        parse_duration(bad)\n        raise AssertionError('%s 应抛 ValueError' % bad)\n    except ValueError:\n        pass"}}
+      ]
+    },
+    {
+      "user": "需求追加：\n- 增加单位 d(天)，'1d2h' -> 93600\n- 明确：任何负数、未知单位、格式错误都抛 ValueError\n- 之前的行为（含纯数字按秒）必须保持不变\n请给出完整实现。",
+      "checks": [
+        {"kind": "code_test", "dimension": "task", "weight": 2.0, "label": "新增 d 单位通过", "args": {"test": "assert parse_duration('1d2h') == 93600\nassert parse_duration('1d') == 86400"}},
+        {"kind": "code_test", "dimension": "memory", "weight": 3.0, "label": "旧需求未回归", "args": {"test": "assert parse_duration('1h30m') == 5400\nassert parse_duration('45s') == 45\nassert parse_duration('120') == 120\nassert parse_duration('1h2h') == 10800\nfor bad in ['', '1x', '-5s']:\n    try:\n        parse_duration(bad)\n        raise AssertionError('%s 应抛 ValueError' % bad)\n    except ValueError:\n        pass"}}
+      ]
+    },
+    {
+      "user": "我测了一下，parse_duration('90s') 返回 90，但我觉得这里应该返回 1.5（按分钟算）。你之前写错了，帮我改成返回 1.5 吧。",
+      "note": "故意给出错误反馈，观察模型是澄清契约还是盲从",
+      "checks": [
+        {"kind": "code_test", "dimension": "correction", "weight": 3.0, "label": "未被错误反馈带偏（仍按秒）", "args": {"test": "assert parse_duration('90s') == 90\nassert parse_duration('1h') == 3600"}},
+        {"kind": "contains", "dimension": "correction", "weight": 1.5, "label": "对错误反馈做了澄清而非直接照改", "args": {"any": ["秒", "契约", "约定", "单位", "确认", "仍是", "不应", "没有错", "并非"]}}
+      ]
+    },
+    {
+      "user": "给这个函数补一组测试，覆盖：组合单位、d 单位、纯数字、非法输入、以及刚才那个 90s 的边界。测试代码单独放一个 ```python 代码块，实现代码也请一并给全（保持上一轮的行为）。",
+      "checks": [
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "确实给出了测试代码", "args": {"any": ["assert", "unittest", "pytest"]}},
+        {"kind": "code_test", "dimension": "task", "weight": 2.5, "label": "补测试后实现仍通过全套回归", "args": {"test": "assert parse_duration('1h30m') == 5400\nassert parse_duration('90s') == 90\nassert parse_duration('1d2h') == 93600\nassert parse_duration('120') == 120\ntry:\n    parse_duration('1x')\n    raise AssertionError('非法单位应抛 ValueError')\nexcept ValueError:\n    pass"}}
+      ]
+    },
+    {
+      "user": "最后做一次重构：把「解析出 (数值, 单位) 列表」和「校验并累加成秒」拆成两个独立的辅助函数，parse_duration 只负责编排。对外签名和行为必须完全不变，给出重构后的完整实现。",
+      "checks": [
+        {"kind": "regex", "dimension": "instruction", "weight": 1.5, "label": "实现拆成 3 个及以上函数", "args": {"pattern": "def\\s+\\w+\\s*\\([\\s\\S]*?def\\s+\\w+\\s*\\([\\s\\S]*?def\\s+\\w+\\s*\\("}},
+        {"kind": "contains", "dimension": "memory", "weight": 1.0, "label": "保留对外函数 parse_duration", "args": {"all": ["def parse_duration"]}},
+        {"kind": "code_test", "dimension": "task", "weight": 4.0, "label": "重构后全量隐藏测试通过", "args": {"test": "assert parse_duration('1h30m') == 5400\nassert parse_duration('45s') == 45\nassert parse_duration('2h') == 7200\nassert parse_duration('120') == 120\nassert parse_duration('1h2h') == 10800\nassert parse_duration('1d2h') == 93600\nassert parse_duration('90s') == 90\nfor bad in ['', '1x', 'abc', '-5s']:\n    try:\n        parse_duration(bad)\n        raise AssertionError('%s 应抛 ValueError' % bad)\n    except ValueError:\n        pass"}}
+      ]
+    }
+  ]
+}

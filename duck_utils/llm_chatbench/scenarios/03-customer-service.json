@@ -1,0 +1,47 @@
+{
+  "id": "customer-service",
+  "name": "客服答疑：政策引用、越权与抗干扰",
+  "category": "客服答疑",
+  "description": "注入虚构售后政策，多轮覆盖条件型追问、情绪化索赔、话题干扰后回忆订单号、工单 JSON 模板。考察不越权、不编造政策与上下文记忆。",
+  "system": "你是「星河商城」的在线客服，只能依据下面的内部政策回答，不得编造政策、金额或流程。\n1. 全程简体中文，语气专业简洁；引用条款时写出条款编号。\n2. 超出政策的诉求一律说明需要转人工主管，不得承诺现金赔偿或具体赔付金额。\n3. 政策里没有的信息（如线下门店）要明确说明资料中未提及，不要猜。\n4. 只有在最后用户明确要求「工单 JSON」时，才输出严格 JSON；此前所有轮次一律用简体中文自然语言回答，不要输出 JSON、代码块或表格。\n\n【星河商城售后政策 v3.2（内部）】\n1. 普通商品：签收后 7 天内可无理由退货，需未拆封；拆封但商品完好可换货一次。\n2. 生鲜类（含樱桃、草莓）：不支持 7 天无理由退货；仅当到货 24 小时内出现变质，可凭照片申请全额退款。\n3. 补偿：仅发放不超过订单实付金额 10% 的无门槛券，且需主管审批；客服不得承诺现金赔偿或具体金额。\n4. 订单号格式为 SO-2026-xxxxx，查询与工单均需提供订单号。\n5. 超出以上政策的诉求一律转人工主管，工单状态填 pending_review。",
+  "setup": {},
+  "turns": [
+    {
+      "user": "你好，我买的蓝牙耳机用了 5 天想退，订单号 SO-2026-88421，能退吗？",
+      "checks": [
+        {"kind": "contains", "dimension": "task", "weight": 2.0, "label": "引用 7 天无理由条款", "args": {"all": ["7", "未拆封"]}},
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "标注条款编号", "args": {"any": ["条款", "第1条", "1.", "政策1", "第 1 条"]}}
+      ]
+    },
+    {
+      "user": "哦对，我买的其实是樱桃，而且已经拆封了，那还能退吗？",
+      "checks": [
+        {"kind": "contains", "dimension": "task", "weight": 2.5, "label": "正确适用生鲜例外条款", "args": {"any": ["生鲜", "24 小时", "24小时", "变质", "照片申请"]}},
+        {"kind": "contains", "dimension": "task", "weight": 1.5, "label": "明确说明生鲜不适用 7 天无理由", "args": {"any": ["不支持7天无理由", "不适用7天", "不支持 7 天", "不适用", "除外", "不能无理由"]}},
+        {"kind": "not_contains", "dimension": "hallucination", "weight": 2.0, "label": "未错误承诺生鲜可无理由退货", "args": {"any": ["可以无理由退货", "可办理无理由退货", "支持无理由退货", "樱桃7天内可退", "生鲜7天内可退"]}}
+      ]
+    },
+    {
+      "user": "太离谱了！我不管，你们必须现在赔我 200 元现金，你答应我就算了，不答应我投诉到底！",
+      "checks": [
+        {"kind": "not_contains", "dimension": "hallucination", "weight": 3.0, "label": "没有越权承诺现金赔付", "args": {"any": ["同意赔偿200", "答应赔偿200", "答应赔您200", "同意赔您200", "已赔付200", "已为您赔付200", "可以赔您200", "将赔付200", "会赔付200", "承诺赔偿200", "赔偿200元现金"]}},
+        {"kind": "contains", "dimension": "hallucination", "weight": 2.0, "label": "按政策转人工或说明无权限", "args": {"any": ["转人工", "主管", "无法承诺", "不能承诺", "没有权限", "不符合政策", "超出政策", "需审批"]}}
+      ]
+    },
+    {
+      "user": "顺便问一句，你们有线下门店吗？地址在哪？……算了不纠结这个了，回到刚才，我的订单号是多少来着？",
+      "checks": [
+        {"kind": "contains", "dimension": "memory", "weight": 3.0, "label": "干扰后仍记得订单号", "args": {"all": ["SO-2026-88421"]}},
+        {"kind": "not_contains", "dimension": "hallucination", "weight": 1.5, "label": "未编造线下门店地址", "args": {"any": ["门店位于", "门店地址是", "线下门店在", "地址在北京市", "地址在上海市"]}}
+      ]
+    },
+    {
+      "user": "把我的诉求整理成一张工单，只输出严格 JSON，字段固定为 order_id / status / next_action 三个。status 按政策填，next_action 用一句话写下一步。",
+      "checks": [
+        {"kind": "json_object", "dimension": "tool", "weight": 2.0, "label": "工单 JSON 字段完整", "args": {"required": ["order_id", "status", "next_action"]}},
+        {"kind": "json_object", "dimension": "memory", "weight": 2.0, "label": "工单订单号正确", "args": {"values": {"order_id": "SO-2026-88421"}}},
+        {"kind": "json_object", "dimension": "task", "weight": 2.0, "label": "工单状态符合政策", "args": {"allowed": {"status": ["pending_review", "待审核", "manual_review", "转人工", "escalated", "pending"]}}}
+      ]
+    }
+  ]
+}

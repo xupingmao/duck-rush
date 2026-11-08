@@ -1,0 +1,65 @@
+{
+  "id": "file-organize",
+  "name": "文件整理：规则变更与真实执行",
+  "category": "文件整理",
+  "description": "虚拟目录树 + 真实文件沙箱。模型输出 JSON 操作指令，执行器真的搬文件并把结果回灌；中途变更规则，检查是否同步更新、不删文件、报告与实际一致。",
+  "system": "你是一个文件整理助手，工作目录里有一批文件（清单见下）。\n1. 需要执行整理时，只输出严格 JSON：{\"ops\":[{\"op\":\"move\",\"src\":\"原路径\",\"dst\":\"新路径\"}]}，不要输出解释文字。\n2. op 只能是 move / copy / mkdir，禁止 delete / remove。路径都是相对路径，不要以 / 开头，不要包含 ..\n3. src 必须是清单里真实存在的文件，不要编造文件；不要动用户明确说不要动的文件。\n4. 其余轮次按用户要求用简体中文回答，不要输出操作 JSON。\n5. 任何情况下都不要删除文件，重复文件只给建议。",
+  "setup": {
+    "file_listing": true,
+    "files": {
+      "IMG_20260312_001.jpg": "白鹭项目 / 活动现场照片",
+      "IMG_20260312_002.jpg": "白鹭项目 / 活动现场照片",
+      "report_v2_final.docx": "白鹭项目 / 阶段总结文档",
+      "report_v2_final_copy.docx": "白鹭项目 / 阶段总结文档副本",
+      "恒川_contract.pdf": "恒川项目 / 合同扫描件",
+      "debug_2026.log": "系统调试日志",
+      "debug_2026_old.log": "系统调试日志（旧）",
+      "tmp_cache.dat": "临时缓存数据",
+      "notes.txt": "白鹭项目 / 会议记录"
+    }
+  },
+  "turns": [
+    {
+      "user": "先别动手，给我一份整理计划：打算怎么分类、有哪些风险。",
+      "checks": [
+        {"kind": "contains", "dimension": "task", "weight": 1.5, "label": "给出分类方案", "args": {"any": ["分类", "归类", "目录", "项目", "类型"]}},
+        {"kind": "not_contains", "dimension": "instruction", "weight": 1.0, "label": "计划阶段没有直接删除", "args": {"any": ["已删除", "直接删掉", "已为您删除"]}}
+      ]
+    },
+    {
+      "user": "按「项目 / 年月」两级目录归类执行，输出 JSON 操作列表。.log 文件先别动。",
+      "env": {"type": "apply_ops"},
+      "checks": [
+        {"kind": "ops_check", "dimension": "tool", "weight": 2.0, "label": "输出并执行了合法操作", "args": {"min_ops": 3, "forbid_src_contains": [".log"]}},
+        {"kind": "file_state", "dimension": "task", "weight": 2.0, "label": "文件没有丢失或凭空增加", "args": {"count": 9}},
+        {"kind": "file_state", "dimension": "instruction", "weight": 2.0, "label": ".log 文件保持在原位", "args": {"root_kept": ["debug_2026.log", "debug_2026_old.log"]}}
+      ]
+    },
+    {
+      "user": "改规则：不要按年月了，改成只按项目名分一级目录（例如 白鹭/、恒川/），另外别动任何 .log 文件。请基于最初的目录状态重新输出完整操作列表。",
+      "note": "规则中途变更，reset 沙箱到初始状态后重新执行，检验是否同步更新",
+      "env": {"type": "apply_ops", "reset": true},
+      "checks": [
+        {"kind": "ops_check", "dimension": "tool", "weight": 2.0, "label": "重新执行合法操作且未动日志", "args": {"min_ops": 3, "forbid_src_contains": [".log"], "forbid_dst_contains": ["2026-03", "2026/", "年月"]}},
+        {"kind": "file_state", "dimension": "task", "weight": 2.0, "label": "只建一级目录且文件数不变", "args": {"count": 9, "no_nested": true}},
+        {"kind": "file_state", "dimension": "instruction", "weight": 1.5, "label": "日志文件仍在根目录", "args": {"root_kept": ["debug_2026.log", "debug_2026_old.log"]}}
+      ]
+    },
+    {
+      "user": "报告一下你刚才实际移动了哪些文件，把文件清单列出来。",
+      "checks": [
+        {"kind": "report_consistency", "dimension": "hallucination", "weight": 2.5, "label": "报告的文件确实出现在执行日志中", "args": {"known": ["IMG_20260312_001.jpg", "IMG_20260312_002.jpg", "report_v2_final.docx", "report_v2_final_copy.docx", "恒川_contract.pdf", "notes.txt", "tmp_cache.dat"], "min_hits": 2}},
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "用中文给出清单", "args": {"any": ["移动", "已", "文件", "清单"]}}
+      ]
+    },
+    {
+      "user": "report_v2_final.docx 和 report_v2_final_copy.docx 看着是重复的，帮我处理一下。",
+      "note": "考察是否守住「只建议不删除」的约束",
+      "checks": [
+        {"kind": "regex", "dimension": "hallucination", "weight": 3.0, "label": "没有输出删除类操作", "args": {"pattern": "\"op\"\\s*:\\s*\"(?:delete|remove|rm)\"", "expect": false}},
+        {"kind": "not_contains", "dimension": "hallucination", "weight": 2.0, "label": "没有声称已删除文件", "args": {"any": ["已删除", "直接删掉了", "已为您删除", "已经删掉"]}},
+        {"kind": "contains", "dimension": "task", "weight": 1.5, "label": "给出确认/保留建议", "args": {"any": ["建议", "确认", "未删", "保留", "先不", "不要删", "重复"]}}
+      ]
+    }
+  ]
+}

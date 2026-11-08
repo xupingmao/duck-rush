@@ -1,0 +1,42 @@
+{
+  "id": "bugfix",
+  "name": "BUG 修复：定位、根因与回归",
+  "category": "BUG修复",
+  "description": "给出带 3 个缺陷的代码和失败用例，多轮追问根因、补边界、写回归测试；隐藏测试验证修复是否真正生效。",
+  "system": "你是一位负责排查线上问题的 Python 工程师。请严格遵守：\n1. 全程简体中文，先说结论再解释。\n2. 每次给出修复后的代码时，把完整实现放在一个 ```python 代码块中，不依赖第三方库。\n3. 不要改函数签名，不要写自动执行的代码。\n4. 用户后续补充的失败用例必须一并修掉，不能只修第一个。",
+  "setup": {
+    "sandbox": "code",
+    "code_marker": "def moving_average"
+  },
+  "turns": [
+    {
+      "user": "线上这段代码有 bug，帮我修一下：\n```python\ndef moving_average(values, window):\n    result = []\n    for i in range(len(values) - window):\n        result.append(sum(values[i:i+window]) / window)\n    return result\n```\n契约是：window 为正整数；window <= len(values) 时返回 len(values)-window+1 个窗口均值；window <= 0 或 window > len(values) 抛 ValueError；window 不是整数抛 TypeError。\n现在 moving_average([1,2,3,4], 2) 期望 [1.5, 2.5, 3.5]，实际只返回 [1.5, 2.5]；window=0 直接 ZeroDivisionError。给修复后的完整实现。",
+      "checks": [
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "给出完整实现", "args": {"all": ["def moving_average"]}},
+        {"kind": "code_test", "dimension": "task", "weight": 3.0, "label": "窗口数量与值正确", "args": {"test": "assert moving_average([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert moving_average([1,2,3], 3) == [2.0]\nassert moving_average([5], 1) == [5.0]"}},
+        {"kind": "code_test", "dimension": "task", "weight": 2.0, "label": "非法 window 被正确拦截", "args": {"test": "for bad in [0, -1, 10, 100]:\n    try:\n        moving_average([1,2,3], bad)\n        raise AssertionError('window=%s 应抛 ValueError' % bad)\n    except ValueError:\n        pass\ntry:\n    moving_average([1,2,3], 2.5)\n    raise AssertionError('非整数 window 应抛 TypeError')\nexcept TypeError:\n    pass"}}
+      ]
+    },
+    {
+      "user": "别只改表面，跟我说清楚根因是什么：为什么会少一个窗口？那两个异常应该在哪一步拦住？",
+      "checks": [
+        {"kind": "contains", "dimension": "correction", "weight": 2.0, "label": "指出 range 边界少 1 的根因", "args": {"any": ["range", "少一个", "少 1", "边界", "len(values) - window", "+ 1", "最后一个窗口", "切片"]}},
+        {"kind": "contains", "dimension": "correction", "weight": 1.0, "label": "说明参数校验时机", "args": {"any": ["校验", "检查", "参数", "提前", "入口", "判断", "非法"]}}
+      ]
+    },
+    {
+      "user": "补充两个漏掉的用例：moving_average([5], 1) 之前返回了 []，moving_average([1,2,3], 2.5) 报的是 ZeroDivisionError 而不是 TypeError。请把这些一起修好，再给一次完整实现。",
+      "checks": [
+        {"kind": "code_test", "dimension": "task", "weight": 3.0, "label": "补充用例全部通过", "args": {"test": "assert moving_average([5], 1) == [5.0]\nassert moving_average([1,2,3,4], 2) == [1.5, 2.5, 3.5]\ntry:\n    moving_average([1,2,3], 2.5)\n    raise AssertionError('应抛 TypeError')\nexcept TypeError:\n    pass\nfor bad in [0, -1, 10]:\n    try:\n        moving_average([1,2,3], bad)\n        raise AssertionError('window=%s 应抛 ValueError' % bad)\n    except ValueError:\n        pass"}}
+      ]
+    },
+    {
+      "user": "写 3 条能防止以后再犯的回归测试，并说明以后怎么避免同类问题。实现代码保持上一轮不变，测试放在单独的代码块里。",
+      "checks": [
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "给出测试代码", "args": {"any": ["assert", "unittest", "pytest", "test_"]}},
+        {"kind": "contains", "dimension": "instruction", "weight": 1.0, "label": "说明防回归思路", "args": {"any": ["边界", "回归", "测试", "用例", "单测", "覆盖"]}},
+        {"kind": "code_test", "dimension": "task", "weight": 2.0, "label": "写测试后实现仍正确", "args": {"test": "assert moving_average([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert moving_average([5], 1) == [5.0]\ntry:\n    moving_average([1,2,3], 0)\n    raise AssertionError('应抛 ValueError')\nexcept ValueError:\n    pass"}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "id": "tool-orchestration",
+  "name": "工具编排：状态传递与缺货拒单",
+  "category": "工具编排",
+  "description": "多步工具调用：查库存 → 下单 → 改地址 → 再查库存 → 缺货时拒单。每步工具返回值回灌为下一轮输入，检验是否会用上文返回的 order_id / stock。",
+  "system": "你是订单助手。每一轮只能输出一个严格 JSON 工具调用，格式为 {\"tool\":\"工具名\",\"args\":{\"参数\":值}}，不要输出任何解释文字。\n可用工具：\n- query_stock(sku)：查询库存\n- create_order(sku, qty)：创建订单\n- update_address(order_id, city, detail)：修改收货地址\n- no_op(reason)：不执行任何操作，用于拒绝或说明\n规则：\n1. 必须依据上一轮工具返回的结果决定下一步，不要编造 order_id 或库存数量。\n2. 库存为 0 时不得创建订单，改用 no_op 说明原因。\n3. 每次只调用一个工具。",
+  "setup": {
+    "tool_responses": {
+      "query_stock": [
+        {"sku": "A-100", "stock": 3, "ok": true},
+        {"sku": "B-200", "stock": 0, "ok": true}
+      ],
+      "create_order": [
+        {"order_id": "SO-2026-90001", "status": "created", "sku": "A-100", "qty": 2}
+      ],
+      "update_address": [
+        {"ok": true, "order_id": "SO-2026-90001"}
+      ],
+      "no_op": [
+        {"ok": true, "message": "已记录，未创建订单"}
+      ]
+    }
+  },
+  "turns": [
+    {
+      "user": "查一下 A-100 还有多少库存。",
+      "env": {"type": "tool_step"},
+      "checks": [
+        {"kind": "json_object", "dimension": "tool", "weight": 2.0, "label": "调用 query_stock 且参数正确", "args": {"required": ["tool"], "values": {"tool": "query_stock", "args.sku": "A-100"}}}
+      ]
+    },
+    {
+      "user": "有货的话下 2 件 A-100。",
+      "env": {"type": "tool_step"},
+      "checks": [
+        {"kind": "json_object", "dimension": "tool", "weight": 2.5, "label": "依据库存结果创建订单", "args": {"required": ["tool", "args.qty"], "values": {"tool": "create_order", "args.sku": "A-100", "args.qty": 2}}}
+      ]
+    },
+    {
+      "user": "把这张订单的收货地址改成 上海市 / 浦东新区张江路 88 号。",
+      "note": "必须使用上一轮回灌的 order_id，测状态传递",
+      "env": {"type": "tool_step"},
+      "checks": [
+        {"kind": "json_object", "dimension": "tool", "weight": 1.5, "label": "调用 update_address", "args": {"required": ["tool"], "values": {"tool": "update_address"}}},
+        {"kind": "json_object", "dimension": "memory", "weight": 3.0, "label": "使用工具返回的真实订单号", "args": {"values": {"args.order_id": "SO-2026-90001"}}}
+      ]
+    },
+    {
+      "user": "再查一下 B-200 的库存。",
+      "env": {"type": "tool_step"},
+      "checks": [
+        {"kind": "json_object", "dimension": "tool", "weight": 2.0, "label": "第二次查询参数正确", "args": {"required": ["tool"], "values": {"tool": "query_stock", "args.sku": "B-200"}}}
+      ]
+    },
+    {
+      "user": "帮我下 2 件 B-200。",
+      "note": "库存为 0，应拒绝创建订单",
+      "env": {"type": "tool_step"},
+      "checks": [
+        {"kind": "json_object", "dimension": "correction", "weight": 2.5, "label": "缺货时改用 no_op", "args": {"required": ["tool"], "allowed": {"tool": ["no_op"]}}},
+        {"kind": "not_contains", "dimension": "correction", "weight": 2.0, "label": "没有盲目创建订单", "args": {"any": ["create_order"]}},
+        {"kind": "contains", "dimension": "task", "weight": 1.5, "label": "说明缺货原因", "args": {"any": ["缺货", "库存不足", "无货", "0", "无法下单", "库存为0"]}}
+      ]
+    }
+  ]
+}
