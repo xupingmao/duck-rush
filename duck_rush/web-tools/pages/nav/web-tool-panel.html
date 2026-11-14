@@ -28,11 +28,11 @@
         /* 左侧导航栏 */
         .sidebar {
             width: 250px;
-            background: #2c3e50;
-            color: white;
+            background: #f1f3f5;
+            color: #333;
             padding: 10px;
             overflow-y: auto;
-            border-right: 1px solid #ddd;
+            border-right: 1px solid #dee2e6;
             display: flex;
             flex-direction: column;
             justify-content: space-between; /* 上下布局，设置入口在底部 */
@@ -54,7 +54,7 @@
         }
 
         .nav-item:hover {
-            background: #34495e;
+            background: #e2e6ea;
         }
 
         .nav-item.active {
@@ -66,11 +66,11 @@
         .settings-entry {
             padding: 8px 10px;
             margin-top: 10px;
-            border-top: 1px solid #34495e;
+            border-top: 1px solid #dee2e6;
             cursor: pointer;
             display: flex;
             align-items: center;
-            color: #bdc3c7;
+            color: #6c757d;
         }
         
         .settings-entry:hover {
@@ -1369,7 +1369,7 @@
                 const isExpanded = getCategoryExpandedState(category.id);
                 
                 categoryHeader.innerHTML = `
-                    <div style="display: flex; align-items: center; padding: 8px 10px; font-weight: bold; color: #bdc3c7; cursor: pointer;" data-category-id="${category.id}">
+                    <div style="display: flex; align-items: center; padding: 8px 10px; font-weight: bold; color: #495057; cursor: pointer;" data-category-id="${category.id}">
                         <span class="collapse-icon" style="margin-right: 8px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
                         <span style="margin-right: 8px;">${category.icon}</span>
                         <span>${category.name}</span>
@@ -1443,7 +1443,7 @@
                 const isExpanded = getCategoryExpandedState('uncategorized');
                 
                 categoryHeader.innerHTML = `
-                    <div style="display: flex; align-items: center; padding: 8px 10px; font-weight: bold; color: #bdc3c7; cursor: pointer;" data-category-id="uncategorized">
+                    <div style="display: flex; align-items: center; padding: 8px 10px; font-weight: bold; color: #495057; cursor: pointer;" data-category-id="uncategorized">
                         <span class="collapse-icon" style="margin-right: 8px; width: 16px; text-align: center;">${isExpanded ? '▼' : '▶'}</span>
                         <span style="margin-right: 8px;">📁</span>
                         <span>未分类</span>

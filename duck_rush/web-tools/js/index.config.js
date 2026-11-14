@@ -62,6 +62,12 @@ const menuConfig = [
                 name: "文本编解码",
                 url: "pages/text/text-codec.html",
                 description: "常见的文本编解码工具，支持 URL、Base64、HTML实体、Unicode 转义、十六进制与 JSON 转义，按 UTF-8 正确处理中文与 emoji，纯前端离线可用。"
+            },
+            {
+                id: "text-diff",
+                name: "文本Diff对比",
+                url: "pages/text/text-diff.html",
+                description: "按行对比两段文本的差异，基于 jsdiff 算法高亮新增、删除与相同行，支持忽略首尾空白、忽略大小写与仅显示差异。"
             }
         ]
     },

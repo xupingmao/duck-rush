@@ -9,7 +9,7 @@
         /* 尽早应用主题，避免加载时闪烁 */
         (function () {
             try {
-                var t = localStorage.getItem("shell_theme") || "dark";
+                var t = localStorage.getItem("shell_theme") || "light";
                 document.documentElement.setAttribute("data-theme", t);
             } catch (e) {}
         })();
