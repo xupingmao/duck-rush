@@ -27,8 +27,11 @@
 确认与输入说明:
 * 除 encode/decode 外, 其他重命名命令都会先打印全部命名调整计划,
   交互确认后才批量执行 (-y/--yes 跳过确认, -n/--dry-run 只预览不执行)
+* 默认忽略隐藏文件: 名称以 . 开头的文件(Windows 下含标记为隐藏的文件)
+  不会被处理; 加 -H/--include-hidden 可一并纳入
 * 支持从管道读取待处理文件列表: 加 -i/--stdin 后, 从标准输入按行读取文件路径
-  代替扫描目录 (每行一个文件; 空行与 # 开头的注释行会被忽略)
+  代替扫描目录 (每行一个文件; 空行与 # 开头的注释行会被忽略; 管道输入的
+  文件不会被隐藏规则过滤, 以用户显式指定为准)
 
 用法示例:
 * duck-rename add-prefix ./photos img_
@@ -41,6 +44,7 @@ import argparse
 import logging
 import os
 import re
+import stat
 import sys
 import time
 from typing import Callable, List, Optional, Pattern, Tuple
@@ -90,40 +94,68 @@ DATE_TOKEN_MAP = {
 }
 
 
-def encode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0):
+def is_hidden(path: str) -> bool:
+    """判断路径是否为隐藏文件/目录
+
+    * 名称以 '.' 开头(类 Unix 约定, 也适用于 Windows 下的 .git 等)
+    * Windows 下额外识别设置了 FILE_ATTRIBUTE_HIDDEN (0x2) 的文件
+    """
+    basename = os.path.basename(path.rstrip(os.sep))
+    if basename.startswith("."):
+        return True
+    if os.name == "nt":
+        try:
+            if os.stat(path).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN:
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def encode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0,
+          include_hidden: bool = False):
     if current_depth > max_depth:
         logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, dirname)
         return
     for fname in os.listdir(dirname):
+        old_path = os.path.join(dirname, fname)
+        if not include_hidden and is_hidden(old_path):
+            continue
         new_name = fs_util.encode_name(fname)
-        old_path = os.path.join(dirname, fname)
         new_path = os.path.join(dirname, new_name)
         is_dir = os.path.isdir(old_path)
         if is_dir and current_depth < max_depth:
-            encode(old_path, max_depth, current_depth + 1)
+            encode(old_path, max_depth, current_depth + 1, include_hidden)
         elif is_dir:
             logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, old_path)
         os.rename(old_path, new_path)
 
 
-def decode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0):
+def decode(dirname="./", max_depth=DEFAULT_MAX_DEPTH, current_depth=0,
+          include_hidden: bool = False):
     if current_depth > max_depth:
         logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, dirname)
         return
     for fname in os.listdir(dirname):
-        new_name = fs_util.decode_name(fname)
         old_path = os.path.join(dirname, fname)
+        if not include_hidden and is_hidden(old_path):
+            continue
+        new_name = fs_util.decode_name(fname)
         new_path = os.path.join(dirname, new_name)
         is_dir = os.path.isdir(old_path)
         if is_dir and current_depth < max_depth:
-            decode(old_path, max_depth, current_depth + 1)
+            decode(old_path, max_depth, current_depth + 1, include_hidden)
         elif is_dir:
             logging.warning("到达最大递归深度 %s, 跳过目录: %s", max_depth, old_path)
         os.rename(old_path, new_path)
 
 
-def iter_files(dirname: str, recursive: bool) -> List[str]:
-    """收集目录下需要处理的普通文件路径"""
+def iter_files(dirname: str, recursive: bool, include_hidden: bool = False) -> List[str]:
+    """收集目录下需要处理的普通文件路径
+
+    * include_hidden=False(默认)时忽略隐藏文件/目录(名称以 . 开头,
+      Windows 下含 FILE_ATTRIBUTE_HIDDEN 标记的)
+    """
     if not os.path.isdir(dirname):
         raise NotADirectoryError("目录不存在: %s" % dirname)
     files: List[str] = []
@@ -131,12 +163,12 @@ def iter_files(dirname: str, recursive: bool) -> List[str]:
         for dirpath, _, filenames in os.walk(dirname):
             for fname in filenames:
                 fpath = os.path.join(dirpath, fname)
-                if os.path.isfile(fpath):
+                if os.path.isfile(fpath) and (include_hidden or not is_hidden(fpath)):
                     files.append(fpath)
     else:
         for name in os.listdir(dirname):
             fpath = os.path.join(dirname, name)
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and (include_hidden or not is_hidden(fpath)):
                 files.append(fpath)
     files.sort()
     return files
@@ -320,11 +352,13 @@ def collect_files(
     dirname: str,
     recursive: bool,
     use_stdin: bool,
+    include_hidden: bool = False,
 ) -> List[str]:
     """收集待处理的文件路径列表
 
     * use_stdin=True 时从标准输入读取(每行一个路径), 忽略 dirname/recursive
-    * 否则扫描 dirname 目录(recursive=True 时递归子目录)
+    * 否则扫描 dirname 目录(recursive=True 时递归子目录);
+      include_hidden=False(默认)时忽略隐藏文件
     """
     if use_stdin:
         return read_stdin_files()
@@ -332,7 +366,7 @@ def collect_files(
         print("错误: 目录不存在: %s" % dirname, file=sys.stderr)
         sys.exit(1)
     try:
-        return iter_files(dirname, recursive)
+        return iter_files(dirname, recursive, include_hidden)
     except OSError as ex:
         print("错误: %s" % ex, file=sys.stderr)
         sys.exit(1)
@@ -433,6 +467,9 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
                         help="跳过交互确认直接执行")
     parser.add_argument("-i", "--stdin", action="store_true",
                         help="从标准输入按行读取待处理的文件列表, 代替扫描目录(忽略目录参数)")
+    parser.add_argument("-H", "--include-hidden", action="store_true",
+                        help="一并处理隐藏文件(默认忽略名称以 . 开头的文件, "
+                             "Windows 下也忽略标记为隐藏的文件)")
 
 
 def add_dir_args(parser: argparse.ArgumentParser) -> None:
@@ -482,6 +519,10 @@ if __name__ == "__main__":
     encode_parser.add_argument(
         "-d", "--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
         help="递归最大深度, 默认 %s" % DEFAULT_MAX_DEPTH)
+    encode_parser.add_argument(
+        "-H", "--include-hidden", action="store_true",
+        help="一并处理隐藏文件(默认忽略名称以 . 开头的文件, "
+             "Windows 下也忽略标记为隐藏的文件)")
 
     decode_parser = new_parser(
         "decode", "对文件名进行base64解码",
@@ -490,6 +531,10 @@ if __name__ == "__main__":
     decode_parser.add_argument(
         "-d", "--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
         help="递归最大深度, 默认 %s" % DEFAULT_MAX_DEPTH)
+    decode_parser.add_argument(
+        "-H", "--include-hidden", action="store_true",
+        help="一并处理隐藏文件(默认忽略名称以 . 开头的文件, "
+             "Windows 下也忽略标记为隐藏的文件)")
 
     add_prefix_parser = new_parser(
         "add-prefix", "批量添加文件前缀",
@@ -537,9 +582,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.command == "encode":
-        encode(args.dirname, args.max_depth)
+        encode(args.dirname, args.max_depth, include_hidden=args.include_hidden)
     elif args.command == "decode":
-        decode(args.dirname, args.max_depth)
+        decode(args.dirname, args.max_depth, include_hidden=args.include_hidden)
     elif args.command in BATCH_COMMANDS or args.command in DATE_COMMANDS:
         if args.command in BATCH_COMMANDS:
             after_ext = bool(getattr(args, "after_ext", False))
@@ -550,7 +595,8 @@ if __name__ == "__main__":
             mapper = build_reformat_date_mapper(args.date_format, args.sep)
         else:  # remove-date-prefix
             mapper = build_remove_date_mapper(args.date_format, args.sep)
-        files = collect_files(args.dirname, args.recursive, args.stdin)
+        files = collect_files(args.dirname, args.recursive, args.stdin,
+                              args.include_hidden)
         batch_rename(files, mapper, args.dry_run, args.yes)
     else:
         parser.print_help()
