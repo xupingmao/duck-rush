@@ -25,6 +25,7 @@ import subprocess
 import threading
 import time
 import platform
+import urllib.request
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Callable
 
@@ -301,8 +302,8 @@ def sample_mem():
     return _win_mem() if _IS_WIN else _linux_mem()
 
 
-def sample_gpu():
-    """返回 GPU 显存/利用率(通过 nvidia-smi), 无 GPU 或命令缺失时返回 None。"""
+def _sample_gpu_nvidia() -> Optional[Dict[str, Any]]:
+    """通过 nvidia-smi 读取 NVIDIA 显卡的利用率与专用显存, 不可用时返回 None。"""
     try:
         proc = subprocess.run(
             ['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total',
@@ -313,10 +314,155 @@ def sample_gpu():
             p = [x.strip() for x in line[0].split(',')]
             return {'gpu_util': float(p[0]),
                     'gpu_mem_used_mb': float(p[1]),
-                    'gpu_mem_total_mb': float(p[2])}
+                    'gpu_mem_total_mb': float(p[2]),
+                    'gpu_src': 'nvidia-smi'}
     except Exception:
         return None
     return None
+
+
+# 常驻 PowerShell 里循环查询 GPUEngine 计数器: 每次查询约 0.4 s, 按 interval 采样,
+# 主循环只取最近一次的值。类名/属性名是 WDDM 固定标识, 不随系统语言(中文 Windows)变化。
+_WIN_GPU_PS = (
+    "$ErrorActionPreference='SilentlyContinue';"
+    "while ($true) {"
+    "  try {"
+    "    $q = Get-CimInstance -ClassName Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine"
+    " -Filter 'UtilizationPercentage > 0' -OperationTimeoutSec 5;"
+    "    $m = ($q | Measure-Object -Property UtilizationPercentage -Maximum).Maximum;"
+    "    if ($null -eq $m) { $m = 0 };"
+    "    [Console]::Out.WriteLine([int]$m);"
+    "    [Console]::Out.Flush()"
+    "  } catch { [Console]::Out.WriteLine(0) };"
+    "  Start-Sleep -Milliseconds %d"
+    "}"
+)
+
+
+class WinGpuSampler:
+    """Windows 上用 WMI GPU 计数器采样利用率, 覆盖 AMD/Intel 核显。
+
+    nvidia-smi 只认 NVIDIA 卡; GPUEngine 计数器位于 WDDM 层, 任何厂商的显卡
+    (含核显) 都会出现在里面。为避免每次都拉起进程, 常驻一个 PowerShell 子进程
+    按固定节奏输出「当前最忙引擎的利用率」, 主采样线程只读缓存值。
+    """
+
+    def __init__(self, interval_ms: int = 2000) -> None:
+        self.interval_ms = interval_ms
+        self._proc: Optional[subprocess.Popen] = None
+        self._thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
+        self._util: Optional[float] = None
+        self._broken = False
+
+    def _start(self) -> None:
+        if self._proc is not None or self._broken:
+            return
+        script = _WIN_GPU_PS % self.interval_ms
+        try:
+            self._proc = subprocess.Popen(
+                ['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL, text=True, encoding='utf-8',
+                errors='replace', bufsize=1,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except Exception:
+            self._broken = True
+            return
+        self._thread = threading.Thread(target=self._pump, daemon=True)
+        self._thread.start()
+
+    def _pump(self) -> None:
+        proc = self._proc
+        if proc is None or proc.stdout is None:
+            return
+        for line in proc.stdout:
+            text = line.strip()
+            if not text:
+                continue
+            try:
+                value = float(text)
+            except ValueError:
+                continue
+            with self._lock:
+                # 计数器是「引擎时间占比」, 存在多个引擎同时忙时会上报 >100,
+                # 按百分比语义截断到 100 以内
+                self._util = min(100.0, max(0.0, value))
+
+    def sample(self) -> Optional[float]:
+        """返回最近一次采样的 GPU 利用率(%), 尚无数据时返回 None。"""
+        self._start()
+        with self._lock:
+            return None if self._util is None else self._util
+
+    def close(self) -> None:
+        proc = self._proc
+        self._proc = None
+        if proc is not None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+
+_WIN_GPU_SAMPLER: Optional[WinGpuSampler] = None
+
+
+def _win_gpu_sampler() -> WinGpuSampler:
+    global _WIN_GPU_SAMPLER
+    if _WIN_GPU_SAMPLER is None:
+        _WIN_GPU_SAMPLER = WinGpuSampler()
+    return _WIN_GPU_SAMPLER
+
+
+def stop_gpu_sampler() -> None:
+    """评测结束时停掉常驻的 GPU 采样子进程。"""
+    global _WIN_GPU_SAMPLER
+    if _WIN_GPU_SAMPLER is not None:
+        _WIN_GPU_SAMPLER.close()
+        _WIN_GPU_SAMPLER = None
+
+
+def sample_ollama_vram() -> Optional[float]:
+    """从 ollama /api/ps 读取当前已载入模型占用的显存(MB), 取不到返回 None。"""
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:11434/api/ps',
+                                    timeout=3) as resp:
+            data: Any = json.loads(resp.read().decode('utf-8'))
+    except Exception:
+        return None
+    total = 0
+    for item in data.get('models') or []:
+        try:
+            total += int(item.get('size_vram') or 0)
+        except Exception:
+            continue
+    if total <= 0:
+        return None
+    return round(total / (1024 * 1024), 0)
+
+
+def sample_gpu() -> Optional[Dict[str, Any]]:
+    """采样 GPU 利用率/显存, 按后端依次降级, 全部不可用时返回 None。
+
+    1. nvidia-smi: NVIDIA 独显, 利用率 + 专用显存最准;
+    2. Windows GPUEngine 性能计数器: AMD/Intel 及核显, 只给利用率,
+       显存改取 ollama /api/ps 中模型实际占用的 size_vram;
+    3. 都拿不到就返回 None, 报告里显示 N/A 而不是编一个数。
+    """
+    nv = _sample_gpu_nvidia()
+    if nv is not None:
+        return nv
+    if not _IS_WIN:
+        return None
+    util = _win_gpu_sampler().sample()
+    if util is None:
+        return None
+    rec: Dict[str, Any] = {'gpu_util': util, 'gpu_src': 'wmi-gpuengine'}
+    vram = sample_ollama_vram()
+    if vram is not None:
+        rec['gpu_mem_used_mb'] = vram
+    return rec
 
 
 class SystemMonitor:
@@ -356,6 +502,7 @@ class SystemMonitor:
         self._stop = True
         if self._thread:
             self._thread.join(timeout=3)
+        stop_gpu_sampler()
 
     def summary(self):
         if not self.records:
@@ -382,13 +529,19 @@ class SystemMonitor:
         mt = agg('mem_total_gb')
         if mt:
             s['mem_total_gb'] = mt[0]
-        gpu_utils = [r['gpu']['gpu_util'] for r in self.records if 'gpu' in r]
-        gpu_mems = [r['gpu']['gpu_mem_used_mb'] for r in self.records if 'gpu' in r]
+        # GPUEngine 计数器按引擎分别上报, 多引擎相加可能超过 100, 统一截断
+        gpu_utils = [min(100.0, r['gpu']['gpu_util'])
+                     for r in self.records if 'gpu' in r]
+        gpu_mems = [r['gpu']['gpu_mem_used_mb'] for r in self.records
+                    if 'gpu' in r and 'gpu_mem_used_mb' in r['gpu']]
+        gpu_srcs = [r['gpu'].get('gpu_src') for r in self.records if 'gpu' in r]
         if gpu_utils:
             s['gpu_util_avg'] = round(sum(gpu_utils) / len(gpu_utils), 1)
             s['gpu_util_max'] = round(max(gpu_utils), 1)
         if gpu_mems:
             s['gpu_mem_peak_mb'] = round(max(gpu_mems), 0)
+        if gpu_srcs:
+            s['gpu_src'] = gpu_srcs[0]
         return s
 
 
@@ -623,12 +776,16 @@ def run_lmeval(model, opts):
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir)
     os.makedirs(out_dir, exist_ok=True)
+    # 默认直连 ollama 的 OpenAI 兼容接口; 思考模型需关闭 thinking,
+    # 可由 DUCK_OLLAMA_V1 指向本地代理 (代理注入 think=false)
+    base_url = os.environ.get('DUCK_OLLAMA_V1',
+                              'http://localhost:11434/v1/completions')
     cmd = [sys.executable, '-m', 'lm_eval', 'run',
            '--model', 'local-completions',
            '--model_args',
-           'model=%s,base_url=http://localhost:11434/v1/completions,'
+           'model=%s,base_url=%s,'
            'tokenizer_backend=huggingface,tokenizer=bert-base-uncased,'
-           'tokenized_requests=False' % model,
+           'tokenized_requests=False' % (model, base_url),
            '--tasks', opts.tasks, '--output_path', out_dir]
     if opts.limit:
         cmd += ['--limit', str(opts.limit)]
@@ -848,7 +1005,44 @@ def _parse_opencompass(out_dir):
                 metrics['localqa/accuracy'] = round(float(parts[val_idx]), 4)
             except Exception:
                 pass
-    return metrics
+    if metrics:
+        return metrics
+    # 兜底: 新版 OpenCompass 未必认自定义评测器, 汇总里 metric 会是 '-',
+    # 但 predictions 一定写出来了, 按同样的规则(参考答案大小写不敏感包含匹配)自算
+    return _score_oc_predictions(out_dir)
+
+
+def _score_oc_predictions(out_dir):
+    """从 OpenCompass 的 predictions 文件自算 localqa 准确率。"""
+    files = sorted(glob.glob(os.path.join(out_dir, '**', 'predictions', '**',
+                                          'localqa.json'), recursive=True))
+    if not files:
+        return {}
+    try:
+        with open(files[-1], encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    if not isinstance(data, dict) or not data:
+        return {}
+    items = [v for v in data.values() if isinstance(v, dict)]
+    if not items:
+        return {}
+    hit = 0
+    for it in items:
+        pred = str(it.get('prediction') or '').strip().lower()
+        gold = str(it.get('gold') or '').strip().lower()
+        if not gold:
+            continue
+        # 去掉常见上下标/空格差异后做包含匹配
+        norm = lambda s: s.replace('₂', '2').replace(' ', '')
+        if norm(gold) in norm(pred):
+            hit += 1
+    total = len([it for it in items if str(it.get('gold') or '').strip()])
+    if not total:
+        return {}
+    return {'localqa/accuracy': round(hit / total, 4),
+            'localqa/correct': hit, 'localqa/total': total}
 
 
 def run_opencompass(model, opts):
@@ -888,8 +1082,16 @@ def run_opencompass(model, opts):
                            error='opencompass 失败: ' + err, raw_path=out_dir)
     metrics = _parse_opencompass(out_dir)
     ok = bool(metrics)
-    summary = ', '.join('%s=%.3f' % (k, v)
-                        for k, v in metrics.items()) or '(no metric)'
+    acc = metrics.get('localqa/accuracy')
+    if acc is not None:
+        hit = metrics.get('localqa/correct')
+        total = metrics.get('localqa/total')
+        if hit is not None and total is not None:
+            summary = 'localqa %d/%d = %.1f%%' % (hit, total, acc * 100)
+        else:
+            summary = 'localqa=%.3f' % acc
+    else:
+        summary = ', '.join('%s=%.3f' % (k, v) for k, v in metrics.items()) or '(no metric)'
     return BenchResult('opencompass', model, ok, metrics, summary, raw_path=out_dir)
 
 
@@ -961,9 +1163,18 @@ def load_result(model, tool):
         return None
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return BenchResult(**json.load(f))
+            res = BenchResult(**json.load(f))
     except Exception:
         return None
+    # 老结果里 opencompass 的 summary 是一串原始指标, 报告里换成可读口径
+    if tool == 'opencompass' and res.metrics:
+        acc = res.metrics.get('localqa/accuracy')
+        if acc is not None:
+            hit, total = res.metrics.get('localqa/correct'), res.metrics.get('localqa/total')
+            res.summary = ('localqa %d/%d = %.1f%%' % (hit, total, acc * 100)
+                           if hit is not None and total is not None
+                           else 'localqa=%.3f' % acc)
+    return res
 
 
 def cmd_list(args):
@@ -1081,10 +1292,11 @@ def write_report(models, tools, results, fmt, system_metrics=None):
                  '模型 %d 个 / 后端 %d 个, 生成时间 %s。'
                  % (data_dir, len(models), len(tools),
                     time.strftime('%Y-%m-%d %H:%M:%S')))
-    lines.append('> 「未安装」表示该后端当时不可用, 不是 0 分; lm-eval 为 gsm8k 20 题小样本, '
-                 '推理型模型得 0.000 多因答案格式不匹配。')
-    lines.append('> 补跑的 thinking 模型使用 `--think-off` / `reasoning_effort=none` '
-                 '保证正文可用, 与历史批次口径略有差异。')
+    lines.append('> 「未安装」表示该后端当时不可用, 不是 0 分; lm-eval 为 gsm8k 50 题小样本 '
+                 '(flexible-extract 指标, 标准差约 ±6pp)。')
+    lines.append('> 思考模型(gemma4 / qwen3.x)在 OpenAI 兼容接口下会忽略 think 参数、'
+                 '思考 token 吃满上限导致正文为空, 故 gsm8k 经本地代理转 `/api/generate` '
+                 '并置 think=false 后重跑; 无思考能力的模型直连, 两者请求模板一致。')
     lines.append('> 归档副本: `docs/llm-benchmark-single-turn.md` / `.json`'
                  '（项目仓库, 由补跑流水线自动同步）。')
     lines.append('')
@@ -1119,6 +1331,20 @@ def write_report(models, tools, results, fmt, system_metrics=None):
         gpu = '%s/%s' % (sm.get('gpu_util_avg'), sm.get('gpu_util_max')) if 'gpu_util_avg' in sm else 'N/A'
         vram = sm.get('gpu_mem_peak_mb', 'N/A')
         lines.append('| %s | %s | %s | %s | %s |' % (m, cpu, mem, gpu, vram))
+    srcs = sorted(set(str((system_metrics or {}).get(m, {}).get('gpu_src'))
+                      for m in models
+                      if (system_metrics or {}).get(m, {}).get('gpu_src')))
+    if srcs:
+        lines.append('')
+        if 'wmi-gpuengine' in srcs:
+            lines.append('> GPU 采集方式: %s。`wmi-gpuengine` 表示走 Windows 的 '
+                         'GPUEngine 性能计数器(各引擎利用率的最高值, 兼容 AMD/Intel '
+                         '核显与独显), 显存列为 ollama `/api/ps` 里模型实际占用的 '
+                         'size_vram; 核显没有专用显存、与内存共享, 该值不等同于独显 VRAM。'
+                         % ', '.join(srcs))
+        else:
+            lines.append('> GPU 采集方式: %s(nvidia-smi 读数, 显存为专用显存)。'
+                         % ', '.join(srcs))
     lines.append('')
     if hw_md:
         lines.append(hw_md.rstrip('\n'))

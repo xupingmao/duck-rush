@@ -18,6 +18,28 @@ from typing import Any, Dict, List, Optional
 _NA = 'N/A'
 
 
+def _wmi_gpu() -> str:
+    """取显卡型号, 供没有 nvidia-smi 的机器 (AMD/Intel 核显) 兜底。
+
+    Win32_VideoController 的 AdapterRAM 只报 32 位以内的值, 对 4GB 以上
+    显存/共享内存会严重低估, 故这里只取型号, 不声称容量。
+    """
+    script = ("Get-CimInstance Win32_VideoController | "
+              "ForEach-Object { Write-Output ('GPUNAME=' + $_.Name) }")
+    raw = _run(['powershell', '-NoProfile', '-NonInteractive',
+                '-Command', script], 30)
+    names = [ln.partition('=')[2].strip() for ln in raw.splitlines()
+             if ln.upper().startswith('GPUNAME=')]
+    # 过滤虚拟显示器/基础渲染设备, 优先真实 GPU 厂商
+    junk = ('basic render', 'virtual', 'remote', 'parsec', 'idd', 'mirror')
+    names = [n for n in names if n and not any(j in n.lower() for j in junk)]
+    vendors = ('radeon', 'geforce', 'nvidia', 'intel', 'arc', 'iris', 'uhd')
+    real = [n for n in names if any(v in n.lower() for v in vendors)]
+    if real:
+        return real[0]
+    return names[0] if names else ''
+
+
 def _run(cmd: List[str], timeout: int = 20) -> str:
     """执行只读系统命令, 超时/缺失/解码异常一律返回空串。"""
     try:
@@ -102,6 +124,10 @@ def collect_hardware(path: Optional[str] = None) -> Dict[str, Any]:
                               _run(['nvidia-smi']))
             if match:
                 gpu += ' ｜ CUDA %s' % match.group(1)
+    if gpu == _NA and platform.system() == 'Windows':
+        name = _wmi_gpu()
+        if name:
+            gpu = '%s（核显/共享内存，无 nvidia-smi，显存与内存共享）' % name
 
     ollama_version = _NA
     match = re.search(r'(\d+\.\d+\.\d+)', _run(['ollama', '--version']))

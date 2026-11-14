@@ -66,7 +66,13 @@ from duck_utils.llm_chatbench import (  # noqa: E402
 from duck_utils.llm_chatbench.model import ChatReply, Scenario  # noqa: E402
 
 
+_DATA_DIR_OVERRIDE: Optional[str] = None
+
+
 def get_data_dir() -> str:
+    if _DATA_DIR_OVERRIDE:
+        os.makedirs(_DATA_DIR_OVERRIDE, exist_ok=True)
+        return _DATA_DIR_OVERRIDE
     try:
         from duck_utils.os_util import get_command_data_dir
         return get_command_data_dir('duck-llm-chatbench')
@@ -75,6 +81,22 @@ def get_data_dir() -> str:
                          'duck-llm-chatbench')
         os.makedirs(d, exist_ok=True)
         return d
+
+
+def apply_tag(tag: str) -> None:
+    """把结果目录切到 duck-llm-chatbench-{tag}, 让不同批次的原始结果互不覆盖。
+
+    典型用途: `--tag think-on` 单独跑一轮思考模式, 与默认批次(think off)并存,
+    两套 report.md / result.json 各自独立, 便于横向对比。
+    """
+    global _DATA_DIR_OVERRIDE
+    if not tag:
+        _DATA_DIR_OVERRIDE = None
+        return
+    base = os.path.join(os.path.dirname(get_data_dir()),
+                        'duck-llm-chatbench-' + _safe(tag))
+    os.makedirs(base, exist_ok=True)
+    _DATA_DIR_OVERRIDE = base
 
 
 def _safe(name: str) -> str:
@@ -344,13 +366,16 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument('--seed', type=int, default=42, help='随机种子')
     pr.add_argument('--think', choices=['auto', 'on', 'off'], default='auto',
                     help='推理模型思考开关 (auto: 对 r1/qwq 关闭)')
-    sub.add_parser('report', help='汇总已保存的结果')
+    pr.add_argument('--tag', default='', help='结果目录后缀, 如 think-on 可与默认批次并存')
+    prep = sub.add_parser('report', help='汇总已保存的结果')
+    prep.add_argument('--tag', default='', help='只汇总带该 tag 的结果目录')
     return p
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    apply_tag(getattr(args, 'tag', '') or '')
     if args.cmd == 'scenarios':
         return cmd_scenarios(args)
     if args.cmd == 'models':
