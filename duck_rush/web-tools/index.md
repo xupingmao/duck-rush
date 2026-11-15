@@ -75,7 +75,7 @@ const menuConfig = [
                         id: 'json-formatter',
                         name: '格式化提取',
                         url: 'pages/json.html',
-                        description: "用于格式化 JSON 数据并按路径提取字段的工具，支持 $ 前缀、数组下标、* 通配与正则过滤。"
+                        description: "用于格式化 JSON 并按树形展开折叠节点、按路径提取字段的工具，支持 $ 前缀、数组下标、* 通配与正则过滤。"
                     },
                     {
                         id: 'json-diff',

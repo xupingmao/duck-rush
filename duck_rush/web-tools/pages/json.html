@@ -227,9 +227,185 @@
             color: #495057;
         }
 
+        /* 隐藏态优先级最高，避免被 .json-textarea 等布局样式盖掉 */
+        [hidden] {
+            display: none !important;
+        }
+
+        /* 输出面板头部：视图切换 + 折叠控制 */
+        .output-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .view-tabs {
+            display: inline-flex;
+            border: 1px solid #dfe3e9;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .view-tab {
+            padding: 3px 10px;
+            border: none;
+            background: #fff;
+            color: #555;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .view-tab + .view-tab {
+            border-left: 1px solid #dfe3e9;
+        }
+
+        .view-tab.active {
+            background: #667eea;
+            color: #fff;
+        }
+
+        .tree-tools {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .mini-btn, .mini-select {
+            padding: 3px 8px;
+            border: 1px solid #dfe3e9;
+            border-radius: 4px;
+            background: #fff;
+            color: #495057;
+            font-size: 0.76rem;
+            cursor: pointer;
+        }
+
+        .mini-btn:hover, .mini-select:hover {
+            border-color: #667eea;
+            color: #4c5bd4;
+        }
+
+        /* 可折叠的 JSON 树 */
+        .json-tree-view {
+            width: 100%;
+            height: 100%;
+            min-height: 240px;
+            overflow: auto;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 4px;
+            background: #fbfcff;
+            font-family: 'Courier New', monospace;
+            font-size: 0.86rem;
+            line-height: 1.55;
+            color: #343a40;
+        }
+
+        .json-text-block {
+            margin: 0 0 4px;
+            font: inherit;
+            color: #6c757d;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .json-empty {
+            color: #9aa3ad;
+        }
+
+        .json-row {
+            display: block;
+            padding: 0 3px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .json-container > .json-row:hover {
+            background: #edf1ff;
+            cursor: pointer;
+        }
+
+        .json-toggle, .json-toggle-space {
+            display: inline-block;
+            width: 16px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        .json-toggle {
+            border: none;
+            padding: 0;
+            background: transparent;
+            color: #667eea;
+            font: inherit;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+
+        .json-toggle:hover {
+            color: #764ba2;
+        }
+
+        .json-children {
+            margin-left: 14px;
+            padding-left: 8px;
+            border-left: 1px dashed #cfd8e6;
+        }
+
+        .json-bracket, .json-punct, .json-comma {
+            color: #6c757d;
+        }
+
+        .json-key {
+            color: #6d4aff;
+            cursor: pointer;
+        }
+
+        .json-index {
+            color: #9aa3ad;
+            cursor: pointer;
+        }
+
+        .json-value-string { color: #0f8a4f; }
+        .json-value-number { color: #c2610a; }
+        .json-value-boolean { color: #1d64c8; }
+        .json-value-null { color: #88929e; font-style: italic; }
+
+        .json-summary {
+            color: #9aa3ad;
+            font-size: 0.8rem;
+        }
+
+        /* 折叠态：隐藏子树与结尾行，改在首行显示数量提示和闭合括号 */
+        .json-inline-close, .json-summary, .json-comma-inline {
+            display: none;
+        }
+
+        .json-node.collapsed > .json-children,
+        .json-node.collapsed > .json-close-row {
+            display: none;
+        }
+
+        .json-node.collapsed > .json-row > .json-inline-close,
+        .json-node.collapsed > .json-row > .json-summary,
+        .json-node.collapsed > .json-row > .json-comma-inline {
+            display: inline;
+        }
+
+        .json-key:hover, .json-index:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 768px) {
             .textareas-section {
                 grid-template-columns: 1fr;
+            }
+
+            .tree-tools {
+                margin-left: 0;
             }
 
             .status-message {
@@ -243,7 +419,7 @@
     <div class="container">
         <header class="app-header">
             <span class="app-title">JSON 工具</span>
-            <span class="app-sub">格式化 / 美化 JSON，按路径提取属性</span>
+            <span class="app-sub">格式化 / 树形展开折叠 / 按路径提取属性</span>
         </header>
 
         <div class="toolbar">
@@ -271,9 +447,27 @@
                 </div>
             </div>
             <div class="textarea-container">
-                <label class="textarea-label" for="outputTextarea">输出结果</label>
+                <div class="output-header">
+                    <label class="textarea-label" for="outputTextarea">输出结果</label>
+                    <div class="view-tabs">
+                        <button type="button" class="view-tab active" id="treeViewBtn">树形</button>
+                        <button type="button" class="view-tab" id="textViewBtn">文本</button>
+                    </div>
+                    <div class="tree-tools">
+                        <button type="button" class="mini-btn" id="expandAllBtn" title="展开所有节点">展开全部</button>
+                        <button type="button" class="mini-btn" id="collapseAllBtn" title="折叠所有节点">折叠全部</button>
+                        <select id="depthSelect" class="mini-select" title="按层级折叠">
+                            <option value="" selected>层级…</option>
+                            <option value="1">仅顶层</option>
+                            <option value="2">展开 2 层</option>
+                            <option value="3">展开 3 层</option>
+                            <option value="5">展开 5 层</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="textarea-wrapper">
-                    <textarea id="outputTextarea" class="json-textarea output-textarea" readonly placeholder="格式化结果或提取的属性..."></textarea>
+                    <div id="jsonTreeView" class="json-tree-view"></div>
+                    <textarea id="outputTextarea" class="json-textarea output-textarea" readonly hidden placeholder="格式化结果或提取的属性..."></textarea>
                 </div>
             </div>
         </section>
@@ -283,6 +477,7 @@
             <code>$.name</code><code>data.user.name</code><code>data.users[0].name</code>
             <code>data.users[*].name</code><code>data.*</code><code>data.users[*].name:^A</code>
             <div style="margin-top:6px;">支持 $.a.b / a.b / a[0] / * 通配 / name:正则；命中多个值时结果以数组输出</div>
+            <div style="margin-top:6px;">树形视图：点击三角或整行展开 / 折叠节点，点击键名把路径填入上方输入框；「复制结果」始终复制完整纯文本</div>
         </details>
     </div>
 
@@ -290,6 +485,7 @@
     <script src="../js/json-int64.js"></script>
     <script src="../js/json-embedded.js"></script>
     <script src="../js/json-path.js"></script>
+    <script src="../js/json-tree.js"></script>
     <script>
         // DOM 元素
         const inputTextarea = document.getElementById('inputTextarea');
@@ -302,6 +498,70 @@
         const clearBtn = document.getElementById('clearBtn');
         const parseEmbeddedChk = document.getElementById('parseEmbeddedChk');
         const statusMessage = document.getElementById('statusMessage');
+        const jsonTreeView = document.getElementById('jsonTreeView');
+        const treeViewBtn = document.getElementById('treeViewBtn');
+        const textViewBtn = document.getElementById('textViewBtn');
+        const expandAllBtn = document.getElementById('expandAllBtn');
+        const collapseAllBtn = document.getElementById('collapseAllBtn');
+        const depthSelect = document.getElementById('depthSelect');
+
+        // 树形视图状态：重新格式化时按路径保留已折叠的节点
+        let treeBlocks = [];
+        let currentView = 'tree';
+
+        /** 把当前模型渲染成可折叠树 */
+        function renderTree() {
+            JSONTree.renderBlocks(treeBlocks, jsonTreeView, {
+                emptyText: '格式化结果或提取的属性...',
+                onChange: () => {
+                    const collapsed = JSONTree.getCollapsedPaths(treeBlocks).length;
+                    updateStatus(`已折叠 ${collapsed} 个节点`, 'success');
+                },
+                onKeyClick: (node) => {
+                    jsonpathInput.value = node.path;
+                    updateStatus(`已填入路径: ${node.path}`, 'success');
+                }
+            });
+        }
+
+        /** 统一设置输出：纯文本进 textarea，同时重建树视图 */
+        function setOutput(text) {
+            const previous = JSONTree.getCollapsedPaths(treeBlocks);
+            outputTextarea.value = text;
+            treeBlocks = text && text.trim() ? JSONTree.buildBlocks(text) : [];
+            JSONTree.restoreCollapsedPaths(treeBlocks, previous);
+            renderTree();
+        }
+
+        /** 成功提示附带可折叠节点数量 */
+        function appendNodeCount(message) {
+            const stat = JSONTree.countNodes(treeBlocks);
+            return stat.containers
+                ? `${message} · ${stat.containers} 处节点可折叠`
+                : message;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const isTree = view === 'tree';
+            jsonTreeView.hidden = !isTree;
+            outputTextarea.hidden = isTree;
+            treeViewBtn.classList.toggle('active', isTree);
+            textViewBtn.classList.toggle('active', !isTree);
+        }
+
+        /** 展开 / 折叠操作：改模型后重渲染，文本视图下自动切回树形 */
+        function applyTreeChange(change) {
+            if (!treeBlocks.length) {
+                updateStatus('请先格式化 JSON', 'error');
+                return;
+            }
+            if (currentView !== 'tree') switchView('tree');
+            change(treeBlocks);
+            renderTree();
+            const collapsed = JSONTree.getCollapsedPaths(treeBlocks).length;
+            updateStatus(`已折叠 ${collapsed} 个节点`, 'success');
+        }
 
         // 初始化
         function init() {
@@ -311,33 +571,32 @@
             tidyBtn.addEventListener('click', tidyInput);
             copyBtn.addEventListener('click', copyResult);
             clearBtn.addEventListener('click', clearAll);
+            treeViewBtn.addEventListener('click', () => switchView('tree'));
+            textViewBtn.addEventListener('click', () => switchView('text'));
+            expandAllBtn.addEventListener('click', () => {
+                depthSelect.value = '';
+                applyTreeChange((blocks) => JSONTree.setAllCollapsed(blocks, false));
+            });
+            collapseAllBtn.addEventListener('click', () => {
+                depthSelect.value = '';
+                applyTreeChange((blocks) => JSONTree.setAllCollapsed(blocks, true));
+            });
+            depthSelect.addEventListener('change', () => {
+                if (!depthSelect.value) return;
+                const levels = Number(depthSelect.value);
+                applyTreeChange((blocks) => JSONTree.collapseToDepth(blocks, levels));
+            });
             // 回车即提取
             jsonpathInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') extractJSONPath();
             });
+            switchView('tree');
+            renderTree();
         }
 
-        // 格式化文本中的所有 JSON 部分，保留非 JSON 部分
-        function formatJSONInText(text) {
-            // 正则表达式匹配 JSON 对象或数组
-            const jsonPattern = /(\{[\s\S]*?\}|\[[\s\S]*?\])/g;
-            
-            // 替换所有匹配的 JSON 部分
-            return text.replace(jsonPattern, (match) => {
-                try {
-                    // 尝试解析和格式化 JSON（int64 安全）
-                    const jsonObj = JSONInt64.parse(match);
-                    return JSONInt64.stringify(jsonObj, null, 2);
-                } catch {
-                    // 如果解析失败，返回原始匹配内容
-                    return match;
-                }
-            });
-        }
-
-        // 格式化并自动解析字符串中的 JSON：用字符串感知的提取器定位完整 JSON 片段，
-        // 解析后递归解开字符串 JSON，再缩进序列化，非 JSON 文本原样保留
-        function formatWithEmbedded(text) {
+        // 用字符串感知的提取器定位完整 JSON 片段（能正确处理嵌套对象/数组与字符串里的括号），
+        // 解析、按需转换、再缩进序列化；非 JSON 文本与解析失败的片段原样保留
+        function formatFragments(text, transform) {
             const matches = extractAllJSONFromText(text);
             if (matches.length === 0) {
                 return text;
@@ -348,7 +607,7 @@
                 result += text.slice(cursor, m.start);
                 try {
                     const obj = JSONInt64.parse(m.json);
-                    result += JSONInt64.stringify(parseEmbeddedJson(obj), null, 2);
+                    result += JSONInt64.stringify(transform ? transform(obj) : obj, null, 2);
                 } catch (e) {
                     result += m.json; // 解析失败保留原样
                 }
@@ -356,6 +615,16 @@
             });
             result += text.slice(cursor);
             return result;
+        }
+
+        // 格式化文本中的所有 JSON 部分，保留非 JSON 部分
+        function formatJSONInText(text) {
+            return formatFragments(text, null);
+        }
+
+        // 格式化并递归解开字符串形式 JSON 的字段
+        function formatWithEmbedded(text) {
+            return formatFragments(text, parseEmbeddedJson);
         }
 
         // 格式化 JSON
@@ -368,16 +637,16 @@
             }
 
             try {
-                // 勾选「解析字符串 JSON」时走字符串感知的提取+嵌套解析；否则保持原行为
+                // 勾选「解析字符串 JSON」时额外递归解开字符串形式的嵌套 JSON
                 const formattedText = parseEmbeddedChk.checked
                     ? formatWithEmbedded(inputText)
                     : formatJSONInText(inputText);
-                // 显示结果
-                outputTextarea.value = formattedText;
-                updateStatus('JSON 格式化成功', 'success');
+                // 显示结果：纯文本进 textarea，树形视图同步渲染
+                setOutput(formattedText);
+                updateStatus(appendNodeCount('JSON 格式化成功'), 'success');
             } catch (error) {
                 updateStatus(`错误: ${error.message}`, 'error');
-                outputTextarea.value = `错误: ${error.message}`;
+                setOutput(`错误: ${error.message}`);
             }
         }
 
@@ -410,7 +679,7 @@
 
                 if (jsonMatches.length === 0) {
                     updateStatus('未找到 JSON 内容', 'error');
-                    outputTextarea.value = '未找到 JSON 内容';
+                    setOutput('未找到 JSON 内容');
                     return;
                 }
 
@@ -438,7 +707,7 @@
                     }
                 });
 
-                outputTextarea.value = results.join('\n\n');
+                setOutput(results.join('\n\n'));
                 if (hits === 0) {
                     updateStatus(`已处理 ${jsonMatches.length} 个 JSON，但没有命中任何属性`, 'error');
                 } else {
@@ -446,7 +715,7 @@
                 }
             } catch (error) {
                 updateStatus(`错误: ${error.message}`, 'error');
-                outputTextarea.value = `错误: ${error.message}`;
+                setOutput(`错误: ${error.message}`);
             }
         }
 
@@ -496,26 +765,33 @@
             }
         }
 
-        /** file:// 场景下的兜底复制 */
+        /** file:// 场景下的兜底复制：用临时 textarea，树形视图下输出区隐藏也能复制 */
         function legacyCopy() {
+            let tmp = null;
             try {
-                const prev = outputTextarea.readOnly;
-                outputTextarea.readOnly = false;
-                outputTextarea.select();
-                outputTextarea.setSelectionRange(0, 999999);
+                tmp = document.createElement('textarea');
+                tmp.value = outputTextarea.value;
+                tmp.style.position = 'fixed';
+                tmp.style.top = '-1000px';
+                document.body.appendChild(tmp);
+                tmp.select();
+                tmp.setSelectionRange(0, 999999);
                 const ok = document.execCommand('copy');
-                outputTextarea.readOnly = prev;
                 return ok;
             } catch (e) {
                 return false;
+            } finally {
+                if (tmp && tmp.parentNode) tmp.parentNode.removeChild(tmp);
             }
         }
 
         // 清空所有
         function clearAll() {
             inputTextarea.value = '';
-            outputTextarea.value = '';
+            treeBlocks = [];
+            setOutput('');
             jsonpathInput.value = '';
+            depthSelect.value = '';
             updateStatus('准备就绪', '');
         }
 
