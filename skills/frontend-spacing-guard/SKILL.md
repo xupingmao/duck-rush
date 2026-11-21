@@ -90,3 +90,23 @@ node scripts/run-audit.js --url http://localhost:5173/ --viewport desktop,mobile
 | `reference/rules.md` | 每条规则的判据、误报豁免、手工复核方法、阈值调整建议 |
 | `reference/fix-playbook.md` | 常见翻车模式 → 具体修复代码（按钮组、卡片、表单、列表、表格） |
 | `examples/bad-spacing.html` | 故意做坏的样本，用于验证检测器本身有没有失灵 |
+
+## 让 WorkBuddy 自动加载
+
+代码入库在项目的 `skills/frontend-spacing-guard/`。WorkBuddy 只会自动加载 `.workbuddy/skills/` 下的
+skill，而 `.workbuddy/` 一般在 `.gitignore` 里，所以本机需要建一个目录链接指向这里 ——
+**一份源码，两处可见**，改一边另一边立刻同步，不会漂移。
+
+```powershell
+# Windows（在新终端里，路径换成自己的项目位置）
+New-Item -ItemType Junction -Path "$HOME\.workbuddy\skills\frontend-spacing-guard" `
+  -Target "C:\workspace\00-myprojects\duck-rush\skills\frontend-spacing-guard"
+```
+
+```bash
+# macOS / Linux
+ln -s "/path/to/duck-rush/skills/frontend-spacing-guard" ~/.workbuddy/skills/frontend-spacing-guard
+```
+
+链接本身不入库，换机器或移动项目目录后重建一次即可。不建链接也能用，直接按上面的
+`node scripts/run-audit.js` 手动跑，只是不会被自动触发。
