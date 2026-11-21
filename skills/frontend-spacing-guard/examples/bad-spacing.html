@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AI 典型间距翻车现场</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f5f6f7; color: #1a1a1a; }
+
+  /* 1. flex row 忘写 gap：三个按钮紧紧挨在一起 */
+  .toolbar { display: flex; padding: 12px; background: #fff; }
+  .toolbar button { font-size: 14px; padding: 4px 8px; border: 1px solid #ccc; background: #eee; }
+
+  /* 2. 卡片有背景和边框，但 padding 为 0：文字贴边 */
+  .card { background: #fff; border: 1px solid #ddd; margin: 12px; border-radius: 6px; }
+  .card h3 { margin: 0; font-size: 16px; }
+  .card p { margin: 0; font-size: 14px; }
+
+  /* 3. 段落之间 margin 0：标题和正文、正文和正文全糊在一起 */
+  .stack { padding: 8px 16px; }
+  .stack h2 { margin: 0; font-size: 18px; }
+  .stack p { margin: 0; font-size: 14px; }
+
+  /* 4. 行高 1.0：多行文本挤成一坨 */
+  .tight { line-height: 1; font-size: 14px; padding: 8px 16px; }
+
+  /* 5. 元素重叠：绝对定位没留位置 */
+  .overlap-wrap { position: relative; height: 60px; padding: 8px 16px; }
+  .overlap-wrap .a { position: static; background: #dbeafe; padding: 8px; font-size: 14px; }
+  .overlap-wrap .b { position: absolute; top: 8px; left: 16px; background: #fee2e2; padding: 8px; font-size: 14px; }
+
+  /* 6. 小图标按钮：尺寸过小 */
+  .icons { display: flex; padding: 8px 16px; }
+  .icons button { width: 18px; height: 18px; padding: 0; border: none; background: #cbd5e1; }
+
+  /* 7. 普通块级兄弟紧挨 */
+  .plain-wrap { padding: 8px 16px; }
+  .chip { background: #e2e8f0; border-radius: 4px; padding: 4px 8px; display: block; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button>确定</button><button>取消</button><button>重置</button>
+  </div>
+
+  <div class="card">
+    <h3>季度数据概览</h3>
+    <p>这段文字紧贴着卡片的左侧边框和上边框，看起来非常挤。</p>
+  </div>
+
+  <div class="stack">
+    <h2>产品说明</h2>
+    <p>标题和正文之间完全没有间距，读者很难判断它们属于同一组还是两组。</p>
+    <p>第二段也紧贴着第一段，段落边界消失，整块读起来像一大坨。</p>
+  </div>
+
+  <p class="tight">这是一段刻意把行高设成 1.0 的多行文字，用来验证行高过紧的检测规则是否生效。行与行之间几乎没有任何呼吸空间，长时间阅读会非常疲劳。</p>
+
+  <div class="overlap-wrap">
+    <div class="a">底层的说明文字</div>
+    <div class="b">浮层文字压在上面</div>
+  </div>
+
+  <div class="icons">
+    <button>×</button><button>+</button><button>≡</button>
+  </div>
+
+  <!-- 7. 普通块级兄弟直接相连，非文本标签、非 flex -->
+  <div class="plain-wrap">
+    <div class="chip">标签一</div>
+    <div class="chip">标签二</div>
+  </div>
+</body>
+</html>
